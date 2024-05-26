@@ -81,7 +81,7 @@ config:
 
     pod-running-ttl-minutes:
       description: Number of minutes until a running job pod is removed.
-      default: 60
+      default: 240
       type: int
 
     pod-successful-ttl-minutes:
@@ -91,7 +91,7 @@ config:
 
     pod-unsuccessful-ttl-minutes:
       description: Number of minutes until an unsuccessful job pod is removed.
-      default: 120
+      default: 1440
       type: int
 
 # The containers and resources metadata apply to Kubernetes charms only.

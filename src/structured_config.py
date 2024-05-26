@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2023 Canonical Ltd.
+# Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
 """Structured configuration for the Superset charm."""
@@ -11,18 +11,6 @@ from charms.data_platform_libs.v0.data_models import BaseConfigModel
 from pydantic import validator
 
 logger = logging.getLogger(__name__)
-
-
-class BaseEnumStr(str, Enum):
-    """Base class for string enum."""
-
-    def __str__(self) -> str:
-        """Return the value as a string.
-
-        Returns:
-            string of config value
-        """
-        return str(self.value)
 
 
 class LogLevelType(str, Enum):
@@ -70,7 +58,9 @@ class CharmConfig(BaseConfigModel):
             return None
         return value
 
-    @validator("pod_running_ttl_minutes", "pod_successful_ttl_minutes", "pod_unsuccessful_ttl_minutes")
+    @validator(
+        "pod_running_ttl_minutes", "pod_successful_ttl_minutes", "pod_unsuccessful_ttl_minutes"
+    )
     @classmethod
     def ttl_minutes_validator(cls, value: str) -> Optional[int]:
         """Check validity of `*-ttl-minutes` fields.
