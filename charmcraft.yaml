@@ -1,39 +1,16 @@
 # This file configures Charmcraft.
 # See https://juju.is/docs/sdk/charmcraft-config for guidance.
 
-# (Required)
-# The charm package name, no spaces
-# See https://juju.is/docs/sdk/naming#heading--naming-charms for guidance.
-name: airbyte-k8s-operator
-
-
-# (Required)
-# The charm type, either 'charm' or 'bundle'.
+name: airbyte-k8s
 type: charm
-
-
-# (Recommended)
-title: Charm Template
-
-
-# (Required)
-summary: A very short one-line summary of the charm.
-
-
-# (Required)
+title: Airbyte Server
+summary: Airbyte server operator
 description: |
-  A single sentence that says what the charm is, concisely and memorably.
-
-  A paragraph of one to three short sentences, that describe what the charm does.
-
-  A third paragraph that explains what need the charm meets.
-
-  Finally, a paragraph that describes whom the charm is useful for.
-
+  Airbyte is an open-source data integration platform designed to centralize and 
+  streamline the process of extracting and loading data from various sources into 
+  data warehouses, lakes, or other destinations.
 
 # (Required for 'charm' type)
-# A list of environments (OS version and architecture) where charms must be
-# built on and run on.
 bases:
   - build-on:
     - name: ubuntu
@@ -42,6 +19,16 @@ bases:
     - name: ubuntu
       channel: "22.04"
 
+
+# Metadata
+peers:
+  peer:
+    interface: airbyte
+
+requires:
+  db:
+    interface: postgresql_client
+    limit: 1
 
 # (Optional) Configuration options for the charm
 # This config section defines charm config options, and populates the Configure
@@ -55,31 +42,105 @@ config:
       description: |
         Configures the log level of gunicorn.
 
-        Acceptable values are: "info", "debug", "warning", "error" and "critical"
-      default: "info"
+        Acceptable values are: "INFO", "DEBUG", "WARNING", "ERROR" and "FATAL"
+      default: "INFO"
       type: string
 
+    temporal-host:
+      description: Temporal server host.
+      default: "temporal-k8s:7233"
+      type: string
+
+    storage-type:
+      description: |
+        Storage type for logs.
+
+        Acceptable values are: "minio"
+      default: "minio"
+      type: string
+
+    storage-bucket-log:
+      description: Temporal server host.
+      default: "airbyte-dev-logs"
+      type: string
+
+    storage-bucket-state:
+      description: Name of state storage bucker.
+      default: "state-storage"
+      type: string
+
+    storage-bucket-activity-payload:
+      description: Name of activity payload storage bucket.
+      default: "payload-storage"
+      type: string
+
+    storage-bucket-workload-output:
+      description: Name of workload output storage bucket.
+      default: "state-storage"
+      type: string
+
+    pod-running-ttl-minutes:
+      description: Number of minutes until a running job pod is removed.
+      default: 240
+      type: int
+
+    pod-successful-ttl-minutes:
+      description: Number of minutes until a successful job pod is removed.
+      default: 30
+      type: int
+
+    pod-unsuccessful-ttl-minutes:
+      description: Number of minutes until an unsuccessful job pod is removed.
+      default: 1440
+      type: int
 
 # The containers and resources metadata apply to Kubernetes charms only.
 # See https://juju.is/docs/sdk/metadata-reference for a checklist and guidance.
-# Remove them if not required.
-
 
 # Your workload’s containers.
 containers:
-  httpbin:
-    resource: httpbin-image
-
+  airbyte-api-server:
+    resource: airbyte-api-server
+  airbyte-bootloader:
+    resource: airbyte-bootloader
+  airbyte-connector-builder-server:
+    resource: airbyte-connector-builder-server
+  airbyte-cron:
+    resource: airbyte-cron
+  airbyte-pod-sweeper:
+    resource: airbyte-pod-sweeper
+  airbyte-server:
+    resource: airbyte-server
+  airbyte-workers:
+    resource: airbyte-workers
 
 # This field populates the Resources tab on Charmhub.
 resources:
-  # An OCI image resource for each container listed above.
-  # You may remove this if your charm will run without a workload sidecar container.
-  httpbin-image:
+  airbyte-api-server:
     type: oci-image
-    description: OCI image for httpbin
-    # The upstream-source field is ignored by Juju. It is included here as a
-    # reference so the integration testing suite knows which image to deploy
-    # during testing. This field is also used by the 'canonical/charming-actions'
-    # Github action for automated releasing.
-    upstream-source: kennethreitz/httpbin
+    description: OCI image for Airbyte API server
+    upstream-source: airbyte/airbyte-api-server:0.57.3
+  airbyte-bootloader:
+    type: oci-image
+    description: OCI image for Airbyte Bootloader
+    upstream-source: airbyte/bootloader:0.57.3
+  airbyte-connector-builder-server:
+    type: oci-image
+    description: OCI image for Airbyte Connector Builder Server
+    upstream-source: airbyte/connector-builder-server:0.57.3
+  airbyte-cron:
+    type: oci-image
+    description: OCI image for Airbyte Cron
+    upstream-source: airbyte/cron:0.57.3
+  airbyte-pod-sweeper:
+    type: oci-image
+    description: OCI image for Airbyte Pod Sweeper
+    upstream-source: bitnami/kubectl:1.29.4
+  airbyte-server:
+    type: oci-image
+    description: OCI image for Airbyte Server
+    upstream-source: airbyte/server:0.57.3
+  airbyte-workers:
+    type: oci-image
+    description: OCI image for Airbyte Worker
+    upstream-source: airbyte/worker:0.57.3
