@@ -111,8 +111,8 @@ containers:
     resource: airbyte-pod-sweeper
   airbyte-server:
     resource: airbyte-server
-  airbyte-worker:
-    resource: airbyte-worker
+  airbyte-workers:
+    resource: airbyte-workers
 
 # This field populates the Resources tab on Charmhub.
 resources:
@@ -140,7 +140,7 @@ resources:
     type: oci-image
     description: OCI image for Airbyte Server
     upstream-source: airbyte/server:0.57.3
-  airbyte-worker:
+  airbyte-workers:
     type: oci-image
     description: OCI image for Airbyte Worker
     upstream-source: airbyte/worker:0.57.3

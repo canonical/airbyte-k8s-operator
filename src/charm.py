@@ -41,19 +41,12 @@ WORKLOAD_API_PORT = 8007
 
 
 def get_pebble_layer(application_name, context):
-    if application_name == "airbyte-worker":
-        application_name = "airbyte-workers"
-
-    command = f"/bin/bash -c airbyte-app/bin/{application_name}"
-    if application_name == "airbyte-pod-sweeper":
-        command = "./pod-sweeper.sh"
-
     return {
         "summary": "airbyte layer",
         "services": {
             application_name: {
                 "summary": application_name,
-                "command": command,
+                "command": f"/bin/bash -c airbyte-app/bin/{application_name}",
                 "startup": "enabled",
                 "override": "replace",
                 # Including config values here so that a change in the
@@ -203,7 +196,10 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
                 with open(script_path, "r") as file_source:
                     logger.info("pushing pod-sweeper script...")
                     container.push(
-                        "/pod-sweeper.sh", file_source, make_dirs=True, permissions=0o755
+                        "airbyte-app/bin/pod-sweeper.sh",
+                        file_source,
+                        make_dirs=True,
+                        permissions=0o755,
                     )
 
             pebble_layer = get_pebble_layer(service, env)
