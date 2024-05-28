@@ -48,23 +48,15 @@ do
         echo "Evaluating pod: $POD_NAME with status $POD_STATUS since $POD_DATE_STR"
 
         if [ -n "${RUNNING_TTL_MINUTES}" ] && [ "$POD_STATUS" = "Running" ]; then
-            echo "TEST 5"
             if [ "$POD_DATE" -lt "$RUNNING_DATE" ]; then
-                echo "TEST 6"
                 delete_pod "$POD_NAME" "$POD_STATUS" "$POD_DATE_STR"
             fi
         elif [ -n "${SUCCEEDED_TTL_MINUTES}" ] && ([[ "$POD_STATUS" = "Succeeded" ]] || [[ "$POD_STATUS" = "Completed" ]]); then
-            echo "TEST 1"
-            echo "$POD_DATE"
-            echo "$SUCCESS_DATE"
             if [ "$POD_DATE" -lt "$SUCCESS_DATE" ]; then
-                echo "TEST 2"
                 delete_pod "$POD_NAME" "$POD_STATUS" "$POD_DATE_STR"
             fi
         elif [ -n "${UNSUCCESSFUL_TTL_MINUTES}" ] && [ "$POD_STATUS" != "Running" ] && [ "$POD_STATUS" != "Succeeded" ]; then
-            echo "TEST 3"
             if [ "$POD_DATE" -lt "$NON_SUCCESS_DATE" ]; then
-                echo "TEST 4"
                 delete_pod "$POD_NAME" "$POD_STATUS" "$POD_DATE_STR"
             fi
         fi
