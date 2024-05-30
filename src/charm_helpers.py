@@ -24,6 +24,7 @@ def create_env(model_name, app_name, config, state):
     db_name = db_conn["dbname"]
     db_url = f"jdbc:postgresql://{host}:{port}/{db_name}"
 
+    # Some defaults are extracted from Helm chart: https://github.com/airbytehq/airbyte-platform/tree/v0.57.3/charts/airbyte
     env = {
         "API_URL": "/api/v1/",
         "AIRBYTE_VERSION": AIRBYTE_VERSION,

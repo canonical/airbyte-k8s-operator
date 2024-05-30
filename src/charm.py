@@ -113,7 +113,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             required_params: list of required parameters.
 
         Returns:
-            list: List of OpenFGA parameters that are not set in state.
+            list: List of required parameters that are not set in state.
         """
         missing_params = []
         for key in required_params:
@@ -135,9 +135,13 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         if self._state.database_connection is None:
             raise ValueError("database relation not ready")
 
-        # Validate db relation
-        if self._state.minio is None and self._state.s3 is None:
-            raise ValueError("minio/s3 relation not ready")
+        # Validate minio relation
+        if self.config["storage-type"] == StorageType.minio and self._state.minio is None:
+            raise ValueError("minio relation not ready")
+
+        # Validate S3 relation
+        if self.config["storage-type"] == StorageType.s3 and self._state.s3 is None:
+            raise ValueError("s3 relation not ready")
 
         # Validate S3 relation.
         if self._state.s3:
