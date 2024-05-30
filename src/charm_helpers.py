@@ -24,15 +24,6 @@ def create_env(model_name, app_name, config, state):
     db_name = db_conn["dbname"]
     db_url = f"jdbc:postgresql://{host}:{port}/{db_name}"
 
-    if state.minio:
-        minio_endpoint = construct_svc_endpoint(
-            state.minio["service"],
-            state.minio["namespace"],
-            state.minio["port"],
-            state.minio["secure"],
-        )
-
-    minio_endpoint = "http://minio:9000"
     env = {
         "API_URL": "/api/v1/",
         "AIRBYTE_VERSION": AIRBYTE_VERSION,
@@ -84,11 +75,21 @@ def create_env(model_name, app_name, config, state):
     }
 
     if config["storage-type"].value == StorageType.minio and state.minio:
+        minio_endpoint = construct_svc_endpoint(
+            state.minio["service"],
+            state.minio["namespace"],
+            state.minio["port"],
+            state.minio["secure"],
+        )
         env.update(
             {
                 "MINIO_ENDPOINT": minio_endpoint,
                 "AWS_ACCESS_KEY_ID": state.minio["access-key"],
                 "AWS_SECRET_ACCESS_KEY": state.minio["secret-key"],
+                "STATE_STORAGE_MINIO_ENDPOINT": minio_endpoint,
+                "STATE_STORAGE_MINIO_ACCESS_KEY": state.minio["access-key"],
+                "STATE_STORAGE_MINIO_SECRET_ACCESS_KEY": state.minio["secret-key"],
+                "STATE_STORAGE_MINIO_BUCKET_NAME": config["storage-bucket-state"],
                 "S3_PATH_STYLE_ACCESS": "true",
             }
         )
@@ -108,23 +109,35 @@ def create_env(model_name, app_name, config, state):
     no_proxy = os.environ.get("JUJU_CHARM_NO_PROXY")
     java_tool_options = _get_java_tool_options(http_proxy, https_proxy, no_proxy)
 
-    if http_proxy or https_proxy:
+    if http_proxy:
         env.update(
             {
                 "HTTP_PROXY": http_proxy,
-                "HTTPS_PROXY": https_proxy,
-                "NO_PROXY": no_proxy,
                 "http_proxy": http_proxy,
-                "https_proxy": https_proxy,
-                "no_proxy": no_proxy,
                 "JAVA_TOOL_OPTIONS": java_tool_options,
                 "JOB_DEFAULT_ENV_http_proxy": http_proxy,
-                "JOB_DEFAULT_ENV_https_proxy": https_proxy,
-                "JOB_DEFAULT_ENV_no_proxy": no_proxy,
                 "JOB_DEFAULT_ENV_HTTP_PROXY": http_proxy,
-                "JOB_DEFAULT_ENV_HTTPS_PROXY": https_proxy,
-                "JOB_DEFAULT_ENV_NO_PROXY": no_proxy,
                 "JOB_DEFAULT_ENV_JAVA_TOOL_OPTIONS": java_tool_options,
+            }
+        )
+
+    if https_proxy:
+        env.update(
+            {
+                "HTTPS_PROXY": https_proxy,
+                "https_proxy": https_proxy,
+                "JOB_DEFAULT_ENV_https_proxy": https_proxy,
+                "JOB_DEFAULT_ENV_HTTPS_PROXY": https_proxy,
+            }
+        )
+
+    if no_proxy:
+        env.update(
+            {
+                "NO_PROXY": no_proxy,
+                "no_proxy": no_proxy,
+                "JOB_DEFAULT_ENV_no_proxy": no_proxy,
+                "JOB_DEFAULT_ENV_NO_PROXY": no_proxy,
             }
         )
 

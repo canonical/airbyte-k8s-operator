@@ -66,7 +66,6 @@ class S3Client:
 
         if not exists:
             try:
-                create_bucket_configuration = {}
                 s3_bucket.create()
                 s3_bucket.wait_until_exists()
                 logger.info("Created bucket '%s' in region=%s", bucket_name, region)
