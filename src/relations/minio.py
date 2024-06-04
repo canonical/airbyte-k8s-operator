@@ -69,7 +69,7 @@ class MinioRelation(framework.Object):
             self.charm._update(event)
         except ErrorWithStatus as err:
             self.charm.unit.status = err.status
-            logging.info(f"Event {event} stopped early with message: {str(err)}")
+            logger.error(f"Event {event} stopped early with message: {str(err)}")
             return
 
     @log_event_handler(logger)
@@ -111,7 +111,7 @@ class MinioRelation(framework.Object):
             raise ErrorWithStatus("Waiting for object-storage relation data", WaitingStatus)
 
         try:
-            logging.info(f"obj_storage get_data: {obj_storage.get_data()}")
+            logger.info(f"obj_storage get_data: {obj_storage.get_data()}")
             obj_storage = list(obj_storage.get_data().values())[0]
         except Exception as e:
             raise ErrorWithStatus(

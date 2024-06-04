@@ -23,7 +23,7 @@ from literals import (
 )
 from log import log_event_handler
 from ops.model import ActiveStatus, BlockedStatus, WaitingStatus
-from relations.airbyte_ui import AirbyteServer
+from relations.airbyte_ui import AirbyteServerProvider
 from relations.minio import MinioRelation
 from relations.postgresql import PostgresqlRelation
 from relations.s3 import S3Integrator
@@ -76,7 +76,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         self.s3_relation = S3Integrator(self)
 
         # Handle UI relation
-        self.airbyte_ui = AirbyteServer(self)
+        self.airbyte_ui = AirbyteServerProvider(self)
 
         for container in list(CONTAINERS.keys()):
             self.framework.observe(self.on[container].pebble_ready, self._on_pebble_ready)
@@ -177,7 +177,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
                 bucket=self.config[LOGS_BUCKET_CONFIG], ttl=logs_ttl
             )
         except (ClientError, ValueError) as e:
-            logging.info(f"Error creating bucket and setting lifecycle policy: {e}")
+            logger.error(f"Error creating bucket and setting lifecycle policy: {e}")
             self.unit.status = BlockedStatus(f"failed to create buckets: {str(e)}")
             return
 

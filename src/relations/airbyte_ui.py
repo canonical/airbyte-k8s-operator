@@ -12,7 +12,7 @@ from ops.model import ActiveStatus
 logger = logging.getLogger(__name__)
 
 
-class AirbyteServer(framework.Object):
+class AirbyteServerProvider(framework.Object):
     """Client for server:ui relation."""
 
     def __init__(self, charm):
