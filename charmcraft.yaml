@@ -30,6 +30,47 @@ requires:
     interface: postgresql_client
     limit: 1
 
+  object-storage:
+    interface: object-storage
+    schema:
+      v1:
+        provides:
+          type: object
+          properties:
+            access-key:
+              type: string
+            namespace:
+              type:
+              - string
+              - 'null'
+            port:
+              type: number
+            secret-key:
+              type: string
+            secure:
+              type: boolean
+            service:
+              type: string
+          required:
+          - access-key
+          - port
+          - secret-key
+          - secure
+          - service
+    versions: [v1]
+    __schema_source: https://raw.githubusercontent.com/canonical/operator-schemas/master/object-storage.yaml
+
+  s3-parameters:
+    interface: s3
+    limit: 1
+    optional: true
+
+provides:
+  airbyte-server:
+    interface: airbyte-server
+    optional: true
+    limit: 1
+
 # (Optional) Configuration options for the charm
 # This config section defines charm config options, and populates the Configure
 # tab on Charmhub.
@@ -55,28 +96,34 @@ config:
       description: |
         Storage type for logs.
 
-        Acceptable values are: "minio"
-      default: "minio"
+        Acceptable values are: "MINIO", "S3" (AWS)
+      default: "MINIO"
       type: string
 
-    storage-bucket-log:
-      description: Temporal server host.
+    storage-bucket-logs:
+      description: Name of logs storage bucket.
       default: "airbyte-dev-logs"
       type: string
 
+    logs-ttl:
+      description: |
+        Number of days until logs are purged from object storage.
+      default: 30
+      type: int
+
     storage-bucket-state:
-      description: Name of state storage bucker.
-      default: "state-storage"
+      description: Name of state storage bucket.
+      default: "airbyte-state-storage"
       type: string
 
     storage-bucket-activity-payload:
       description: Name of activity payload storage bucket.
-      default: "payload-storage"
+      default: "airbyte-payload-storage"
       type: string
 
     storage-bucket-workload-output:
       description: Name of workload output storage bucket.
-      default: "state-storage"
+      default: "airbyte-state-storage"
       type: string
 
     pod-running-ttl-minutes:

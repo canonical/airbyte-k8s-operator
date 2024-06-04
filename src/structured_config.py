@@ -26,7 +26,8 @@ class LogLevelType(str, Enum):
 class StorageType(str, Enum):
     """Enum for the `storage-type` field."""
 
-    minio = "minio"
+    minio = "MINIO"
+    s3 = "S3"
 
 
 class CharmConfig(BaseConfigModel):
@@ -35,7 +36,8 @@ class CharmConfig(BaseConfigModel):
     log_level: LogLevelType
     temporal_host: str
     storage_type: StorageType
-    storage_bucket_log: str
+    storage_bucket_logs: str
+    logs_ttl: int
     storage_bucket_state: str
     storage_bucket_activity_payload: str
     storage_bucket_workload_output: str
@@ -62,7 +64,7 @@ class CharmConfig(BaseConfigModel):
         "pod_running_ttl_minutes", "pod_successful_ttl_minutes", "pod_unsuccessful_ttl_minutes"
     )
     @classmethod
-    def ttl_minutes_validator(cls, value: str) -> Optional[int]:
+    def pod_ttl_minutes_validator(cls, value: str) -> Optional[int]:
         """Check validity of `*-ttl-minutes` fields.
 
         Args:
@@ -76,5 +78,24 @@ class CharmConfig(BaseConfigModel):
         """
         int_value = int(value)
         if int_value > 0:
+            return int_value
+        raise ValueError("Value out of range.")
+
+    @validator("logs_ttl")
+    @classmethod
+    def logs_ttl_validator(cls, value: str) -> Optional[int]:
+        """Check validity of `logs-ttl` fields.
+
+        Args:
+            value: logs-ttl value
+
+        Returns:
+            int_value: integer for logs-ttl configuration
+
+        Raises:
+            ValueError: in the case when the value is out of range
+        """
+        int_value = int(value)
+        if int_value >= 0:
             return int_value
         raise ValueError("Value out of range.")
