@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class S3Integrator(framework.Object):
-    """Client for s3:temporal relation."""
+    """Client for s3 relation."""
 
     def __init__(self, charm):
         """Construct.
@@ -34,7 +34,7 @@ class S3Integrator(framework.Object):
 
     @log_event_handler(logger)
     def _on_s3_credentials_changed(self, event: CredentialsChangedEvent):
-        """Handle new s3:temporal relation.
+        """Handle new s3 relation.
 
         Args:
             event: The event triggered when the relation changed.
@@ -59,7 +59,7 @@ class S3Integrator(framework.Object):
 
     @log_event_handler(logger)
     def _on_s3_credentials_gone(self, event: CredentialsGoneEvent) -> None:
-        """Handle s3:temporal relation broken event.
+        """Handle s3 relation broken event.
 
         Args:
             event: The event triggered when the relation was broken.

@@ -81,7 +81,7 @@ config:
     # An example config option to customise the log level of the workload
     log-level:
       description: |
-        Configures the log level of gunicorn.
+        Configures the log level.
 
         Acceptable values are: "INFO", "DEBUG", "WARNING", "ERROR" and "FATAL"
       default: "INFO"
@@ -166,19 +166,19 @@ resources:
   airbyte-api-server:
     type: oci-image
     description: OCI image for Airbyte API server
-    upstream-source: airbyte/airbyte-api-server:0.57.3
+    upstream-source: airbyte/airbyte-api-server:0.60.0
   airbyte-bootloader:
     type: oci-image
     description: OCI image for Airbyte Bootloader
-    upstream-source: airbyte/bootloader:0.57.3
+    upstream-source: airbyte/bootloader:0.60.0
   airbyte-connector-builder-server:
     type: oci-image
     description: OCI image for Airbyte Connector Builder Server
-    upstream-source: airbyte/connector-builder-server:0.57.3
+    upstream-source: airbyte/connector-builder-server:0.60.0
   airbyte-cron:
     type: oci-image
     description: OCI image for Airbyte Cron
-    upstream-source: airbyte/cron:0.57.3
+    upstream-source: airbyte/cron:0.60.0
   airbyte-pod-sweeper:
     type: oci-image
     description: OCI image for Airbyte Pod Sweeper
@@ -186,8 +186,8 @@ resources:
   airbyte-server:
     type: oci-image
     description: OCI image for Airbyte Server
-    upstream-source: airbyte/server:0.57.3
+    upstream-source: airbyte/server:0.60.0
   airbyte-workers:
     type: oci-image
     description: OCI image for Airbyte Worker
-    upstream-source: airbyte/worker:0.57.3
+    upstream-source: airbyte/worker:0.60.0
