@@ -1,0 +1,9 @@
+ignore_files:
+  # Ignore ingress charm library as it uses non compliant terminology:
+  # whitelist.
+  - lib/charms/data_platform_libs/v0/data_models.py
+  - lib/charms/data_platform_libs/v0/database_requires.py
+  - lib/charms/data_platform_libs/v0/s3.py
+rules:
+  # Ignore "master" - the database relation event received from the library.
+  - name: master
