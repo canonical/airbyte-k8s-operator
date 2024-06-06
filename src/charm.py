@@ -62,7 +62,7 @@ def get_pebble_layer(application_name, context):
     }
 
     application_info = CONTAINERS[application_name]
-    if application_info:
+    if application_info is not None:
         pebble_layer["services"][application_name].update(
             {
                 "on-check-failure": {"up": "ignore"},
