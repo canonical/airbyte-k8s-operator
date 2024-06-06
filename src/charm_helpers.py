@@ -8,15 +8,25 @@ from urllib.parse import urlparse
 
 from literals import (
     AIRBYTE_API_PORT,
-    AIRBYTE_VERSION,
+    BASE_ENV,
     CONNECTOR_BUILDER_SERVER_API_PORT,
     INTERNAL_API_PORT,
-    WORKLOAD_API_PORT,
 )
 from structured_config import StorageType
 
 
 def create_env(model_name, app_name, config, state):
+    """Create set of environment variables for application.
+
+    Args:
+        model_name: Name of the juju model.
+        app_name: Name of the application.
+        config: Charm config.
+        state: Charm state.
+
+    Returns:
+        environment variables dict.
+    """
     db_conn = state.database_connection
 
     host = db_conn["host"]
@@ -24,20 +34,16 @@ def create_env(model_name, app_name, config, state):
     db_name = db_conn["dbname"]
     db_url = f"jdbc:postgresql://{host}:{port}/{db_name}"
 
-    # Some defaults are extracted from Helm chart: https://github.com/airbytehq/airbyte-platform/tree/v0.57.3/charts/airbyte
+    # Some defaults are extracted from Helm chart:
+    # https://github.com/airbytehq/airbyte-platform/tree/v0.60.0/charts/airbyte
     env = {
-        "API_URL": "/api/v1/",
-        "AIRBYTE_VERSION": AIRBYTE_VERSION,
-        "AIRBYTE_EDITION": "community",
-        "AUTO_DETECT_SCHEMA": "true",
+        **BASE_ENV,
         "DATABASE_URL": db_url,
         "DATABASE_USER": db_conn["user"],
         "DATABASE_PASSWORD": db_conn["password"],
         "DATABASE_DB": db_name,
         "DATABASE_HOST": host,
         "DATABASE_PORT": port,
-        "WORKSPACE_ROOT": "/workspace",
-        "CONFIG_ROOT": "/configs",
         "TEMPORAL_HOST": config["temporal-host"],
         "WORKER_LOGS_STORAGE_TYPE": config["storage-type"].value,
         "WORKER_STATE_STORAGE_TYPE": config["storage-type"].value,
@@ -47,32 +53,21 @@ def create_env(model_name, app_name, config, state):
         "STORAGE_BUCKET_STATE": config["storage-bucket-state"],
         "STORAGE_BUCKET_WORKLOAD_OUTPUT": config["storage-bucket-workload-output"],
         "STORAGE_BUCKET_ACTIVITY_PAYLOAD": config["storage-bucket-activity-payload"],
-        "CONFIGS_DATABASE_MINIMUM_FLYWAY_MIGRATION_VERSION": "0.40.23.002",
-        "JOBS_DATABASE_MINIMUM_FLYWAY_MIGRATION_VERSION": "0.40.26.001",
-        "MICRONAUT_ENVIRONMENTS": "control-plane",
-        "WORKERS_MICRONAUT_ENVIRONMENTS": "control-plane",
-        "CRON_MICRONAUT_ENVIRONMENTS": "control-plane",
-        "INTERNAL_API_HOST": f"localhost:{INTERNAL_API_PORT}",
-        "CONNECTOR_BUILDER_SERVER_API_HOST": f"localhost:{CONNECTOR_BUILDER_SERVER_API_PORT}",
-        "AIRBYTE_API_HOST": f"localhost:{AIRBYTE_API_PORT}",
-        "WORKLOAD_API_HOST": f"localhost:{WORKLOAD_API_PORT}",
-        "WORKLOAD_API_URL": f"localhost:{WORKLOAD_API_PORT}",
         "LOG_LEVEL": config["log-level"].value,
-        "MICROMETER_METRICS_ENABLED": "false",
-        "LAUNCHER_MICRONAUT_ENVIRONMENTS": "control-plane,oss",
-        "KEYCLOAK_INTERNAL_HOST": "localhost",
         "KEYCLOAK_DATABASE_URL": db_url + "?currentSchema=keycloak",
-        "WEBAPP_URL": "airbyte-ui-k8s:8080",
-        "WORKER_ENVIRONMENT": "kubernetes",
-        "SECRET_PERSISTENCE": "TESTING_CONFIG_DB_TABLE",
-        "SHOULD_RUN_NOTIFY_WORKFLOWS": "true",
-        "CONNECTOR_BUILDER_API_URL": "/connector-builder-api",
-        "TEMPORAL_WORKER_PORTS": "9001,9002,9003,9004,9005,9006,9007,9008,9009,9010,9011,9012,9013,9014,9015,9016,9017,9018,9019,9020,9021,9022,9023,9024,9025,9026,9027,9028,9029,9030",
         "JOB_KUBE_SERVICEACCOUNT": app_name,
         "JOB_KUBE_NAMESPACE": model_name,
         "RUNNING_TTL_MINUTES": config["pod-running-ttl-minutes"],
         "SUCCEEDED_TTL_MINUTES": config["pod-successful-ttl-minutes"],
         "UNSUCCESSFUL_TTL_MINUTES": config["pod-unsuccessful-ttl-minutes"],
+        "INTERNAL_API_HOST": f"{app_name}:{INTERNAL_API_PORT}",
+        "AIRBYTE_SERVER_HOST": f"{app_name}:{INTERNAL_API_PORT}",
+        "CONFIG_API_HOST": f"{app_name}:{INTERNAL_API_PORT}",
+        "CONNECTOR_BUILDER_SERVER_API_HOST": f"{app_name}:{CONNECTOR_BUILDER_SERVER_API_PORT}",
+        "CONNECTOR_BUILDER_API_HOST": f"{app_name}:{CONNECTOR_BUILDER_SERVER_API_PORT}",
+        "AIRBYTE_API_HOST": f"{app_name}:{AIRBYTE_API_PORT}/api/public",
+        "WEBAPP_URL": config["webapp-url"],
+        "AIRBYTE_URL": config["webapp-url"],
     }
 
     if config["storage-type"].value == StorageType.minio and state.minio:
@@ -146,25 +141,59 @@ def create_env(model_name, app_name, config, state):
 
 
 def _get_java_tool_options(http_proxy, https_proxy, no_proxy):
+    """Generate Java tool options for configuring HTTP and HTTPS proxies.
+
+    Args:
+        http_proxy: The HTTP proxy URL.
+        https_proxy: The HTTPS proxy URL.
+        no_proxy: A comma-separated string of hosts that should bypass the proxy.
+
+    Returns:
+        A string of Java tool options for the provided proxy settings.
+
+    Raises:
+        ValueError: If any provided proxy URL is invalid or cannot be parsed.
+    """
     options = ""
-    if http_proxy:
-        _, host, port = _split_url(http_proxy)
-        options += f"-Dhttp.proxyHost={host} -Dhttp.proxyPort={port}"
-    if https_proxy:
-        _, host, port = _split_url(https_proxy)
-        options += f" -Dhttps.proxyHost={host} -Dhttps.proxyPort={port}"
-    if no_proxy:
-        options += f" -Dhttp.nonProxyHosts={no_proxy.replace(',', '|')}"
+    try:
+        if http_proxy:
+            _, host, port = _split_url(http_proxy)
+            options += f"-Dhttp.proxyHost={host} -Dhttp.proxyPort={port}"
+        if https_proxy:
+            _, host, port = _split_url(https_proxy)
+            options += f" -Dhttps.proxyHost={host} -Dhttps.proxyPort={port}"
+        if no_proxy:
+            options += f" -Dhttp.nonProxyHosts={no_proxy.replace(',', '|')}"
+    except Exception as e:
+        raise ValueError(f"Invalid proxy URL: {e}") from e
 
     return options
 
 
 def _split_url(url):
-    parsed_url = urlparse(url)
-    protocol = parsed_url.scheme
-    host = parsed_url.hostname
-    port = parsed_url.port
-    return protocol, host, port
+    """Split the given URL into its components: protocol, host, and port.
+
+    Args:
+        url: The URL to be split.
+
+    Returns:
+        tuple: A tuple containing the protocol, host, and port.
+
+    Raises:
+        ValueError: If the URL is invalid or cannot be parsed.
+    """
+    try:
+        parsed_url = urlparse(url)
+        protocol = parsed_url.scheme
+        host = parsed_url.hostname
+        port = parsed_url.port
+
+        if not protocol or not host:
+            raise ValueError("Invalid URL: Protocol or host is missing")
+
+        return protocol, host, port
+    except Exception as e:
+        raise ValueError(f"Invalid URL: {e}") from e
 
 
 def construct_svc_endpoint(service_name, namespace, port, secure=False):
