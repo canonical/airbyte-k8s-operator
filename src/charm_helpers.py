@@ -16,6 +16,17 @@ from structured_config import StorageType
 
 
 def create_env(model_name, app_name, config, state):
+    """Create set of environment variables for application.
+
+    Args:
+        model_name: Name of the juju model.
+        app_name: Name of the application.
+        config: Charm config.
+        state: Charm state.
+
+    Returns:
+        environment variables dict.
+    """
     db_conn = state.database_connection
 
     host = db_conn["host"]
@@ -23,7 +34,8 @@ def create_env(model_name, app_name, config, state):
     db_name = db_conn["dbname"]
     db_url = f"jdbc:postgresql://{host}:{port}/{db_name}"
 
-    # Some defaults are extracted from Helm chart: https://github.com/airbytehq/airbyte-platform/tree/v0.60.0/charts/airbyte
+    # Some defaults are extracted from Helm chart:
+    # https://github.com/airbytehq/airbyte-platform/tree/v0.60.0/charts/airbyte
     env = {
         **BASE_ENV,
         "DATABASE_URL": db_url,
@@ -54,6 +66,8 @@ def create_env(model_name, app_name, config, state):
         "CONNECTOR_BUILDER_SERVER_API_HOST": f"{app_name}:{CONNECTOR_BUILDER_SERVER_API_PORT}",
         "CONNECTOR_BUILDER_API_HOST": f"{app_name}:{CONNECTOR_BUILDER_SERVER_API_PORT}",
         "AIRBYTE_API_HOST": f"{app_name}:{AIRBYTE_API_PORT}/api/public",
+        "WEBAPP_URL": config["webapp-url"],
+        "AIRBYTE_URL": config["webapp-url"],
     }
 
     if config["storage-type"].value == StorageType.minio and state.minio:
@@ -127,25 +141,59 @@ def create_env(model_name, app_name, config, state):
 
 
 def _get_java_tool_options(http_proxy, https_proxy, no_proxy):
+    """Generate Java tool options for configuring HTTP and HTTPS proxies.
+
+    Args:
+        http_proxy: The HTTP proxy URL.
+        https_proxy: The HTTPS proxy URL.
+        no_proxy: A comma-separated string of hosts that should bypass the proxy.
+
+    Returns:
+        A string of Java tool options for the provided proxy settings.
+
+    Raises:
+        ValueError: If any provided proxy URL is invalid or cannot be parsed.
+    """
     options = ""
-    if http_proxy:
-        _, host, port = _split_url(http_proxy)
-        options += f"-Dhttp.proxyHost={host} -Dhttp.proxyPort={port}"
-    if https_proxy:
-        _, host, port = _split_url(https_proxy)
-        options += f" -Dhttps.proxyHost={host} -Dhttps.proxyPort={port}"
-    if no_proxy:
-        options += f" -Dhttp.nonProxyHosts={no_proxy.replace(',', '|')}"
+    try:
+        if http_proxy:
+            _, host, port = _split_url(http_proxy)
+            options += f"-Dhttp.proxyHost={host} -Dhttp.proxyPort={port}"
+        if https_proxy:
+            _, host, port = _split_url(https_proxy)
+            options += f" -Dhttps.proxyHost={host} -Dhttps.proxyPort={port}"
+        if no_proxy:
+            options += f" -Dhttp.nonProxyHosts={no_proxy.replace(',', '|')}"
+    except Exception as e:
+        raise ValueError(f"Invalid proxy URL: {e}") from e
 
     return options
 
 
 def _split_url(url):
-    parsed_url = urlparse(url)
-    protocol = parsed_url.scheme
-    host = parsed_url.hostname
-    port = parsed_url.port
-    return protocol, host, port
+    """Split the given URL into its components: protocol, host, and port.
+
+    Args:
+        url: The URL to be split.
+
+    Returns:
+        tuple: A tuple containing the protocol, host, and port.
+
+    Raises:
+        ValueError: If the URL is invalid or cannot be parsed.
+    """
+    try:
+        parsed_url = urlparse(url)
+        protocol = parsed_url.scheme
+        host = parsed_url.hostname
+        port = parsed_url.port
+
+        if not protocol or not host:
+            raise ValueError("Invalid URL: Protocol or host is missing")
+
+        return protocol, host, port
+    except Exception as e:
+        raise ValueError(f"Invalid URL: {e}") from e
 
 
 def construct_svc_endpoint(service_name, namespace, port, secure=False):

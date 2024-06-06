@@ -2,7 +2,10 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-"""Structured configuration for the Superset charm."""
+# flake8: noqa
+
+"""Structured configuration for the charm."""
+
 import logging
 from enum import Enum
 from typing import Optional
@@ -44,6 +47,7 @@ class CharmConfig(BaseConfigModel):
     pod_running_ttl_minutes: int
     pod_successful_ttl_minutes: int
     pod_unsuccessful_ttl_minutes: int
+    webapp_url: Optional[str]
 
     @validator("*", pre=True)
     @classmethod
@@ -60,9 +64,7 @@ class CharmConfig(BaseConfigModel):
             return None
         return value
 
-    @validator(
-        "pod_running_ttl_minutes", "pod_successful_ttl_minutes", "pod_unsuccessful_ttl_minutes"
-    )
+    @validator("pod_running_ttl_minutes", "pod_successful_ttl_minutes", "pod_unsuccessful_ttl_minutes")
     @classmethod
     def pod_ttl_minutes_validator(cls, value: str) -> Optional[int]:
         """Check validity of `*-ttl-minutes` fields.

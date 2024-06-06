@@ -9,10 +9,13 @@ from pathlib import Path
 
 import ops
 from botocore.exceptions import ClientError
-from charm_helpers import create_env
 from charms.data_platform_libs.v0.data_models import TypedCharmBase
 from charms.data_platform_libs.v0.database_requires import DatabaseRequires
 from charms.data_platform_libs.v0.s3 import S3Requirer
+from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingStatus
+from ops.pebble import CheckStatus
+
+from charm_helpers import create_env
 from literals import (
     BUCKET_CONFIGS,
     CONNECTOR_BUILDER_SERVER_API_PORT,
@@ -22,8 +25,6 @@ from literals import (
     REQUIRED_S3_PARAMETERS,
 )
 from log import log_event_handler
-from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingStatus
-from ops.pebble import CheckStatus
 from relations.airbyte_ui import AirbyteServerProvider
 from relations.minio import MinioRelation
 from relations.postgresql import PostgresqlRelation
@@ -36,6 +37,15 @@ logger = logging.getLogger(__name__)
 
 
 def get_pebble_layer(application_name, context):
+    """Create pebble layer based on application.
+
+    Args:
+        application_name: Name of Airbyte application.
+        context: environment to include with the pebble plan.
+
+    Returns:
+        pebble plan dict.
+    """
     pebble_layer = {
         "summary": "airbyte layer",
         "services": {
@@ -76,11 +86,21 @@ def get_pebble_layer(application_name, context):
 
 
 class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
-    """Charm the application."""
+    """Airbyte Server charm.
+
+    Attrs:
+        _state: used to store data that is persisted across invocations.
+        config_type: the charm structured config
+    """
 
     config_type = CharmConfig
 
     def __init__(self, *args):
+        """Construct.
+
+        Args:
+            args: Ignore.
+        """
         super().__init__(*args)
         self._state = State(self.app, lambda: self.model.get_relation("peer"))
 
@@ -89,9 +109,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         self.framework.observe(self.on.update_status, self._on_update_status)
 
         # Handle postgresql relation.
-        self.db = DatabaseRequires(
-            self, relation_name="db", database_name="airbyte-k8s_db", extra_user_roles="admin"
-        )
+        self.db = DatabaseRequires(self, relation_name="db", database_name="airbyte-k8s_db", extra_user_roles="admin")
         self.postgresql = PostgresqlRelation(self)
 
         self.minio = MinioRelation(self)
@@ -108,7 +126,11 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
 
     @log_event_handler(logger)
     def _on_pebble_ready(self, event: ops.PebbleReadyEvent):
-        """Handle pebble-ready event."""
+        """Handle pebble ready event.
+
+        Args:
+            event: The event triggered.
+        """
         self._update(event)
 
     @log_event_handler(logger)
@@ -141,6 +163,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             valid_pebble_plan = self._validate_pebble_plan(container, container_name)
             logger.info(f"validating pebble plan for {container_name}")
             if not valid_pebble_plan:
+                logger.debug(f"failed to validate pebble plan for {container_name}, attempting creation again")
                 all_valid_plans = False
                 self._update(event)
                 continue
@@ -152,16 +175,19 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
                 self.unit.status = MaintenanceStatus("Status check: DOWN")
                 return
 
-        if all_valid_plans:
-            self.unit.status = ActiveStatus()
-            if self.unit.is_leader():
-                self.airbyte_ui._provide_server_status()
+        if not all_valid_plans:
+            return
+
+        self.unit.status = ActiveStatus()
+        if self.unit.is_leader():
+            self.airbyte_ui._provide_server_status()
 
     def _validate_pebble_plan(self, container, container_name):
         """Validate pebble plan.
 
         Args:
             container: application container
+            container_name: name of container to check
 
         Returns:
             bool of pebble plan validity
@@ -250,9 +276,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
                 s3_client.create_bucket_if_not_exists(bucket)
 
             logs_ttl = int(self.config["logs-ttl"])
-            s3_client.set_bucket_lifecycle_policy(
-                bucket=self.config[LOGS_BUCKET_CONFIG], ttl=logs_ttl
-            )
+            s3_client.set_bucket_lifecycle_policy(bucket_name=self.config[LOGS_BUCKET_CONFIG], ttl=logs_ttl)
         except (ClientError, ValueError) as e:
             logger.error(f"Error creating bucket and setting lifecycle policy: {e}")
             self.unit.status = BlockedStatus(f"failed to create buckets: {str(e)}")
