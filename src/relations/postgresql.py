@@ -6,10 +6,11 @@
 import logging
 
 from charms.data_platform_libs.v0.database_requires import DatabaseEvent
-from literals import DB_NAME
-from log import log_event_handler
 from ops import framework
 from ops.model import WaitingStatus
+
+from literals import DB_NAME
+from log import log_event_handler
 
 logger = logging.getLogger(__name__)
 

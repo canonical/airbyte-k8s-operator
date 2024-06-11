@@ -10,8 +10,9 @@ from charms.data_platform_libs.v0.s3 import (
     CredentialsChangedEvent,
     CredentialsGoneEvent,
 )
-from log import log_event_handler
 from ops import framework
+
+from log import log_event_handler
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +28,7 @@ class S3Integrator(framework.Object):
         """
         super().__init__(charm, "s3")
         self.charm = charm
-        charm.framework.observe(
-            charm.s3_client.on.credentials_changed, self._on_s3_credentials_changed
-        )
+        charm.framework.observe(charm.s3_client.on.credentials_changed, self._on_s3_credentials_changed)
         charm.framework.observe(charm.s3_client.on.credentials_gone, self._on_s3_credentials_gone)
 
     @log_event_handler(logger)
@@ -81,9 +80,7 @@ class S3Integrator(framework.Object):
             "access-key",
             "secret-key",
         ]
-        missing_required_parameters = [
-            param for param in required_parameters if param not in s3_parameters
-        ]
+        missing_required_parameters = [param for param in required_parameters if param not in s3_parameters]
         if missing_required_parameters:
             logger.warning(
                 f"Missing required S3 parameters in relation with S3 integrator: {missing_required_parameters}"
@@ -104,9 +101,9 @@ class S3Integrator(framework.Object):
         # Clean up extra slash symbols to avoid issues on 3rd-party storages
         # like Ceph Object Gateway (radosgw).
         s3_parameters["endpoint"] = s3_parameters["endpoint"].rstrip("/")
-        s3_parameters["path"] = (
-            f'/{s3_parameters["path"].strip("/")}'  # The slash in the beginning is required by pgBackRest.
-        )
+        s3_parameters[
+            "path"
+        ] = f'/{s3_parameters["path"].strip("/")}'  # The slash in the beginning is required by pgBackRest.
         s3_parameters["bucket"] = s3_parameters["bucket"].strip("/")
 
         return s3_parameters, []

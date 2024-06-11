@@ -1,4 +1,6 @@
 #!/bin/bash
+# Copyright 2024 Canonical Ltd.
+# See LICENSE file for licensing details.
 
 # https://github.com/airbytehq/airbyte-platform/blob/main/charts/airbyte-pod-sweeper/templates/configmap.yaml
 # TODO(kelkawi-a): Move this to Airbyte ROCK
@@ -51,7 +53,7 @@ do
             if [ "$POD_DATE" -lt "$RUNNING_DATE" ]; then
                 delete_pod "$POD_NAME" "$POD_STATUS" "$POD_DATE_STR"
             fi
-        elif [ -n "${SUCCEEDED_TTL_MINUTES}" ] && ([[ "$POD_STATUS" = "Succeeded" ]] || [[ "$POD_STATUS" = "Completed" ]]); then
+        elif [ -n "${SUCCEEDED_TTL_MINUTES}" ] && { [[ "$POD_STATUS" = "Succeeded" ]] || [[ "$POD_STATUS" = "Completed" ]]; }; then
             if [ "$POD_DATE" -lt "$SUCCESS_DATE" ]; then
                 delete_pod "$POD_NAME" "$POD_STATUS" "$POD_DATE_STR"
             fi

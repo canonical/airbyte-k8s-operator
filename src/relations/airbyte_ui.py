@@ -5,9 +5,10 @@
 
 import logging
 
-from log import log_event_handler
 from ops import framework
 from ops.model import ActiveStatus
+
+from log import log_event_handler
 
 logger = logging.getLogger(__name__)
 
@@ -23,12 +24,8 @@ class AirbyteServerProvider(framework.Object):
         """
         super().__init__(charm, "airbyte-server")
         self.charm = charm
-        charm.framework.observe(
-            charm.on.airbyte_server_relation_joined, self._on_airbyte_server_relation_joined
-        )
-        charm.framework.observe(
-            charm.on.airbyte_server_relation_changed, self._on_airbyte_server_relation_joined
-        )
+        charm.framework.observe(charm.on.airbyte_server_relation_joined, self._on_airbyte_server_relation_joined)
+        charm.framework.observe(charm.on.airbyte_server_relation_changed, self._on_airbyte_server_relation_joined)
 
     @log_event_handler(logger)
     def _on_airbyte_server_relation_joined(self, event):

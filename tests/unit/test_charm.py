@@ -1,68 +1,423 @@
-# Copyright 2024 Ali
+# Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 #
 # Learn more about testing at: https://juju.is/docs/sdk/testing
 
-import unittest
 
-import ops
-import ops.testing
+"""Charm unit tests."""
+
+# pylint:disable=protected-access,too-many-public-methods
+
+import logging
+from unittest import TestCase, mock
+
+from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus
+from ops.pebble import CheckStatus
+from ops.testing import Harness
+
 from charm import AirbyteK8SOperatorCharm
+from src.literals import BASE_ENV, CONTAINERS
+from src.structured_config import StorageType
+
+logging.basicConfig(level=logging.DEBUG)
+
+mock_incomplete_pebble_plan = {"services": {"airbyte": {"override": "replace"}}}
+
+MODEL_NAME = "airbyte-model"
+APP_NAME = "airbyte-k8s"
+
+minio_object_storage_data = {
+    "access-key": "access",
+    "secret-key": "secret",
+    "service": "service",
+    "port": "9000",
+    "namespace": "namespace",
+    "secure": False,
+    "endpoint": "endpoint",
+}
 
 
-class TestCharm(unittest.TestCase):
+class TestCharm(TestCase):
+    """Unit tests.
+
+    Attrs:
+        maxDiff: Specifies max difference shown by failed tests.
+    """
+
+    maxDiff = None
+
     def setUp(self):
-        self.harness = ops.testing.Harness(AirbyteK8SOperatorCharm)
+        """Set up for the unit tests."""
+        self.harness = Harness(AirbyteK8SOperatorCharm)
         self.addCleanup(self.harness.cleanup)
+        for container_name in list(CONTAINERS.keys()):
+            self.harness.set_can_connect(container_name, True)
+        self.harness.set_leader(True)
+        self.harness.set_model_name("airbyte-model")
+        self.harness.add_network("10.0.0.10", endpoint="peer")
         self.harness.begin()
 
-    def test_httpbin_pebble_ready(self):
-        # Expected plan after Pebble ready with default config
-        expected_plan = {
-            "services": {
-                "httpbin": {
-                    "override": "replace",
-                    "summary": "httpbin",
-                    "command": "gunicorn -b 0.0.0.0:80 httpbin:app -k gevent",
-                    "startup": "enabled",
-                    "environment": {"GUNICORN_CMD_ARGS": "--log-level info"},
-                }
+    def test_initial_plan(self):
+        """The initial pebble plan is empty."""
+        harness = self.harness
+        for container_name in list(CONTAINERS.keys()):
+            initial_plan = harness.get_container_pebble_plan(container_name).to_dict()
+            self.assertEqual(initial_plan, {})
+
+    def test_blocked_by_peer_relation_not_ready(self):
+        """The charm is blocked without a peer relation."""
+        harness = self.harness
+
+        simulate_pebble_readiness(harness)
+
+        # The BlockStatus is set with a message.
+        self.assertEqual(harness.model.unit.status, BlockedStatus("peer relation not ready"))
+
+    def test_blocked_by_db(self):
+        """The charm is blocked without a db:pgsql relation with a ready master."""
+        harness = self.harness
+
+        # Simulate peer relation readiness.
+        harness.add_relation("peer", "airbyte")
+
+        simulate_pebble_readiness(harness)
+
+        # The BlockStatus is set with a message.
+        self.assertEqual(
+            harness.model.unit.status,
+            BlockedStatus("database relation not ready"),
+        )
+
+    def test_blocked_by_minio(self):
+        """The charm is blocked without a minio relation."""
+        harness = self.harness
+
+        # Simulate peer relation readiness.
+        harness.add_relation("peer", "airbyte")
+
+        simulate_pebble_readiness(harness)
+
+        # Simulate db readiness.
+        event = make_database_changed_event("db")
+        harness.charm.postgresql._on_database_changed(event)
+
+        # The BlockStatus is set with a message.
+        self.assertEqual(
+            harness.model.unit.status,
+            BlockedStatus("minio relation not ready"),
+        )
+
+    def test_blocked_by_s3(self):
+        """The charm is blocked without a minio relation."""
+        harness = self.harness
+
+        harness.update_config({"storage-type": "S3"})
+
+        # Simulate peer relation readiness.
+        harness.add_relation("peer", "airbyte")
+
+        simulate_pebble_readiness(harness)
+
+        # Simulate db readiness.
+        event = make_database_changed_event("db")
+        harness.charm.postgresql._on_database_changed(event)
+
+        # The BlockStatus is set with a message.
+        self.assertEqual(
+            harness.model.unit.status,
+            BlockedStatus("s3 relation not ready"),
+        )
+
+    def test_ready_with_minio(self):
+        """The pebble plan is correctly generated when the charm is ready."""
+        harness = self.harness
+        harness.update_config({"storage-type": "MINIO"})
+
+        simulate_lifecycle(harness)
+
+        # The plan is generated after pebble is ready.
+        for container_name in list(CONTAINERS.keys()):
+            want_plan = create_plan(container_name, "MINIO")
+
+            got_plan = harness.get_container_pebble_plan(container_name).to_dict()
+            self.assertEqual(got_plan, want_plan)
+
+            # The service was started.
+            service = harness.model.unit.get_container(container_name).get_service(container_name)
+            self.assertTrue(service.is_running())
+
+        self.assertEqual(harness.model.unit.status, MaintenanceStatus("replanning application"))
+
+    def test_ready_with_s3(self):
+        """The pebble plan is correctly generated when the charm is ready."""
+        harness = self.harness
+        harness.update_config({"storage-type": "S3"})
+
+        simulate_lifecycle(harness)
+
+        # The plan is generated after pebble is ready.
+        for container_name in list(CONTAINERS.keys()):
+            want_plan = create_plan(container_name, "S3")
+
+            got_plan = harness.get_container_pebble_plan(container_name).to_dict()
+            self.assertEqual(got_plan, want_plan)
+
+            # The service was started.
+            service = harness.model.unit.get_container(container_name).get_service(container_name)
+            self.assertTrue(service.is_running())
+
+        self.assertEqual(harness.model.unit.status, MaintenanceStatus("replanning application"))
+
+    def test_update_status_up(self):
+        """The charm updates the unit status to active based on UP status."""
+        harness = self.harness
+
+        simulate_lifecycle(harness)
+        for container_name in list(CONTAINERS.keys()):
+            container = harness.model.unit.get_container(container_name)
+            if CONTAINERS[container_name]:
+                container.get_check = mock.Mock(status="up")
+                container.get_check.return_value.status = CheckStatus.UP
+
+        harness.charm.on.update_status.emit()
+        self.assertEqual(harness.model.unit.status, ActiveStatus())
+
+    def test_update_status_down(self):
+        """The charm updates the unit status to maintenance based on DOWN status."""
+        harness = self.harness
+
+        simulate_lifecycle(harness)
+
+        for container_name in list(CONTAINERS.keys()):
+            container = harness.model.unit.get_container(container_name)
+            if CONTAINERS[container_name]:
+                container.get_check = mock.Mock(status="up")
+                container.get_check.return_value.status = CheckStatus.DOWN
+
+        harness.charm.on.update_status.emit()
+        self.assertEqual(harness.model.unit.status, MaintenanceStatus("Status check: DOWN"))
+
+    def test_incomplete_pebble_plan(self):
+        """The charm re-applies the pebble plan if incomplete."""
+        harness = self.harness
+        simulate_lifecycle(harness)
+
+        for container_name in list(CONTAINERS.keys()):
+            container = harness.model.unit.get_container(container_name)
+            container.add_layer(container_name, mock_incomplete_pebble_plan, combine=True)
+            if CONTAINERS[container_name]:
+                container.get_check = mock.Mock(status="up")
+                container.get_check.return_value.status = CheckStatus.UP
+
+        harness.charm.on.update_status.emit()
+
+        self.assertEqual(
+            harness.model.unit.status,
+            ActiveStatus(),
+        )
+        plan = harness.get_container_pebble_plan("airbyte-server").to_dict()
+        assert plan != mock_incomplete_pebble_plan
+
+    @mock.patch("charm.AirbyteK8SOperatorCharm._validate_pebble_plan", return_value=True)
+    @mock.patch("s3_helpers.S3Client.create_bucket_if_not_exists", return_value=None)
+    @mock.patch("s3_helpers.S3Client.set_bucket_lifecycle_policy", return_value=None)
+    def test_missing_pebble_plan(
+        self, set_bucket_lifecycle_policy, create_bucket_if_not_exists, mock_validate_pebble_plan
+    ):
+        """The charm re-applies the pebble plan if missing."""
+        harness = self.harness
+        simulate_lifecycle(harness)
+
+        mock_validate_pebble_plan.return_value = False
+        harness.charm.on.update_status.emit()
+        self.assertEqual(
+            harness.model.unit.status,
+            MaintenanceStatus("replanning application"),
+        )
+        plan = harness.get_container_pebble_plan("airbyte-server").to_dict()
+        assert plan is not None
+
+
+@mock.patch("s3_helpers.S3Client.create_bucket_if_not_exists", return_value=None)
+@mock.patch("s3_helpers.S3Client.set_bucket_lifecycle_policy", return_value=None)
+@mock.patch(
+    "relations.minio.MinioRelation._get_object_storage_data",
+    return_value=minio_object_storage_data,
+)
+@mock.patch("relations.minio.MinioRelation._get_interfaces", return_value=None)
+def simulate_lifecycle(
+    harness,
+    _get_interfaces,
+    _get_object_storage_data,
+    create_bucket_if_not_exists,
+    set_bucket_lifecycle_policy,
+):
+    """Simulate a healthy charm life-cycle.
+
+    Args:
+        harness: ops.testing.Harness object used to simulate charm lifecycle.
+    """
+    # Simulate peer relation readiness.
+    harness.add_relation("peer", "airbyte")
+
+    simulate_pebble_readiness(harness)
+
+    # Simulate db readiness.
+    event = make_database_changed_event("db")
+    harness.charm.postgresql._on_database_changed(event)
+
+    # Simulate minio relation
+    harness.add_relation("object-storage", "airbyte")
+    harness.charm.minio._on_object_storage_relation_changed(None)
+
+    # Simulate s3 relation
+    relation_id = harness.add_relation("s3-parameters", "airbyte")
+    harness.update_relation_data(
+        relation_id,
+        "airbyte",
+        s3_provider_databag(),
+    )
+
+
+def simulate_pebble_readiness(harness):
+    # Simulate pebble readiness on all containers.
+    for container_name in list(CONTAINERS.keys()):
+        container = harness.model.unit.get_container(container_name)
+        harness.charm.on[container_name].pebble_ready.emit(container)
+
+
+def make_database_changed_event(rel_name):
+    """Create and return a mock master changed event.
+
+    The event is generated by the relation with the given name.
+
+    Args:
+        rel_name: Name of the database relation (db or visibility)
+
+    Returns:
+        Event dict.
+    """
+    return type(
+        "Event",
+        (),
+        {
+            "endpoints": "myhost:5432,anotherhost:2345",
+            "username": f"jean-luc@{rel_name}",
+            "password": "inner-light",
+            "relation": type("Relation", (), {"name": rel_name}),
+        },
+    )
+
+
+def s3_provider_databag():
+    """Create and return mock s3 credentials.
+
+    Returns:
+        S3 parameters.
+    """
+    return {
+        "access-key": "access",
+        "secret-key": "secret",
+        "bucket": "bucket_name",
+        "endpoint": "http://endpoint",
+        "path": "path",
+        "region": "region",
+        "s3-uri-style": "path",
+    }
+
+
+def create_plan(container_name, storage_type):
+    want_plan = {
+        "services": {
+            container_name: {
+                "summary": container_name,
+                "command": f"/bin/bash -c airbyte-app/bin/{container_name}",
+                "startup": "enabled",
+                "override": "replace",
+                "environment": {
+                    **BASE_ENV,
+                    "AWS_ACCESS_KEY_ID": "access",
+                    "AWS_SECRET_ACCESS_KEY": "secret",
+                    "DATABASE_DB": "airbyte-k8s_db",
+                    "DATABASE_HOST": "myhost",
+                    "DATABASE_PASSWORD": "inner-light",
+                    "DATABASE_PORT": "5432",
+                    "DATABASE_URL": "jdbc:postgresql://myhost:5432/airbyte-k8s_db",
+                    "DATABASE_USER": "jean-luc@db",
+                    "JOB_KUBE_NAMESPACE": MODEL_NAME,
+                    "JOB_KUBE_SERVICEACCOUNT": APP_NAME,
+                    "KEYCLOAK_DATABASE_URL": "jdbc:postgresql://myhost:5432/airbyte-k8s_db?currentSchema=keycloak",
+                    "LOG_LEVEL": "INFO",
+                    "RUNNING_TTL_MINUTES": 240,
+                    "S3_LOG_BUCKET": "airbyte-dev-logs",
+                    "STORAGE_BUCKET_ACTIVITY_PAYLOAD": "airbyte-payload-storage",
+                    "STORAGE_BUCKET_LOG": "airbyte-dev-logs",
+                    "STORAGE_BUCKET_STATE": "airbyte-state-storage",
+                    "STORAGE_BUCKET_WORKLOAD_OUTPUT": "airbyte-state-storage",
+                    "STORAGE_TYPE": storage_type,
+                    "SUCCEEDED_TTL_MINUTES": 30,
+                    "TEMPORAL_HOST": "temporal-k8s:7233",
+                    "UNSUCCESSFUL_TTL_MINUTES": 1440,
+                    "WEBAPP_URL": "http://airbyte-ui-k8s:8080",
+                    "AIRBYTE_URL": "http://airbyte-ui-k8s:8080",
+                    "WORKERS_MICRONAUT_ENVIRONMENTS": "control-plane",
+                    "WORKER_ENVIRONMENT": "kubernetes",
+                    "WORKER_LOGS_STORAGE_TYPE": storage_type,
+                    "WORKER_STATE_STORAGE_TYPE": storage_type,
+                    "AIRBYTE_API_HOST": "airbyte-k8s:8006/api/public",
+                    "AIRBYTE_SERVER_HOST": "airbyte-k8s:8001",
+                    "CONFIG_API_HOST": "airbyte-k8s:8001",
+                    "CONNECTOR_BUILDER_API_HOST": "airbyte-k8s:80",
+                    "CONNECTOR_BUILDER_SERVER_API_HOST": "airbyte-k8s:80",
+                    "INTERNAL_API_HOST": "airbyte-k8s:8001",
+                },
             },
-        }
-        # Simulate the container coming up and emission of pebble-ready event
-        self.harness.container_pebble_ready("httpbin")
-        # Get the plan now we've run PebbleReady
-        updated_plan = self.harness.get_container_pebble_plan("httpbin").to_dict()
-        # Check we've got the plan we expected
-        self.assertEqual(expected_plan, updated_plan)
-        # Check the service was started
-        service = self.harness.model.unit.get_container("httpbin").get_service("httpbin")
-        self.assertTrue(service.is_running())
-        # Ensure we set an ActiveStatus with no message
-        self.assertEqual(self.harness.model.unit.status, ops.ActiveStatus())
+        },
+    }
 
-    def test_config_changed_valid_can_connect(self):
-        # Ensure the simulated Pebble API is reachable
-        self.harness.set_can_connect("httpbin", True)
-        # Trigger a config-changed event with an updated value
-        self.harness.update_config({"log-level": "debug"})
-        # Get the plan now we've run PebbleReady
-        updated_plan = self.harness.get_container_pebble_plan("httpbin").to_dict()
-        updated_env = updated_plan["services"]["httpbin"]["environment"]
-        # Check the config change was effective
-        self.assertEqual(updated_env, {"GUNICORN_CMD_ARGS": "--log-level debug"})
-        self.assertEqual(self.harness.model.unit.status, ops.ActiveStatus())
+    if storage_type == StorageType.minio:
+        want_plan["services"][container_name]["environment"].update(
+            {
+                "MINIO_ENDPOINT": "http://service.namespace.svc.cluster.local:9000",
+                "AWS_ACCESS_KEY_ID": "access",
+                "AWS_SECRET_ACCESS_KEY": "secret",
+                "STATE_STORAGE_MINIO_ENDPOINT": "http://service.namespace.svc.cluster.local:9000",
+                "STATE_STORAGE_MINIO_ACCESS_KEY": "access",
+                "STATE_STORAGE_MINIO_SECRET_ACCESS_KEY": "secret",
+                "STATE_STORAGE_MINIO_BUCKET_NAME": "airbyte-state-storage",
+                "S3_PATH_STYLE_ACCESS": "true",
+            }
+        )
 
-    def test_config_changed_valid_cannot_connect(self):
-        # Trigger a config-changed event with an updated value
-        self.harness.update_config({"log-level": "debug"})
-        # Check the charm is in WaitingStatus
-        self.assertIsInstance(self.harness.model.unit.status, ops.WaitingStatus)
+    if storage_type == StorageType.s3:
+        want_plan["services"][container_name]["environment"].update(
+            {
+                "AWS_ACCESS_KEY_ID": "access",
+                "AWS_SECRET_ACCESS_KEY": "secret",
+                "S3_LOG_BUCKET_REGION": "region",
+                "AWS_DEFAULT_REGION": "region",
+            }
+        )
 
-    def test_config_changed_invalid(self):
-        # Ensure the simulated Pebble API is reachable
-        self.harness.set_can_connect("httpbin", True)
-        # Trigger a config-changed event with an updated value
-        self.harness.update_config({"log-level": "foobar"})
-        # Check the charm is in BlockedStatus
-        self.assertIsInstance(self.harness.model.unit.status, ops.BlockedStatus)
+    application_info = CONTAINERS[container_name]
+    if application_info:
+        want_plan["services"][container_name].update(
+            {
+                "on-check-failure": {"up": "ignore"},
+            }
+        )
+        want_plan.update(
+            {
+                "checks": {
+                    "up": {
+                        "override": "replace",
+                        "period": "10s",
+                        "http": {
+                            "url": f"http://localhost:{application_info['port']}{application_info['health_endpoint']}"
+                        },
+                    }
+                }
+            }
+        )
+
+    return want_plan
