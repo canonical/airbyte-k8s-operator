@@ -29,8 +29,9 @@ sufficient.
 
 ### Deploying PostgreSQL Database
 
-The Airbyte and PostgreSQL operators can be deployed and connected to each other
-using the Juju command line as follows:
+Airbyte uses PostgreSQL for storing metadata. The Airbyte and PostgreSQL
+operators can be deployed and connected to each other using the Juju command
+line as follows:
 
 ```bash
 juju deploy airbyte-k8s --trust

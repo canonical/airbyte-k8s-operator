@@ -103,7 +103,7 @@ juju debug-log
 
 ```bash
 # Pack the charm
-charmcraft pack [--destructive-mode]
+charmcraft pack # the --destructive-mode flag can be used to pack the charm using the current host.
 
 # Deploy the charm
 juju deploy ./airbyte-k8s_ubuntu-22.04-amd64.charm --resource airbyte-api-server=airbyte/airbyte-api-server:0.60.0 --resource airbyte-bootloader=airbyte/bootloader:0.60.0 --resource airbyte-connector-builder-server=airbyte/connector-builder-server:0.60.0 --resource airbyte-cron=airbyte/cron:0.60.0 --resource airbyte-pod-sweeper=bitnami/kubectl:1.29.4 --resource airbyte-server=airbyte/server:0.60.0 --resource airbyte-worker=airbyte/worker:0.60.0
