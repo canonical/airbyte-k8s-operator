@@ -1,6 +1,7 @@
 # Contributing
 
-To make contributions to this charm, you'll need a working [development setup](https://juju.is/docs/sdk/dev-setup).
+To make contributions to this charm, you'll need a working
+[development setup](https://juju.is/docs/sdk/dev-setup).
 
 First, install the required version of `tox`:
 
@@ -17,8 +18,9 @@ source venv/bin/activate
 
 ## Testing
 
-This project uses `tox` for managing test environments. There are some pre-configured environments
-that can be used for linting and formatting code when you're preparing contributions to the charm:
+This project uses `tox` for managing test environments. There are some
+pre-configured environments that can be used for linting and formatting code
+when you're preparing contributions to the charm:
 
 ```shell
 tox run -e format        # update your code according to linting rules
@@ -56,51 +58,54 @@ This charm is used to deploy Airbyte server in a k8s cluster. For a local
 deployment, follow the following steps:
 
 #### Install Microk8s
+
 ```bash
-# Install Microk8s from snap:
+# Install Microk8s from snap
 sudo snap install microk8s --classic --channel=1.25
 
-# Install charmcraft from snap:
+# Install charmcraft from snap
 sudo snap install charmcraft --classic
 
-# Add the 'ubuntu' user to the Microk8s group:
+# Add the 'ubuntu' user to the Microk8s group
 sudo usermod -a -G microk8s ubuntu
 
-# Give the 'ubuntu' user permissions to read the ~/.kube directory:
+# Give the 'ubuntu' user permissions to read the ~/.kube directory
 sudo chown -f -R ubuntu ~/.kube
 
-# Create the 'microk8s' group:
+# Create the 'microk8s' group
 newgrp microk8s
 
-# Enable the necessary Microk8s addons:
+# Enable the necessary Microk8s addons
 microk8s enable hostpath-storage dns
 ```
 
 #### Set up the Juju OLM
+
 ```bash
-# Install the Juju CLI client, juju:
+# Install the Juju CLI client, juju. Minimum version required is juju>=3.1.
 sudo snap install juju --classic
 
-# Install a "juju" controller into your "microk8s" cloud:
+# Install a "juju" controller into your "microk8s" cloud
 juju bootstrap microk8s airbyte-controller
 
-# Create a 'model' on this controller:
+# Create a 'model' on this controller
 juju add-model airbyte
 
-# Enable DEBUG logging:
+# Enable DEBUG logging
 juju model-config logging-config="<root>=INFO;unit=DEBUG"
 
-# Check progress:
+# Check progress
 juju status --relations --watch 2s
 juju debug-log
 ```
 
 #### Deploy Charm
+
 ```bash
-# Pack the charm:
+# Pack the charm
 charmcraft pack [--destructive-mode]
 
-# Deploy the charm:
+# Deploy the charm
 juju deploy ./airbyte-k8s_ubuntu-22.04-amd64.charm --resource airbyte-api-server=airbyte/airbyte-api-server:0.60.0 --resource airbyte-bootloader=airbyte/bootloader:0.60.0 --resource airbyte-connector-builder-server=airbyte/connector-builder-server:0.60.0 --resource airbyte-cron=airbyte/cron:0.60.0 --resource airbyte-pod-sweeper=bitnami/kubectl:1.29.4 --resource airbyte-server=airbyte/server:0.60.0 --resource airbyte-worker=airbyte/worker:0.60.0
 
 # Deploy ui charm (Only if modifying UI charm, otherwise deploy using `juju deploy airbyte-ui-k8s --channel edge`)
@@ -108,6 +113,7 @@ juju deploy ./airbyte-ui-k8s_ubuntu-22.04-amd64.charm --resource airbyte-webapp=
 ```
 
 #### Relate Charms
+
 ```bash
 # Relate operator to postgresql
 juju deploy postgresql-k8s --channel 14/edge --trust
@@ -151,7 +157,17 @@ juju relate airbyte-ui-k8s nginx-ingress-integrator
 ```
 
 #### Cleanup
+
 ```bash
 # Clean-up before retrying
+# Either remove individual applications 
+# (The --force flag can optionally be included if any of the units are in error state)
+juju remove-application airbyte-k8s
+juju remove-application airbyte-ui-k8s
+juju remove-application postgresql-k8s --destroy-storage
+juju remove-application minio
+juju remove-application nginx-ingress-integrator
+
+# Or remove whole model
 juju destroy-model airbyte --destroy-storage
 ```
