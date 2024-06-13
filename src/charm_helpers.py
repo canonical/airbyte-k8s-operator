@@ -15,12 +15,13 @@ from literals import (
 from structured_config import StorageType
 
 
-def create_env(model_name, app_name, config, state):
+def create_env(model_name, app_name, container_name, config, state):
     """Create set of environment variables for application.
 
     Args:
         model_name: Name of the juju model.
         app_name: Name of the application.
+        container_name: Name of Airbyte container.
         config: Charm config.
         state: Charm state.
 
@@ -69,6 +70,10 @@ def create_env(model_name, app_name, config, state):
         "WEBAPP_URL": config["webapp-url"],
         "AIRBYTE_URL": config["webapp-url"],
     }
+
+    # https://github.com/airbytehq/airbyte/issues/29506#issuecomment-1775148609
+    if container_name == "airbyte-api-server":
+        env.update({"INTERNAL_API_HOST": f"http://{app_name}:{INTERNAL_API_PORT}"})
 
     if config["storage-type"].value == StorageType.minio and state.minio:
         minio_endpoint = construct_svc_endpoint(

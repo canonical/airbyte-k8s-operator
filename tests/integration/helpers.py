@@ -2,11 +2,13 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-"""Temporal charm integration test helpers."""
+"""Charm integration test helpers."""
 
 import logging
+import time
 from pathlib import Path
 
+import requests
 import yaml
 from pytest_operator.plugin import OpsTest
 from temporal_client.activities import say_hello
@@ -21,6 +23,9 @@ APP_NAME_AIRBYTE_SERVER = METADATA["name"]
 APP_NAME_TEMPORAL_SERVER = "temporal-k8s"
 APP_NAME_TEMPORAL_ADMIN = "temporal-admin-k8s"
 APP_NAME_TEMPORAL_UI = "temporal-ui-k8s"
+
+GET_HEADERS = {"accept": "application/json"}
+POST_HEADERS = {"accept": "application/json", "content-type": "application/json"}
 
 
 def get_airbyte_charm_resources():
@@ -117,7 +122,7 @@ async def perform_temporal_integrations(ops_test: OpsTest):
     await ops_test.model.integrate(f"{APP_NAME_TEMPORAL_SERVER}:visibility", "postgresql-k8s:database")
     await ops_test.model.integrate(f"{APP_NAME_TEMPORAL_SERVER}:admin", f"{APP_NAME_TEMPORAL_ADMIN}:admin")
     await ops_test.model.wait_for_idle(
-        apps=[APP_NAME_TEMPORAL_SERVER], status="active", raise_on_blocked=False, timeout=180
+        apps=[APP_NAME_TEMPORAL_SERVER, "postgresql-k8s"], status="active", raise_on_blocked=False, timeout=180
     )
 
     assert ops_test.model.applications[APP_NAME_TEMPORAL_SERVER].units[0].workload_status == "active"
@@ -132,7 +137,220 @@ async def perform_airbyte_integrations(ops_test: OpsTest):
     await ops_test.model.integrate(APP_NAME_AIRBYTE_SERVER, "postgresql-k8s")
     await ops_test.model.integrate(APP_NAME_AIRBYTE_SERVER, "minio")
     await ops_test.model.wait_for_idle(
-        apps=[APP_NAME_AIRBYTE_SERVER], status="active", raise_on_blocked=False, timeout=600
+        apps=[APP_NAME_AIRBYTE_SERVER, "postgresql-k8s", "minio"],
+        status="active",
+        raise_on_blocked=False,
+        wait_for_active=True,
+        idle_period=60,
+        timeout=600,
     )
 
     assert ops_test.model.applications[APP_NAME_AIRBYTE_SERVER].units[0].workload_status == "active"
+
+
+def get_airbyte_workspace_id(api_url):
+    """Get Airbyte default workspace ID.
+
+    Args:
+        api_url: Airbyte API base URL.
+    """
+    url = f"{api_url}/v1/workspaces?includeDeleted=false&limit=20&offset=0"
+    logger.info("fetching Airbyte workspace ID")
+    response = requests.get(url, headers=GET_HEADERS, timeout=300)
+
+    assert response.status_code == 200
+    return response.json().get("data")[0]["workspaceId"]
+
+
+def create_airbyte_source(api_url, workspace_id):
+    """Create Airbyte sample source.
+
+    Args:
+        api_url: Airbyte API base URL.
+        workspace_id: default workspace ID.
+    """
+    url = f"{api_url}/v1/sources"
+    payload = {
+        "configuration": {"sourceType": "pokeapi", "pokemon_name": "pikachu"},
+        "name": "API Test",
+        "workspaceId": workspace_id,
+    }
+
+    logger.info("creating Airbyte source")
+    response = requests.post(url, json=payload, headers=POST_HEADERS, timeout=300)
+
+    assert response.status_code == 200
+    return response.json().get("sourceId")
+
+
+def create_airbyte_destination(api_url, model_name, workspace_id, db_password):
+    """Create Airbyte sample destination.
+
+    Args:
+        api_url: Airbyte API base URL.
+        model_name: name of the juju model.
+        workspace_id: default workspace ID.
+        password: database password.
+    """
+    url = f"{api_url}/v1/destinations"
+    payload = {
+        "configuration": {
+            "destinationType": "postgres",
+            "port": 5432,
+            "schema": "pokeapi",
+            "ssl_mode": {"mode": "disable"},
+            "tunnel_method": {"tunnel_method": "NO_TUNNEL"},
+            "host": f"postgresql-k8s-primary.{model_name}.svc.cluster.local",
+            "database": "airbyte-k8s_db",
+            "username": "operator",
+            "password": db_password,
+        },
+        "workspaceId": workspace_id,
+        "name": "Postgres",
+    }
+
+    logger.info("creating Airbyte destination")
+    response = requests.post(url, json=payload, headers=POST_HEADERS, timeout=300)
+
+    assert response.status_code == 200
+    return response.json().get("destinationId")
+
+
+def create_airbyte_connection(api_url, source_id, destination_id):
+    """Create Airbyte connection.
+
+    Args:
+        api_url: Airbyte API base URL.
+        source_id: Airbyte source ID.
+        destination_id: Airbyte destination ID.
+    """
+    url = f"{api_url}/v1/connections"
+    payload = {
+        "schedule": {"scheduleType": "manual"},
+        "dataResidency": "auto",
+        "namespaceDefinition": "destination",
+        "namespaceFormat": None,
+        "nonBreakingSchemaUpdatesBehavior": "ignore",
+        "sourceId": source_id,
+        "destinationId": destination_id,
+    }
+
+    logger.info("creating Airbyte connection")
+    response = requests.post(url, json=payload, headers=POST_HEADERS, timeout=300)
+
+    assert response.status_code == 200
+    return response.json().get("connectionId")
+
+
+def trigger_airbyte_connection(api_url, connection_id):
+    """Trigger Airbyte connection.
+
+    Args:
+        api_url: Airbyte API base URL.
+        connection_id: Airbyte connection ID.
+    """
+    url = f"{api_url}/v1/jobs"
+    payload = {"jobType": "sync", "connectionId": connection_id}
+    logger.info("triggering Airbyte connection")
+    response = requests.post(url, json=payload, headers=POST_HEADERS, timeout=300)
+
+    assert response.status_code == 200
+    return response.json().get("jobId")
+
+
+def check_airbyte_job_status(api_url, job_id):
+    """Get Airbyte sync job status.
+
+    Args:
+        api_url: Airbyte API base URL.
+        job_id: Sync job ID.
+    """
+    url = f"{api_url}/v1/jobs/{job_id}"
+    logger.info("fetching Airbyte job status")
+    response = requests.get(url, headers=GET_HEADERS, timeout=120)
+    logger.info(response.json())
+
+    return response.json().get("status")
+
+
+def cancel_airbyte_job(api_url, job_id):
+    """Cancel Airbyte sync job.
+
+    Args:
+        api_url: Airbyte API base URL.
+        job_id: Sync job ID.
+    """
+    url = f"{api_url}/v1/jobs/{job_id}"
+    logger.info("cancelling Airbyte job")
+    response = requests.delete(url, headers=GET_HEADERS, timeout=120)
+    logger.info(response.json())
+
+    return response.json().get("status")
+
+
+async def get_db_password(ops_test):
+    """Get PostgreSQL DB admin password.
+
+    Args:
+        ops_test: PyTest object.
+    """
+    postgresql_unit = ops_test.model.applications["postgresql-k8s"].units[0]
+    for i in range(10):
+        action = await postgresql_unit.run_action("get-password")
+        result = await action.wait()
+        logger.info(f"attempt {i} -> action result {result.status} {result.results}")
+        if "password" in result.results:
+            return result.results["password"]
+        time.sleep(2)
+
+
+async def run_test_sync_job(ops_test):
+    """Run test Airbyte connection.
+
+    Args:
+        ops_test: PyTest object.
+    """
+    # Create connection
+    api_url = await get_unit_url(ops_test, application=APP_NAME_AIRBYTE_SERVER, unit=0, port=8006)
+    logger.info("curling app address: %s", api_url)
+    workspace_id = get_airbyte_workspace_id(api_url)
+    db_password = await get_db_password(ops_test)
+    assert db_password
+
+    # Create Source
+    source_id = create_airbyte_source(api_url, workspace_id)
+
+    # Create destination
+    destination_id = create_airbyte_destination(api_url, ops_test.model.name, workspace_id, db_password)
+
+    # Create connection
+    connection_id = create_airbyte_connection(api_url, source_id, destination_id)
+
+    # Trigger sync job
+    for i in range(2):
+        logger.info(f"attempt {i+1} to trigger new job")
+        job_id = trigger_airbyte_connection(api_url, connection_id)
+
+        # Wait until job is successful
+        job_successful = False
+        for j in range(15):
+            logger.info(f"job {i+1} attempt {j+1}: getting job status")
+            status = check_airbyte_job_status(api_url, job_id)
+
+            if status == "failed":
+                break
+
+            if status == "succeeded":
+                logger.info(f"job {i+1} attempt {j+1}: job successful!")
+                job_successful = True
+                break
+
+            logger.info(f"job {i+1} attempt {j+1}: job still running, retrying in 20 seconds")
+            time.sleep(20)
+
+        if job_successful:
+            break
+
+        cancel_airbyte_job(api_url, job_id)
+
+    assert job_successful

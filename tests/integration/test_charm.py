@@ -3,11 +3,12 @@
 # See LICENSE file for licensing details.
 
 import logging
+import time
 
 import pytest
 import requests
 from conftest import deploy  # noqa: F401, pylint: disable=W0611
-from helpers import APP_NAME_AIRBYTE_SERVER, get_unit_url
+from helpers import APP_NAME_AIRBYTE_SERVER, get_unit_url, run_test_sync_job
 from pytest_operator.plugin import OpsTest
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,9 @@ class TestDeployment:
         logger.info("curling app address: %s", url)
 
         response = requests.get(f"{url}/api/v1/health", timeout=300)
-        print(response.json())
+
         assert response.status_code == 200
         assert response.json().get("available")
+
+    async def test_sync_job(self, ops_test: OpsTest):
+        await run_test_sync_job(ops_test)
