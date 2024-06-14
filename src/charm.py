@@ -17,6 +17,7 @@ from ops.pebble import CheckStatus
 
 from charm_helpers import create_env
 from literals import (
+    AIRBYTE_API_PORT,
     BUCKET_CONFIGS,
     CONNECTOR_BUILDER_SERVER_API_PORT,
     CONTAINERS,
@@ -282,8 +283,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             self.unit.status = BlockedStatus(f"failed to create buckets: {str(e)}")
             return
 
-        env = create_env(self.model.name, self.app.name, self.config, self._state)
-        self.model.unit.set_ports(INTERNAL_API_PORT, CONNECTOR_BUILDER_SERVER_API_PORT)
+        self.model.unit.set_ports(AIRBYTE_API_PORT, INTERNAL_API_PORT, CONNECTOR_BUILDER_SERVER_API_PORT)
 
         for container_name in list(CONTAINERS.keys()):
             container = self.unit.get_container(container_name)
@@ -303,6 +303,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
                         permissions=0o755,
                     )
 
+            env = create_env(self.model.name, self.app.name, container_name, self.config, self._state)
             pebble_layer = get_pebble_layer(container_name, env)
             container.add_layer(container_name, pebble_layer, combine=True)
             container.replan()
