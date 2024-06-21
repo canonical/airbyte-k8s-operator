@@ -51,7 +51,7 @@ class S3Client:
         s3_bucket = self.s3_resource.Bucket(bucket_name)
         try:
             s3_bucket.meta.client.head_bucket(Bucket=bucket_name)
-            logger.info("Bucket %s exists.", bucket_name)
+            logger.info("Bucket %s exists. Skipping creation.", bucket_name)
             exists = True
         except ClientError as e:
             error_code = int(e.response["Error"]["Code"])

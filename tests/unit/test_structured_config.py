@@ -47,6 +47,22 @@ def test_product_related_values(_harness) -> None:
     check_valid_values(_harness, "storage-type", accepted_values)
 
 
+def test_cpu_related_values(_harness) -> None:
+    """Test specific parameters for each field."""
+    erroneus_values = ["-123", "0", "100f"]
+    check_invalid_values(_harness, "job-main-container-cpu-limit", erroneus_values)
+    accepted_values = ["200m", "4"]
+    check_valid_values(_harness, "job-main-container-cpu-limit", accepted_values)
+
+
+def test_memory_related_values(_harness) -> None:
+    """Test specific parameters for each field."""
+    erroneus_values = ["-123", "0", "100f"]
+    check_invalid_values(_harness, "job-main-container-memory-limit", erroneus_values)
+    accepted_values = ["4Gi", "256Mi"]
+    check_valid_values(_harness, "job-main-container-memory-limit", accepted_values)
+
+
 def check_valid_values(_harness, field: str, accepted_values: list) -> None:
     """Check the correctness of the passed values for a field.
 
