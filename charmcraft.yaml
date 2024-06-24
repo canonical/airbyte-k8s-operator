@@ -7,7 +7,7 @@
 name: airbyte-k8s
 type: charm
 title: Airbyte Server
-summary: Airbyte server operator
+summary: Airbyte Server operator
 description: |
   Airbyte is an open-source data integration platform designed to centralize and 
   streamline the process of extracting and loading data from various sources into 
@@ -265,8 +265,8 @@ config:
         Defines one or more Job pod node selectors. 
         
         Each k=v pair is separated by a ','. For example: key1=value1,key2=value2. 
-        It is the pod node selectors of the sync job and the default pod node selectors
-        fallback for others jobs.
+        It is the pod node selectors of the "sync" job. It also serves as the 
+        default pod node selectors fallback for other jobs.
       type: string
 
     job-kube-annotations:
@@ -274,8 +274,8 @@ config:
         Defines one or more Job pod annotations.
         
         Each k=v pair is separated by a ','. For example: key1=value1,key2=value2.
-        It is the pod annotations of the sync job and the default pod annotations
-        fallback for others jobs.
+        It is the pod annotations of the "sync" job. It also serves as the 
+        default pod annotations fallback for other jobs.
       type: string
 
     job-kube-main-container-image-pull-policy:
@@ -296,15 +296,15 @@ config:
       type: string
 
     job-kube-socat-image:
-      description: Defines the Job pod socat image.
+      description: Defines the Job pod socat image. e.g. alpine/socat:1.7.4.3-r0
       type: string
 
     job-kube-busybox-image:
-      description: Defines the Job pod busybox image.
+      description: Defines the Job pod busybox image. e.g. busybox:1.28
       type: string
 
     job-kube-curl-image:
-      description: Defines the Job pod curl image.
+      description: Defines the Job pod curl image. e.g. curlimages/curl:7.83.1
       type: string
 
     job-kube-namespace:
