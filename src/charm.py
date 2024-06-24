@@ -18,6 +18,7 @@ from ops.pebble import CheckStatus
 from charm_helpers import create_env
 from literals import (
     AIRBYTE_API_PORT,
+    AIRBYTE_VERSION,
     BUCKET_CONFIGS,
     CONNECTOR_BUILDER_SERVER_API_PORT,
     CONTAINERS,
@@ -179,6 +180,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         if not all_valid_plans:
             return
 
+        self.unit.set_workload_version(f"v{AIRBYTE_VERSION}")
         self.unit.status = ActiveStatus()
         if self.unit.is_leader():
             self.airbyte_ui._provide_server_status()
@@ -304,6 +306,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
                     )
 
             env = create_env(self.model.name, self.app.name, container_name, self.config, self._state)
+            env = {k: v for k, v in env.items() if v is not None}
             pebble_layer = get_pebble_layer(container_name, env)
             container.add_layer(container_name, pebble_layer, combine=True)
             container.replan()

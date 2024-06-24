@@ -106,7 +106,7 @@ juju debug-log
 charmcraft pack # the --destructive-mode flag can be used to pack the charm using the current host.
 
 # Deploy the charm
-juju deploy ./airbyte-k8s_ubuntu-22.04-amd64.charm --resource airbyte-api-server=airbyte/airbyte-api-server:0.60.0 --resource airbyte-bootloader=airbyte/bootloader:0.60.0 --resource airbyte-connector-builder-server=airbyte/connector-builder-server:0.60.0 --resource airbyte-cron=airbyte/cron:0.60.0 --resource airbyte-pod-sweeper=bitnami/kubectl:1.29.4 --resource airbyte-server=airbyte/server:0.60.0 --resource airbyte-worker=airbyte/worker:0.60.0
+juju deploy ./airbyte-k8s_ubuntu-22.04-amd64.charm --resource airbyte-api-server=airbyte/airbyte-api-server:0.60.0 --resource airbyte-bootloader=airbyte/bootloader:0.60.0 --resource airbyte-connector-builder-server=airbyte/connector-builder-server:0.60.0 --resource airbyte-cron=airbyte/cron:0.60.0 --resource airbyte-pod-sweeper=bitnami/kubectl:1.29.4 --resource airbyte-server=airbyte/server:0.60.0 --resource airbyte-workers=airbyte/worker:0.60.0
 
 # Deploy ui charm (Only if modifying UI charm, otherwise deploy using `juju deploy airbyte-ui-k8s --channel edge`)
 juju deploy ./airbyte-ui-k8s_ubuntu-22.04-amd64.charm --resource airbyte-webapp=airbyte/webapp:0.60.0

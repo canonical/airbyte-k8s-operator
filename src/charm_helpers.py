@@ -34,18 +34,83 @@ def create_env(model_name, app_name, container_name, config, state):
     port = db_conn["port"]
     db_name = db_conn["dbname"]
     db_url = f"jdbc:postgresql://{host}:{port}/{db_name}"
+    secret_persistence = config["secret-persistence"]
+    if secret_persistence:
+        secret_persistence = config["secret-persistence"].value
 
     # Some defaults are extracted from Helm chart:
     # https://github.com/airbytehq/airbyte-platform/tree/v0.60.0/charts/airbyte
     env = {
         **BASE_ENV,
-        "DATABASE_URL": db_url,
-        "DATABASE_USER": db_conn["user"],
-        "DATABASE_PASSWORD": db_conn["password"],
-        "DATABASE_DB": db_name,
-        "DATABASE_HOST": host,
-        "DATABASE_PORT": port,
+        # Airbye services config
+        "LOG_LEVEL": config["log-level"].value,
         "TEMPORAL_HOST": config["temporal-host"],
+        "WEBAPP_URL": config["webapp-url"],
+        # Secrets config
+        "SECRET_PERSISTENCE": secret_persistence,
+        "SECRET_STORE_GCP_PROJECT_ID": config["secret-store-gcp-project-id"],
+        "SECRET_STORE_GCP_CREDENTIALS": config["secret-store-gcp-credentials"],
+        "VAULT_ADDRESS": config["vault-address"],
+        "VAULT_PREFIX": config["vault-prefix"],
+        "VAULT_AUTH_TOKEN": config["vault-auth-token"],
+        "VAULT_AUTH_METHOD": config["vault-auth-method"].value,
+        "AWS_ACCESS_KEY": config["aws-access-key"],
+        "AWS_SECRET_ACCESS_KEY": config["aws-secret-access-key"],
+        "AWS_KMS_KEY_ARN": config["aws-kms-key-arn"],
+        "AWS_SECRET_MANAGER_SECRET_TAGS": config["aws-secret-manager-secret-tags"],
+        # Jobs config
+        "SYNC_JOB_RETRIES_COMPLETE_FAILURES_MAX_SUCCESSIVE": config[
+            "sync-job-retries-complete-failures-max-successive"
+        ],
+        "SYNC_JOB_RETRIES_COMPLETE_FAILURES_MAX_TOTAL": config["sync-job-retries-complete-failures-max-total"],
+        "SYNC_JOB_RETRIES_COMPLETE_FAILURES_BACKOFF_MIN_INTERVAL_S": config[
+            "sync-job-retries-complete-failures-backoff-min-interval-s"
+        ],
+        "SYNC_JOB_RETRIES_COMPLETE_FAILURES_BACKOFF_MAX_INTERVAL_S": config[
+            "sync-job-retries-complete-failures-backoff-max-interval-s"
+        ],
+        "SYNC_JOB_RETRIES_COMPLETE_FAILURES_BACKOFF_BASE": config["sync-job-retries-complete-failures-backoff-base"],
+        "SYNC_JOB_RETRIES_PARTIAL_FAILURES_MAX_SUCCESSIVE": config["sync-job-retries-partial-failures-max-successive"],
+        "SYNC_JOB_RETRIES_PARTIAL_FAILURES_MAX_TOTAL": config["sync-job-retries-partial-failures-max-total"],
+        "SYNC_JOB_MAX_TIMEOUT_DAYS": config["sync-job-max-timeout-days"],
+        "JOB_MAIN_CONTAINER_CPU_REQUEST": config["job-main-container-cpu-request"],
+        "JOB_MAIN_CONTAINER_CPU_LIMIT": config["job-main-container-cpu-limit"],
+        "JOB_MAIN_CONTAINER_MEMORY_REQUEST": config["job-main-container-memory-request"],
+        "JOB_MAIN_CONTAINER_MEMORY_LIMIT": config["job-main-container-memory-limit"],
+        # Connections config
+        "MAX_FIELDS_PER_CONNECTION": config["max-fields-per-connections"],
+        "MAX_DAYS_OF_ONLY_FAILED_JOBS_BEFORE_CONNECTION_DISABLE": config[
+            "max-days-of-only-failed-jobs-before-connection-disable"
+        ],
+        "MAX_FAILED_JOBS_IN_A_ROW_BEFORE_CONNECTION_DISABLE": config[
+            "max-failed-jobs-in-a-row-before-connection-disable"
+        ],
+        # Worker config
+        "MAX_SPEC_WORKERS": config["max-spec-workers"],
+        "MAX_CHECK_WORKERS": config["max-check-workers"],
+        "MAX_SYNC_WORKERS": config["max-sync-workers"],
+        "MAX_DISCOVER_WORKERS": config["max-discover-workers"],
+        # Data retention config
+        "TEMPORAL_HISTORY_RETENTION_IN_DAYS": config["temporal-history-retention-in-days"],
+        # Kubernetes config
+        "JOB_KUBE_TOLERATIONS": config["job-kube-tolerations"],
+        "JOB_KUBE_NODE_SELECTORS": config["job-kube-node-selectors"],
+        "JOB_KUBE_ANNOTATIONS": config["job-kube-annotations"],
+        "JOB_KUBE_MAIN_CONTAINER_IMAGE_PULL_POLICY": config["job-kube-main-container-image-pull-policy"].value,
+        "JOB_KUBE_MAIN_CONTAINER_IMAGE_PULL_SECRET": config["job-kube-main-container-image-pull-secret"],
+        "JOB_KUBE_SIDECAR_CONTAINER_IMAGE_PULL_POLICY": config["job-kube-sidecar-container-image-pull-policy"].value,
+        "JOB_KUBE_SOCAT_IMAGE": config["job-kube-socat-image"],
+        "JOB_KUBE_BUSYBOX_IMAGE": config["job-kube-busybox-image"],
+        "JOB_KUBE_CURL_IMAGE": config["job-kube-curl-image"],
+        "JOB_KUBE_NAMESPACE": config["job-kube-namespace"] or model_name,
+        # Jobs config
+        "SPEC_JOB_KUBE_NODE_SELECTORS": config["spec-job-kube-node-selectors"],
+        "CHECK_JOB_KUBE_NODE_SELECTORS": config["check-job-kube-node-selectors"],
+        "DISCOVER_JOB_KUBE_NODE_SELECTORS": config["discover-job-kube-node-selectors"],
+        "SPEC_JOB_KUBE_ANNOTATIONS": config["spec-job-kube-annotations"],
+        "CHECK_JOB_KUBE_ANNOTATIONS": config["check-job-kube-annotations"],
+        "DISCOVER_JOB_KUBE_ANNOTATIONS": config["discover-job-kube-annotations"],
+        # Logging config
         "WORKER_LOGS_STORAGE_TYPE": config["storage-type"].value,
         "WORKER_STATE_STORAGE_TYPE": config["storage-type"].value,
         "STORAGE_TYPE": config["storage-type"].value,
@@ -54,10 +119,15 @@ def create_env(model_name, app_name, container_name, config, state):
         "STORAGE_BUCKET_STATE": config["storage-bucket-state"],
         "STORAGE_BUCKET_WORKLOAD_OUTPUT": config["storage-bucket-workload-output"],
         "STORAGE_BUCKET_ACTIVITY_PAYLOAD": config["storage-bucket-activity-payload"],
-        "LOG_LEVEL": config["log-level"].value,
+        # Database config
+        "DATABASE_URL": db_url,
+        "DATABASE_USER": db_conn["user"],
+        "DATABASE_PASSWORD": db_conn["password"],
+        "DATABASE_DB": db_name,
+        "DATABASE_HOST": host,
+        "DATABASE_PORT": port,
         "KEYCLOAK_DATABASE_URL": db_url + "?currentSchema=keycloak",
         "JOB_KUBE_SERVICEACCOUNT": app_name,
-        "JOB_KUBE_NAMESPACE": model_name,
         "RUNNING_TTL_MINUTES": config["pod-running-ttl-minutes"],
         "SUCCEEDED_TTL_MINUTES": config["pod-successful-ttl-minutes"],
         "UNSUCCESSFUL_TTL_MINUTES": config["pod-unsuccessful-ttl-minutes"],
@@ -67,7 +137,6 @@ def create_env(model_name, app_name, container_name, config, state):
         "CONNECTOR_BUILDER_SERVER_API_HOST": f"{app_name}:{CONNECTOR_BUILDER_SERVER_API_PORT}",
         "CONNECTOR_BUILDER_API_HOST": f"{app_name}:{CONNECTOR_BUILDER_SERVER_API_PORT}",
         "AIRBYTE_API_HOST": f"{app_name}:{AIRBYTE_API_PORT}/api/public",
-        "WEBAPP_URL": config["webapp-url"],
         "AIRBYTE_URL": config["webapp-url"],
     }
 

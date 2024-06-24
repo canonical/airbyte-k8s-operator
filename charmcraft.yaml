@@ -7,7 +7,7 @@
 name: airbyte-k8s
 type: charm
 title: Airbyte Server
-summary: Airbyte server operator
+summary: Airbyte Server operator
 description: |
   Airbyte is an open-source data integration platform designed to centralize and 
   streamline the process of extracting and loading data from various sources into 
@@ -81,7 +81,6 @@ provides:
 # General configuration documentation: https://juju.is/docs/sdk/config
 config:
   options:
-    # An example config option to customise the log level of the workload
     log-level:
       description: |
         Configures the log level.
@@ -90,11 +89,279 @@ config:
       default: "INFO"
       type: string
 
+    ##### Airbyte services config #####
     temporal-host:
       description: Temporal server host.
       default: "temporal-k8s:7233"
       type: string
 
+    webapp-url:
+      description: URL for the Airbyte webapp.
+      default: "http://airbyte-ui-k8s:8080"
+      type: string
+
+    ##### Secrets config #####
+    secret-persistence:
+      description: |
+        Defines the Secret Persistence type.
+
+        If set, acceptable values are: "GOOGLE_SECRET_MANAGER", "AWS_SECRET_MANAGER", "TESTING_CONFIG_DB_TABLE", "VAULT"
+      type: string
+
+    secret-store-gcp-project-id:
+      description: Defines the GCP Project to store secrets in. Alpha support.
+      type: string
+
+    secret-store-gcp-credentials:
+      description: |
+        Defines the JSON credentials used to read/write Airbyte Configuration to Google Secret Manager.
+        
+        These credentials must have Secret Manager Read/Write access. Alpha support.
+      type: string
+
+    vault-address:
+      description: Defines the vault address to read/write Airbyte Configuration to Hashicorp Vault. Alpha Support.
+      type: string
+
+    vault-prefix:
+      description: Defines the vault path prefix. Empty by default. Alpha Support.
+      type: string
+
+    vault-auth-token:
+      description: The token used for vault authentication. Alpha Support.
+      type: string
+
+    vault-auth-method:
+      description: How vault will perform authentication. Currently, only supports Token auth. Defaults to "token". Alpha Support.
+      default: "token"
+      type: string
+
+    aws-access-key:
+      description: Defines the aws_access_key_id from the AWS credentials to use for AWS Secret Manager.
+      type: string
+
+    aws-secret-access-key:
+      description: Defines aws_secret_access_key to use for the AWS Secret Manager.
+      type: string
+
+    aws-kms-key-arn:
+      description: Optional param that defines the KMS Encryption key used for the AWS Secret Manager.
+      type: string
+
+    aws-secret-manager-secret-tags:
+      description: |
+        Defines the tags that will be included to all writes to the AWS Secret Manager.
+        
+        The format should be "key1=value1,key2=value2".
+      type: string
+
+    ##### Jobs config #####
+    sync-job-retries-complete-failures-max-successive:
+      description: Max number of successive attempts in which no data was synchronized before failing the job.
+      default: 5
+      type: int
+
+    sync-job-retries-complete-failures-max-total:
+      description: Max number of attempts in which no data was synchronized before failing the job.
+      default: 10
+      type: int
+
+    sync-job-retries-complete-failures-backoff-min-interval-s:
+      description: Minimum backoff interval in seconds between failed attempts in which no data was synchronized.
+      default: 10
+      type: int
+
+    sync-job-retries-complete-failures-backoff-max-interval-s:
+      description: Maximum backoff interval in seconds between failed attempts in which no data was synchronized.
+      default: 1800
+      type: int
+
+    sync-job-retries-complete-failures-backoff-base:
+      description: Exponential base of the backoff interval between failed attempts in which no data was synchronized.
+      default: 3
+      type: int
+
+    sync-job-retries-partial-failures-max-successive:
+      description: Max number of successive attempts in which some data was synchronized before failing the job.
+      default: 1000
+      type: int
+
+    sync-job-retries-partial-failures-max-total:
+      description: Max number of attempts in which some data was synchronized before failing the job.
+      default: 20
+      type: int
+
+    sync-job-max-timeout-days:
+      description: Number of days a sync job will execute for before timing out.
+      default: 3
+      type: int
+
+    job-main-container-cpu-request:
+      description: Job container's minimum CPU usage. Defaults to none.
+      type: string
+
+    job-main-container-cpu-limit:
+      description: Job container's maximum CPU usage. Defaults to none.
+      type: string
+
+    job-main-container-memory-request:
+      description: Job container's minimum RAM usage. Defaults to none.
+      type: string
+
+    job-main-container-memory-limit:
+      description: Job container's maximum RAM usage. Defaults to none.
+      type: string
+
+    ##### Connections config #####
+    max-fields-per-connections:
+      description: Maximum number of fields able to be selected for a single connection.
+      default: 20000
+      type: int
+
+    max-days-of-only-failed-jobs-before-connection-disable:
+      description: Number of consecuative days of only failed jobs before the connection is disabled.
+      default: 14
+      type: int
+
+    max-failed-jobs-in-a-row-before-connection-disable:
+      description: Number of consecuative failed jobs before the connection is disabled.
+      default: 20
+      type: int
+
+    ##### Worker config #####
+    max-spec-workers:
+      description: Maximum number of Spec workers each Airbyte Worker container can support. Defaults to 5.
+      default: 5
+      type: int
+
+    max-check-workers:
+      description: Maximum number of Check workers each Airbyte Worker container can support. Defaults to 5.
+      default: 5
+      type: int
+
+    max-sync-workers:
+      description: Maximum number of Sync workers each Airbyte Worker container can support. Defaults to 5.
+      default: 5
+      type: int
+
+    max-discover-workers:
+      description: Maximum number of Discover workers each Airbyte Worker container can support. Defaults to 5.
+      default: 5
+      type: int
+
+    ##### Data retention config #####
+    temporal-history-retention-in-days:
+      description: Retention period of the job history in Temporal, defaults to 30 days.
+      default: 30
+      type: int
+
+    ##### Kubernetes config #####
+    job-kube-tolerations:
+      description: |
+        Defines one or more Job pod tolerations. 
+        
+        Tolerations are separated by ';'. Each toleration contains k=v pairs mentioning some/all 
+        of key, effect, operator and value and separated by ','.
+      type: string
+
+    job-kube-node-selectors:
+      description: |
+        Defines one or more Job pod node selectors. 
+        
+        Each k=v pair is separated by a ','. For example: key1=value1,key2=value2. 
+        It is the pod node selectors of the "sync" job. It also serves as the 
+        default pod node selectors fallback for other jobs.
+      type: string
+
+    job-kube-annotations:
+      description: |
+        Defines one or more Job pod annotations.
+        
+        Each k=v pair is separated by a ','. For example: key1=value1,key2=value2.
+        It is the pod annotations of the "sync" job. It also serves as the 
+        default pod annotations fallback for other jobs.
+      type: string
+
+    job-kube-main-container-image-pull-policy:
+      description: Defines the Job pod connector image pull policy.
+      default: "IfNotPresent"
+      type: string
+
+    job-kube-main-container-image-pull-secret:
+      description: Defines the Job pod connector image pull secret. Useful when hosting private images.
+      type: string
+
+    job-kube-sidecar-container-image-pull-policy:
+      description: |
+        Defines the image pull policy on the sidecar containers in the Job pod. 
+        
+        Useful when there are cluster policies enforcing to always pull.
+      default: "IfNotPresent"
+      type: string
+
+    job-kube-socat-image:
+      description: Defines the Job pod socat image. e.g. alpine/socat:1.7.4.3-r0
+      type: string
+
+    job-kube-busybox-image:
+      description: Defines the Job pod busybox image. e.g. busybox:1.28
+      type: string
+
+    job-kube-curl-image:
+      description: Defines the Job pod curl image. e.g. curlimages/curl:7.83.1
+      type: string
+
+    job-kube-namespace:
+      description: |
+        Defines the Kubernetes namespace Job pods are created in.
+
+        Defaults to the current namespace.
+      type: string
+
+    ##### Jobs config #####
+    spec-job-kube-node-selectors:
+      description: |
+        Defines one or more pod node selectors for the spec job. 
+        
+        Each k=v pair is separated by a ','. For example: key1=value1,key2=value2.
+      type: string
+
+    check-job-kube-node-selectors:
+      description: |
+        Defines one or more pod node selectors for the check job. 
+        
+        Each k=v pair is separated by a ','. For example: key1=value1,key2=value2.
+      type: string
+
+    discover-job-kube-node-selectors:
+      description: |
+        Defines one or more pod node selectors for the discover job. 
+        
+        Each k=v pair is separated by a ','. For example: key1=value1,key2=value2.
+      type: string
+
+    spec-job-kube-annotations:
+      description: |
+        Defines one or more pod annotations for the spec job. 
+        
+        Each k=v pair is separated by a ','. For example: key1=value1,key2=value2
+      type: string
+
+    check-job-kube-annotations:
+      description: |
+        Defines one or more pod annotations for the check job. 
+        
+        Each k=v pair is separated by a ','. For example: key1=value1,key2=value2
+      type: string
+
+    discover-job-kube-annotations:
+      description: |
+        Defines one or more pod annotations for the discover job. 
+        
+        Each k=v pair is separated by a ','. For example: key1=value1,key2=value2
+      type: string
+
+    ##### Logging config #####
     storage-type:
       description: |
         Storage type for logs.
@@ -129,6 +396,7 @@ config:
       default: "airbyte-state-storage"
       type: string
 
+    ##### Miscellaneous config #####
     pod-running-ttl-minutes:
       description: Number of minutes until a running job pod is removed.
       default: 240
@@ -143,11 +411,6 @@ config:
       description: Number of minutes until an unsuccessful job pod is removed.
       default: 1440
       type: int
-
-    webapp-url:
-      description: URL for the Airbyte webapp.
-      default: "http://airbyte-ui-k8s:8080"
-      type: string
 
 # The containers and resources metadata apply to Kubernetes charms only.
 # See https://juju.is/docs/sdk/metadata-reference for a checklist and guidance.
