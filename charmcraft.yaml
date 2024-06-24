@@ -13,6 +13,9 @@ description: |
   streamline the process of extracting and loading data from various sources into 
   data warehouses, lakes, or other destinations.
 
+links:
+  documentation: https://discourse.charmhub.io/t/charmed-airbyte-k8s-overview/14530
+
 # (Required for 'charm' type)
 bases:
   - build-on:
