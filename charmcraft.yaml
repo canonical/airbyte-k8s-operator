@@ -103,9 +103,9 @@ config:
     ##### Secrets config #####
     secret-persistence:
       description: |
-        Defines the Secret Persistence type. Defaults to NO_OP.
+        Defines the Secret Persistence type.
 
-        Acceptable values are: "GOOGLE_SECRET_MANAGER", "AWS_SECRET_MANAGER", "TESTING_CONFIG_DB_TABLE", "VAULT"
+        If set, acceptable values are: "GOOGLE_SECRET_MANAGER", "AWS_SECRET_MANAGER", "TESTING_CONFIG_DB_TABLE", "VAULT"
       type: string
 
     secret-store-gcp-project-id:
@@ -193,6 +193,7 @@ config:
 
     sync-job-max-timeout-days:
       description: Number of days a sync job will execute for before timing out.
+      default: 3
       type: int
 
     job-main-container-cpu-request:
@@ -214,14 +215,17 @@ config:
     ##### Connections config #####
     max-fields-per-connections:
       description: Maximum number of fields able to be selected for a single connection.
+      default: 20000
       type: int
 
     max-days-of-only-failed-jobs-before-connection-disable:
       description: Number of consecuative days of only failed jobs before the connection is disabled.
+      default: 14
       type: int
 
     max-failed-jobs-in-a-row-before-connection-disable:
       description: Number of consecuative failed jobs before the connection is disabled.
+      default: 20
       type: int
 
     ##### Worker config #####
