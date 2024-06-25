@@ -34,7 +34,7 @@ operators can be deployed and connected to each other using the Juju command
 line as follows:
 
 ```bash
-juju deploy airbyte-k8s --trust
+juju deploy airbyte-k8s --channel edge --trust
 juju deploy postgresql-k8s --channel 14/edge --trust
 juju relate airbyte-k8s postgresql-k8s
 ```
@@ -83,7 +83,7 @@ Once the Airbyte UI operator is deployed, it can be connected to the Airbyte
 operator using the Juju command line as follows:
 
 ```bash
-juju deploy airbyte-ui-k8s
+juju deploy airbyte-ui-k8s --channel edge
 juju relate airbyte-k8s airbyte-ui-k8s
 ```
 
