@@ -1,0 +1,13 @@
+name: Publish to edge
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test-and-publish-charm:
+    uses: canonical/operator-workflows/.github/workflows/publish_charm.yaml@8892eb826818585b397295e40276ddd0c5d3d459
+    secrets: inherit
+    with:
+      channel: latest/edge
