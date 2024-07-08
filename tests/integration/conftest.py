@@ -3,7 +3,6 @@
 
 """Charm integration test config."""
 
-import asyncio
 import logging
 
 import pytest_asyncio

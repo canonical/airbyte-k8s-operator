@@ -16,7 +16,7 @@ from ops.pebble import CheckStatus
 from ops.testing import Harness
 
 from charm import AirbyteK8SOperatorCharm
-from src.literals import BASE_ENV, CONTAINERS
+from src.literals import BASE_ENV, CONTAINER_HEALTH_CHECK_MAP
 from src.structured_config import StorageType
 
 logging.basicConfig(level=logging.DEBUG)
@@ -50,17 +50,17 @@ class TestCharm(TestCase):
         """Set up for the unit tests."""
         self.harness = Harness(AirbyteK8SOperatorCharm)
         self.addCleanup(self.harness.cleanup)
-        for container_name in list(CONTAINERS.keys()):
+        for container_name in CONTAINER_HEALTH_CHECK_MAP:
             self.harness.set_can_connect(container_name, True)
         self.harness.set_leader(True)
         self.harness.set_model_name("airbyte-model")
-        self.harness.add_network("10.0.0.10", endpoint="peer")
+        self.harness.add_network("10.0.0.10", endpoint="airbyte-peer")
         self.harness.begin()
 
     def test_initial_plan(self):
         """The initial pebble plan is empty."""
         harness = self.harness
-        for container_name in list(CONTAINERS.keys()):
+        for container_name in CONTAINER_HEALTH_CHECK_MAP:
             initial_plan = harness.get_container_pebble_plan(container_name).to_dict()
             self.assertEqual(initial_plan, {})
 
@@ -78,7 +78,7 @@ class TestCharm(TestCase):
         harness = self.harness
 
         # Simulate peer relation readiness.
-        harness.add_relation("peer", "airbyte")
+        harness.add_relation("airbyte-peer", "airbyte")
 
         simulate_pebble_readiness(harness)
 
@@ -93,7 +93,7 @@ class TestCharm(TestCase):
         harness = self.harness
 
         # Simulate peer relation readiness.
-        harness.add_relation("peer", "airbyte")
+        harness.add_relation("airbyte-peer", "airbyte")
 
         simulate_pebble_readiness(harness)
 
@@ -114,7 +114,7 @@ class TestCharm(TestCase):
         harness.update_config({"storage-type": "S3"})
 
         # Simulate peer relation readiness.
-        harness.add_relation("peer", "airbyte")
+        harness.add_relation("airbyte-peer", "airbyte")
 
         simulate_pebble_readiness(harness)
 
@@ -136,7 +136,7 @@ class TestCharm(TestCase):
         simulate_lifecycle(harness)
 
         # The plan is generated after pebble is ready.
-        for container_name in list(CONTAINERS.keys()):
+        for container_name in CONTAINER_HEALTH_CHECK_MAP:
             want_plan = create_plan(container_name, "MINIO")
 
             got_plan = harness.get_container_pebble_plan(container_name).to_dict()
@@ -156,7 +156,7 @@ class TestCharm(TestCase):
         simulate_lifecycle(harness)
 
         # The plan is generated after pebble is ready.
-        for container_name in list(CONTAINERS.keys()):
+        for container_name in CONTAINER_HEALTH_CHECK_MAP:
             want_plan = create_plan(container_name, "S3")
 
             got_plan = harness.get_container_pebble_plan(container_name).to_dict()
@@ -173,9 +173,9 @@ class TestCharm(TestCase):
         harness = self.harness
 
         simulate_lifecycle(harness)
-        for container_name in list(CONTAINERS.keys()):
+        for container_name, settings in CONTAINER_HEALTH_CHECK_MAP.items():
             container = harness.model.unit.get_container(container_name)
-            if CONTAINERS[container_name]:
+            if settings:
                 container.get_check = mock.Mock(status="up")
                 container.get_check.return_value.status = CheckStatus.UP
 
@@ -188,9 +188,9 @@ class TestCharm(TestCase):
 
         simulate_lifecycle(harness)
 
-        for container_name in list(CONTAINERS.keys()):
+        for container_name, settings in CONTAINER_HEALTH_CHECK_MAP.items():
             container = harness.model.unit.get_container(container_name)
-            if CONTAINERS[container_name]:
+            if settings:
                 container.get_check = mock.Mock(status="up")
                 container.get_check.return_value.status = CheckStatus.DOWN
 
@@ -202,10 +202,10 @@ class TestCharm(TestCase):
         harness = self.harness
         simulate_lifecycle(harness)
 
-        for container_name in list(CONTAINERS.keys()):
+        for container_name, settings in CONTAINER_HEALTH_CHECK_MAP.items():
             container = harness.model.unit.get_container(container_name)
             container.add_layer(container_name, mock_incomplete_pebble_plan, combine=True)
-            if CONTAINERS[container_name]:
+            if settings:
                 container.get_check = mock.Mock(status="up")
                 container.get_check.return_value.status = CheckStatus.UP
 
@@ -256,9 +256,13 @@ def simulate_lifecycle(
 
     Args:
         harness: ops.testing.Harness object used to simulate charm lifecycle.
+        _get_interfaces: Mock of "_get_interfaces" method.
+        _get_object_storage_data: Mock of "_get_object_storage_data" method.
+        create_bucket_if_not_exists: Mock of "create_bucket_if_not_exists" method.
+        set_bucket_lifecycle_policy: Mock of "set_bucket_lifecycle_policy" method.
     """
     # Simulate peer relation readiness.
-    harness.add_relation("peer", "airbyte")
+    harness.add_relation("airbyte-peer", "airbyte")
 
     simulate_pebble_readiness(harness)
 
@@ -280,8 +284,12 @@ def simulate_lifecycle(
 
 
 def simulate_pebble_readiness(harness):
-    # Simulate pebble readiness on all containers.
-    for container_name in list(CONTAINERS.keys()):
+    """Simulate pebble readiness on all charm container.
+
+    Args:
+        harness: ops.testing.Harness object used to simulate charm lifecycle.
+    """
+    for container_name in CONTAINER_HEALTH_CHECK_MAP:
         container = harness.model.unit.get_container(container_name)
         harness.charm.on[container_name].pebble_ready.emit(container)
 
@@ -327,6 +335,15 @@ def s3_provider_databag():
 
 
 def create_plan(container_name, storage_type):
+    """Create container pebble plan.
+
+    Args:
+        container_name: Name of Airbyte container.
+        storage_type: Type of storage in charm config.
+
+    Returns:
+        Container pebble plan.
+    """
     want_plan = {
         "services": {
             container_name: {
@@ -399,7 +416,7 @@ def create_plan(container_name, storage_type):
     }
 
     if container_name == "airbyte-api-server":
-        want_plan["services"][container_name]["environment"].update({"INTERNAL_API_HOST": f"http://airbyte-k8s:8001"})
+        want_plan["services"][container_name]["environment"].update({"INTERNAL_API_HOST": "http://airbyte-k8s:8001"})
 
     if storage_type == StorageType.minio:
         want_plan["services"][container_name]["environment"].update(
@@ -425,7 +442,7 @@ def create_plan(container_name, storage_type):
             }
         )
 
-    application_info = CONTAINERS[container_name]
+    application_info = CONTAINER_HEALTH_CHECK_MAP[container_name]
     if application_info:
         want_plan["services"][container_name].update(
             {

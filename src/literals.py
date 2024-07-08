@@ -1,14 +1,14 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-"""Literals."""
+"""Charm literals."""
 
 CONNECTOR_BUILDER_SERVER_API_PORT = 80
 INTERNAL_API_PORT = 8001
 AIRBYTE_API_PORT = 8006
 WORKLOAD_API_PORT = 8007
 
-CONTAINERS = {
+CONTAINER_HEALTH_CHECK_MAP = {
     "airbyte-api-server": {
         "port": AIRBYTE_API_PORT,
         "health_endpoint": "/health",

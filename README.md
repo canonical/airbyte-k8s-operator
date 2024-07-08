@@ -1,3 +1,6 @@
+[![Charmhub Badge](https://charmhub.io/airbyte-k8s/badge.svg)](https://charmhub.io/airbyte-k8s)
+[![Release Edge](https://github.com/canonical/airbyte-k8s-operator/actions/workflows/publish_charm.yaml/badge.svg)](https://github.com/canonical/airbyte-k8s-operator/actions/workflows/publish_charm.yaml)
+
 # Airbyte K8s Operator
 
 This is the Kubernetes Python Operator for [Airbyte](https://airbyte.com/).
@@ -38,6 +41,10 @@ juju deploy airbyte-k8s --channel edge --trust
 juju deploy postgresql-k8s --channel 14/edge --trust
 juju relate airbyte-k8s postgresql-k8s
 ```
+
+Note: The `--trust` is required when deploying charmed Airbyte k8s to enable it
+to create k8s pods for sync jobs. The charm contains a script which periodically
+cleans up these resources once they complete their function.
 
 ### Deploying Minio
 
