@@ -37,8 +37,8 @@ def test_config_parsing_parameters_integer_values(_harness) -> None:
         check_valid_values(_harness, field, valid_values)
 
 
-def test_product_related_values(_harness) -> None:
-    """Test specific parameters for each field."""
+def test_application_related_values(_harness) -> None:
+    """Test specific parameters for application-related fields."""
     erroneus_values = ["test-value", "foo", "bar"]
 
     # storage-type
@@ -48,7 +48,7 @@ def test_product_related_values(_harness) -> None:
 
 
 def test_cpu_related_values(_harness) -> None:
-    """Test specific parameters for each field."""
+    """Test specific parameters for cpu-related fields."""
     erroneus_values = ["-123", "0", "100f"]
     check_invalid_values(_harness, "job-main-container-cpu-limit", erroneus_values)
     accepted_values = ["200m", "4"]
@@ -56,7 +56,7 @@ def test_cpu_related_values(_harness) -> None:
 
 
 def test_memory_related_values(_harness) -> None:
-    """Test specific parameters for each field."""
+    """Test specific parameters for memory-related fields."""
     erroneus_values = ["-123", "0", "100f"]
     check_invalid_values(_harness, "job-main-container-memory-limit", erroneus_values)
     accepted_values = ["4Gi", "256Mi"]
