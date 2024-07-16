@@ -104,10 +104,10 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             args: Ignore.
         """
         super().__init__(*args)
-        self._state = State(self.app, lambda: self.model.get_relation("airbyte-peer"))
+        self._state = State(self.app, lambda: self.model.get_relation("peer"))
 
         self.framework.observe(self.on.config_changed, self._on_config_changed)
-        self.framework.observe(self.on.airbyte_peer_relation_changed, self._on_peer_relation_changed)
+        self.framework.observe(self.on.peer_relation_changed, self._on_peer_relation_changed)
         self.framework.observe(self.on.update_status, self._on_update_status)
 
         # Handle postgresql relation.

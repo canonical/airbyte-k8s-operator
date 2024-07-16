@@ -30,7 +30,7 @@ bases:
 
 # Metadata
 peers:
-  airbyte-peer:
+  peer:
     interface: airbyte
 
 requires:
