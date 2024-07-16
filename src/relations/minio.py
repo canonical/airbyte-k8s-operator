@@ -101,8 +101,8 @@ class MinioRelation(framework.Object):
             charm = self.charm
             # Hack: get_interfaces checks for peer relation which does not exist under
             # requires/provides list in charmcraft.yaml
-            if "peer" in charm.meta.relations:
-                del charm.meta.relations["peer"]
+            if "airbyte-peer" in charm.meta.relations:
+                del charm.meta.relations["airbyte-peer"]
             interfaces = get_interfaces(charm)
         except NoVersionsListed as err:
             raise ErrorWithStatus(err, WaitingStatus) from err

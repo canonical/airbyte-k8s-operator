@@ -54,7 +54,7 @@ class TestCharm(TestCase):
             self.harness.set_can_connect(container_name, True)
         self.harness.set_leader(True)
         self.harness.set_model_name("airbyte-model")
-        self.harness.add_network("10.0.0.10", endpoint="peer")
+        self.harness.add_network("10.0.0.10", endpoint="airbyte-peer")
         self.harness.begin()
 
     def test_initial_plan(self):
@@ -78,7 +78,7 @@ class TestCharm(TestCase):
         harness = self.harness
 
         # Simulate peer relation readiness.
-        harness.add_relation("peer", "airbyte")
+        harness.add_relation("airbyte-peer", "airbyte")
 
         simulate_pebble_readiness(harness)
 
@@ -93,7 +93,7 @@ class TestCharm(TestCase):
         harness = self.harness
 
         # Simulate peer relation readiness.
-        harness.add_relation("peer", "airbyte")
+        harness.add_relation("airbyte-peer", "airbyte")
 
         simulate_pebble_readiness(harness)
 
@@ -114,7 +114,7 @@ class TestCharm(TestCase):
         harness.update_config({"storage-type": "S3"})
 
         # Simulate peer relation readiness.
-        harness.add_relation("peer", "airbyte")
+        harness.add_relation("airbyte-peer", "airbyte")
 
         simulate_pebble_readiness(harness)
 
@@ -262,7 +262,7 @@ def simulate_lifecycle(
         set_bucket_lifecycle_policy: Mock of "set_bucket_lifecycle_policy" method.
     """
     # Simulate peer relation readiness.
-    harness.add_relation("peer", "airbyte")
+    harness.add_relation("airbyte-peer", "airbyte")
 
     simulate_pebble_readiness(harness)
 
