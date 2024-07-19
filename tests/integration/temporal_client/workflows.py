@@ -4,9 +4,7 @@
 
 """Temporal client sample workflow."""
 
-import asyncio
 from datetime import timedelta
-from typing import List
 
 from temporalio import workflow
 

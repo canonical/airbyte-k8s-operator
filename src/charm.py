@@ -21,7 +21,7 @@ from literals import (
     AIRBYTE_VERSION,
     BUCKET_CONFIGS,
     CONNECTOR_BUILDER_SERVER_API_PORT,
-    CONTAINERS,
+    CONTAINER_HEALTH_CHECK_MAP,
     INTERNAL_API_PORT,
     LOGS_BUCKET_CONFIG,
     REQUIRED_S3_PARAMETERS,
@@ -63,7 +63,7 @@ def get_pebble_layer(application_name, context):
         },
     }
 
-    application_info = CONTAINERS[application_name]
+    application_info = CONTAINER_HEALTH_CHECK_MAP[application_name]
     if application_info is not None:
         pebble_layer["services"][application_name].update(
             {
@@ -104,10 +104,10 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             args: Ignore.
         """
         super().__init__(*args)
-        self._state = State(self.app, lambda: self.model.get_relation("peer"))
+        self._state = State(self.app, lambda: self.model.get_relation("airbyte-peer"))
 
         self.framework.observe(self.on.config_changed, self._on_config_changed)
-        self.framework.observe(self.on.peer_relation_changed, self._on_peer_relation_changed)
+        self.framework.observe(self.on.airbyte_peer_relation_changed, self._on_peer_relation_changed)
         self.framework.observe(self.on.update_status, self._on_update_status)
 
         # Handle postgresql relation.
@@ -123,7 +123,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         # Handle UI relation
         self.airbyte_ui = AirbyteServerProvider(self)
 
-        for container_name in list(CONTAINERS.keys()):
+        for container_name in CONTAINER_HEALTH_CHECK_MAP:
             self.framework.observe(self.on[container_name].pebble_ready, self._on_pebble_ready)
 
     @log_event_handler(logger)
@@ -157,8 +157,8 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             return
 
         all_valid_plans = True
-        for container_name in list(CONTAINERS.keys()):
-            if not CONTAINERS[container_name]:
+        for container_name, settings in CONTAINER_HEALTH_CHECK_MAP.items():
+            if not settings:
                 continue
 
             container = self.unit.get_container(container_name)
@@ -167,7 +167,6 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             if not valid_pebble_plan:
                 logger.debug(f"failed to validate pebble plan for {container_name}, attempting creation again")
                 all_valid_plans = False
-                self._update(event)
                 continue
 
             logger.info(f"performing up check for {container_name}")
@@ -178,6 +177,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
                 return
 
         if not all_valid_plans:
+            self._update(event)
             return
 
         self.unit.set_workload_version(f"v{AIRBYTE_VERSION}")
@@ -287,7 +287,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
 
         self.model.unit.set_ports(AIRBYTE_API_PORT, INTERNAL_API_PORT, CONNECTOR_BUILDER_SERVER_API_PORT)
 
-        for container_name in list(CONTAINERS.keys()):
+        for container_name in CONTAINER_HEALTH_CHECK_MAP:
             container = self.unit.get_container(container_name)
             if not container.can_connect():
                 event.defer()

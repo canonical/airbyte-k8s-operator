@@ -3,7 +3,6 @@
 
 """Charm integration test config."""
 
-import asyncio
 import logging
 
 import pytest_asyncio
@@ -37,7 +36,7 @@ async def deploy(ops_test: OpsTest):
         config={"num-history-shards": 4},
     )
     await ops_test.model.deploy(APP_NAME_TEMPORAL_ADMIN, channel="edge")
-    await ops_test.model.deploy("postgresql-k8s", channel="14/edge", trust=True)
+    await ops_test.model.deploy("postgresql-k8s", channel="14/stable", trust=True)
     await ops_test.model.deploy("minio", channel="edge")
 
     async with ops_test.fast_forward():

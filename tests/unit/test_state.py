@@ -3,12 +3,12 @@
 #
 # Learn more about testing at: https://juju.is/docs/sdk/testing
 
+"""Charm state unit tests."""
+
 import json
 from unittest import TestCase
 
 from state import State
-
-"""Charm state unit tests."""
 
 
 class TestState(TestCase):

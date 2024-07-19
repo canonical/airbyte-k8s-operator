@@ -3,11 +3,9 @@
 # See LICENSE file for licensing details.
 
 import logging
-import time
 
 import pytest
 import requests
-from conftest import deploy  # noqa: F401, pylint: disable=W0611
 from helpers import APP_NAME_AIRBYTE_SERVER, get_unit_url, run_test_sync_job
 from pytest_operator.plugin import OpsTest
 

@@ -1,3 +1,6 @@
+[![Charmhub Badge](https://charmhub.io/airbyte-k8s/badge.svg)](https://charmhub.io/airbyte-k8s)
+[![Release Edge](https://github.com/canonical/airbyte-k8s-operator/actions/workflows/publish_charm.yaml/badge.svg)](https://github.com/canonical/airbyte-k8s-operator/actions/workflows/publish_charm.yaml)
+
 # Airbyte K8s Operator
 
 This is the Kubernetes Python Operator for [Airbyte](https://airbyte.com/).
@@ -39,6 +42,10 @@ juju deploy postgresql-k8s --channel 14/edge --trust
 juju relate airbyte-k8s postgresql-k8s
 ```
 
+Note: The `--trust` is required when deploying charmed Airbyte k8s to enable it
+to create k8s pods for sync jobs. The charm contains a script which periodically
+cleans up these resources once they complete their function.
+
 ### Deploying Minio
 
 Airbyte uses Minio for storing state and relevant logs. The Airbyte and Minio
@@ -57,7 +64,7 @@ The Temporal operators can be deployed and connected to each other using the
 Juju command line as follows:
 
 ```bash
-juju deploy temporal-k8s
+juju deploy temporal-k8s --config num-history-shards=512
 juju deploy temporal-admin-k8s
 juju relate temporal-k8s:db postgresql-k8s:database
 juju relate temporal-k8s:visibility postgresql-k8s:database

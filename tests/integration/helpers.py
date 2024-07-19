@@ -29,6 +29,11 @@ POST_HEADERS = {"accept": "application/json", "content-type": "application/json"
 
 
 def get_airbyte_charm_resources():
+    """Fetch charm resources from charmcraft.yaml.
+
+    Returns:
+        Charm resources.
+    """
     return {
         "airbyte-api-server": METADATA["resources"]["airbyte-api-server"]["upstream-source"],
         "airbyte-bootloader": METADATA["resources"]["airbyte-bootloader"]["upstream-source"],
@@ -153,6 +158,9 @@ def get_airbyte_workspace_id(api_url):
 
     Args:
         api_url: Airbyte API base URL.
+
+    Returns:
+        Airbyte workspace ID.
     """
     url = f"{api_url}/v1/workspaces?includeDeleted=false&limit=20&offset=0"
     logger.info("fetching Airbyte workspace ID")
@@ -168,6 +176,9 @@ def create_airbyte_source(api_url, workspace_id):
     Args:
         api_url: Airbyte API base URL.
         workspace_id: default workspace ID.
+
+    Returns:
+        Created source ID.
     """
     url = f"{api_url}/v1/sources"
     payload = {
@@ -190,7 +201,10 @@ def create_airbyte_destination(api_url, model_name, workspace_id, db_password):
         api_url: Airbyte API base URL.
         model_name: name of the juju model.
         workspace_id: default workspace ID.
-        password: database password.
+        db_password: database password.
+
+    Returns:
+        Created destination ID.
     """
     url = f"{api_url}/v1/destinations"
     payload = {
@@ -223,6 +237,9 @@ def create_airbyte_connection(api_url, source_id, destination_id):
         api_url: Airbyte API base URL.
         source_id: Airbyte source ID.
         destination_id: Airbyte destination ID.
+
+    Returns:
+        Created connection ID.
     """
     url = f"{api_url}/v1/connections"
     payload = {
@@ -248,6 +265,9 @@ def trigger_airbyte_connection(api_url, connection_id):
     Args:
         api_url: Airbyte API base URL.
         connection_id: Airbyte connection ID.
+
+    Returns:
+        Created job ID.
     """
     url = f"{api_url}/v1/jobs"
     payload = {"jobType": "sync", "connectionId": connection_id}
@@ -264,6 +284,9 @@ def check_airbyte_job_status(api_url, job_id):
     Args:
         api_url: Airbyte API base URL.
         job_id: Sync job ID.
+
+    Returns:
+        Job status.
     """
     url = f"{api_url}/v1/jobs/{job_id}"
     logger.info("fetching Airbyte job status")
@@ -279,6 +302,9 @@ def cancel_airbyte_job(api_url, job_id):
     Args:
         api_url: Airbyte API base URL.
         job_id: Sync job ID.
+
+    Returns:
+        Job status.
     """
     url = f"{api_url}/v1/jobs/{job_id}"
     logger.info("cancelling Airbyte job")
@@ -293,6 +319,9 @@ async def get_db_password(ops_test):
 
     Args:
         ops_test: PyTest object.
+
+    Returns:
+        PostgreSQL DB admin password.
     """
     postgresql_unit = ops_test.model.applications["postgresql-k8s"].units[0]
     for i in range(10):
@@ -328,24 +357,24 @@ async def run_test_sync_job(ops_test):
 
     # Trigger sync job
     for i in range(2):
-        logger.info(f"attempt {i+1} to trigger new job")
+        logger.info(f"attempt {i + 1} to trigger new job")
         job_id = trigger_airbyte_connection(api_url, connection_id)
 
         # Wait until job is successful
         job_successful = False
         for j in range(15):
-            logger.info(f"job {i+1} attempt {j+1}: getting job status")
+            logger.info(f"job {i + 1} attempt {j + 1}: getting job status")
             status = check_airbyte_job_status(api_url, job_id)
 
             if status == "failed":
                 break
 
             if status == "succeeded":
-                logger.info(f"job {i+1} attempt {j+1}: job successful!")
+                logger.info(f"job {i + 1} attempt {j + 1}: job successful!")
                 job_successful = True
                 break
 
-            logger.info(f"job {i+1} attempt {j+1}: job still running, retrying in 20 seconds")
+            logger.info(f"job {i + 1} attempt {j + 1}: job still running, retrying in 20 seconds")
             time.sleep(20)
 
         if job_successful:
