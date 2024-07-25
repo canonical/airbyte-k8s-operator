@@ -64,7 +64,7 @@ The Temporal operators can be deployed and connected to each other using the
 Juju command line as follows:
 
 ```bash
-juju deploy temporal-k8s --config num-history-shards=512
+juju deploy temporal-k8s --config num-history-shards=4 # This value can be increased to 1024 or 2048 for a production deployment
 juju deploy temporal-admin-k8s
 juju relate temporal-k8s:db postgresql-k8s:database
 juju relate temporal-k8s:visibility postgresql-k8s:database
