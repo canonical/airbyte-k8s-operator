@@ -1,7 +1,7 @@
 [![Charmhub Badge](https://charmhub.io/airbyte-k8s/badge.svg)](https://charmhub.io/airbyte-k8s)
 [![Release Edge](https://github.com/canonical/airbyte-k8s-operator/actions/workflows/publish_charm.yaml/badge.svg)](https://github.com/canonical/airbyte-k8s-operator/actions/workflows/publish_charm.yaml)
 
-# Airbyte K8s Operator
+# Airbyte Server
 
 This is the Kubernetes Python Operator for [Airbyte](https://airbyte.com/).
 
@@ -107,4 +107,5 @@ required integrations exist.
 This charm is still in active development. Please see the
 [Juju SDK docs](https://juju.is/docs/sdk) for guidelines on enhancements to this
 charm following best practice guidelines, and
-[CONTRIBUTING.md](./CONTRIBUTING.md) for developer guidance.
+[CONTRIBUTING.md](https://github.com/canonical/airbyte-k8s-operator/blob/main/CONTRIBUTING.md)
+for developer guidance.
