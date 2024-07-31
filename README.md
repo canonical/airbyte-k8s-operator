@@ -1,7 +1,7 @@
 [![Charmhub Badge](https://charmhub.io/airbyte-k8s/badge.svg)](https://charmhub.io/airbyte-k8s)
 [![Release Edge](https://github.com/canonical/airbyte-k8s-operator/actions/workflows/publish_charm.yaml/badge.svg)](https://github.com/canonical/airbyte-k8s-operator/actions/workflows/publish_charm.yaml)
 
-# Airbyte K8s Operator
+# Airbyte Server
 
 This is the Kubernetes Python Operator for [Airbyte](https://airbyte.com/).
 
@@ -64,7 +64,7 @@ The Temporal operators can be deployed and connected to each other using the
 Juju command line as follows:
 
 ```bash
-juju deploy temporal-k8s --config num-history-shards=512
+juju deploy temporal-k8s --config num-history-shards=4 # This value can be increased to 1024 or 2048 for a production deployment
 juju deploy temporal-admin-k8s
 juju relate temporal-k8s:db postgresql-k8s:database
 juju relate temporal-k8s:visibility postgresql-k8s:database
@@ -107,4 +107,5 @@ required integrations exist.
 This charm is still in active development. Please see the
 [Juju SDK docs](https://juju.is/docs/sdk) for guidelines on enhancements to this
 charm following best practice guidelines, and
-[CONTRIBUTING.md](./CONTRIBUTING.md) for developer guidance.
+[CONTRIBUTING.md](https://github.com/canonical/airbyte-k8s-operator/blob/main/CONTRIBUTING.md)
+for developer guidance.
