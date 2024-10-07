@@ -1,0 +1,31 @@
+diff --git a/airbyte-db/jooq/build.gradle.kts b/airbyte-db/jooq/build.gradle.kts
+index 6a4b2d6138..d031b1bb3e 100644
+--- a/airbyte-db/jooq/build.gradle.kts
++++ b/airbyte-db/jooq/build.gradle.kts
+@@ -15,7 +15,7 @@ dependencies {
+ 
+   // jOOQ code generation)
+   implementation(libs.jooq.codegen)
+-  implementation(libs.platform.testcontainers.postgresql)
++  // implementation(libs.platform.testcontainers.postgresql)
+ 
+   // These are required because gradle might be using lower version of Jna from other
+   // library transitive dependency. Can be removed if we can figure out which library is the cause.
+@@ -50,7 +50,7 @@ jooq {
+ 
+   configurations {
+     create("configsDatabase") {
+-      generateSchemaSourceOnCompilation = true
++      generateSchemaSourceOnCompilation = false
+       jooqConfiguration.apply {
+         generator.apply {
+           name = "org.jooq.codegen.DefaultGenerator"
+@@ -68,7 +68,7 @@ jooq {
+     }
+ 
+     create("jobsDatabase") {
+-      generateSchemaSourceOnCompilation = true
++      generateSchemaSourceOnCompilation = false
+       jooqConfiguration.apply {
+         generator.apply {
+           name = "org.jooq.codegen.DefaultGenerator"

@@ -4,6 +4,7 @@
 """Charm integration test config."""
 
 import logging
+from pathlib import Path
 
 import pytest_asyncio
 from helpers import (
@@ -16,17 +17,27 @@ from helpers import (
     perform_temporal_integrations,
     run_sample_workflow,
 )
+from pytest import FixtureRequest
 from pytest_operator.plugin import OpsTest
 
 logger = logging.getLogger(__name__)
 
 
+@pytest_asyncio.fixture(scope="module", name="charm")
+async def charm_fixture(request: FixtureRequest, ops_test: OpsTest) -> str | Path:
+    """Fetch the path to charm."""
+    charms = request.config.getoption("--charm-file")
+    if not charms:
+        charm = await ops_test.build_charm(".")
+        assert charm, "Charm not built"
+        return charm
+    return charms[0]
+
+
 @pytest_asyncio.fixture(name="deploy", scope="module")
-async def deploy(ops_test: OpsTest):
+async def deploy(ops_test: OpsTest, charm: str):
     """Test the app is up and running."""
     await ops_test.model.set_config({"update-status-hook-interval": "1m"})
-
-    charm = await ops_test.build_charm(".")
     resources = get_airbyte_charm_resources()
 
     await ops_test.model.deploy(charm, resources=resources, application_name=APP_NAME_AIRBYTE_SERVER, trust=True)
