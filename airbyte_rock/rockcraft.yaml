@@ -117,10 +117,10 @@ parts:
       - docker.io
     build-snaps:
       - docker
+      - lxd
     stage-packages:
       - openjdk-21-jdk-headless
     # override-build: |
-    #   mkdir -p 
     #   mkdir -p ./airbyte-db/jooq/build/libs && cp ${CRAFT_STAGE}/jooq-0.60.0.jar ./airbyte-db/jooq/build/libs/io.airbyte.airbyte-db-jooq-dev.jar
     #   mkdir -p ./airbyte-db/db-lib/build/libs && cp ${CRAFT_STAGE}/db-lib-0.60.0.jar ./airbyte-db/db-lib/build/libs/io.airbyte.airbyte-db-db-lib-dev.jar
     #   # unzip ./airbyte-db/jooq/build/libs/io.airbyte.airbyte-db-jooq-dev.jar  && unzip ./airbyte-db/db-lib/build/libs/io.airbyte.airbyte-db-db-lib-dev.jar
@@ -130,12 +130,13 @@ parts:
     override-build: |
       # git apply ${CRAFT_STAGE}/patches/*.patch
       # ./gradlew :airbyte-db:jooq:compileJava
-      mkdir -p ./airbyte-db/jooq/build/generated/jobsDatabase/src/main/java/ && cp ${CRAFT_STAGE}/jooq-0.60.0.jar ./airbyte-db/jooq/build/generated/jobsDatabase/src/main/java/io.airbyte.airbyte-db-jooq-dev.jar && unzip ./airbyte-db/jooq/build/generated/jobsDatabase/src/main/java/io.airbyte.airbyte-db-jooq-dev.jar -d ./airbyte-db/jooq/build/generated/jobsDatabase/src/main/java/
-      ./gradlew generateJobsDatabaseJooq -x dockerBuildImage
-      ./gradlew generateConfigsDatabaseJooq -x dockerBuildImage
+      # mkdir -p ./airbyte-db/jooq/build/generated/jobsDatabase/src/main/java/ && cp ${CRAFT_STAGE}/jooq-0.60.0.jar ./airbyte-db/jooq/build/generated/jobsDatabase/src/main/java/io.airbyte.airbyte-db-jooq-dev.jar && unzip ./airbyte-db/jooq/build/generated/jobsDatabase/src/main/java/io.airbyte.airbyte-db-jooq-dev.jar -d ./airbyte-db/jooq/build/generated/jobsDatabase/src/main/java/
+      # ./gradlew generateJobsDatabaseJooq -x dockerBuildImage
+      # ./gradlew generateConfigsDatabaseJooq -x dockerBuildImage
       # mkdir -p ./airbyte-db/db-lib/build/libs && cp ${CRAFT_STAGE}/db-lib-0.60.0.jar ./airbyte-db/db-lib/build/libs/io.airbyte.airbyte-db-db-lib-dev.jar
       # unzip ./airbyte-db/jooq/build/libs/io.airbyte.airbyte-db-jooq-dev.jar -d ./airbyte-db/jooq/build/libs/ && unzip ./airbyte-db/db-lib/build/libs/io.airbyte.airbyte-db-db-lib-dev.jar -d ./airbyte-db/db-lib/build/libs/ && ./gradlew assemble -x dockerBuildImage -x :airbyte-db:jooq:generateConfigsDatabaseJooq -x :airbyte-db:jooq:generateJobsDatabaseJooq --stacktrace
-      ./gradlew assemble -x dockerBuildImage -x :airbyte-db:jooq:generateConfigsDatabaseJooq -x :airbyte-db:jooq:generateJobsDatabaseJooq --stacktrace
+      # ./gradlew assemble -x dockerBuildImage -x :airbyte-db:jooq:generateConfigsDatabaseJooq -x :airbyte-db:jooq:generateJobsDatabaseJooq --stacktrace
+      ./gradlew assemble -x dockerBuildImage --no-daemon  --no-parallel --continue --stacktrace
 
       # ./gradlew :airbyte-server:assemble -x dockerBuildImage -x :airbyte-db:jooq:generateConfigsDatabaseJooq -x :airbyte-db:jooq:generateJobsDatabaseJooq
       # ./gradlew :airbyte-api-server:assemble -x dockerBuildImage -x :airbyte-db:jooq:generateConfigsDatabaseJooq -x :airbyte-db:jooq:generateJobsDatabaseJooq
