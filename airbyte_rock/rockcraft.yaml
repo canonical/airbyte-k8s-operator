@@ -69,38 +69,8 @@ parts:
   #   prime:
   #     - "-*"
 
-  # airbyte-platform:
-  #   plugin: dump
-  #   source: https://github.com/airbytehq/airbyte-platform.git # yamllint disable-line
-  #   source-type: git
-  #   source-tag: v0.60.0
-  #   stage:
-  #     - '*'
-
-  db-lib:
-    # after: [airbyte-platform]
-    plugin: dump
-    source: https://airbyte.mycloudrepo.io/public/repositories/airbyte-public-jars/io/airbyte/airbyte-db/db-lib/0.60.0/db-lib-0.60.0.jar
-    source-checksum: sha512/5417e491007a80276a51a81c49815da51ecf855eb243d5c48c4ddce75cb330c2930d6dd5100a24d6185e1d1067bf8c176d28d7aadc62d21db078b62327aa77e8
-    source-type: file
-    # organize:
-      # db-lib-0.60.0.jar: airbyte-db/db-lib/build/libs/db-lib-0.60.0.jar
-    stage:
-      - '*'
-
-  jooq:
-    after: [db-lib]
-    plugin: dump
-    source: https://airbyte.mycloudrepo.io/public/repositories/airbyte-public-jars/io/airbyte/airbyte-db/jooq/0.60.0/jooq-0.60.0.jar
-    source-checksum: sha512/da09c7f4e127af269e6733baa68e3b9ffccd85eadead6d32e441e9b5cb014056720e23039c76914e242ef9ee22d607d20983ffb71b12e1f2748e6630e9bbda86
-    source-type: file
-    # organize:
-    #   jooq-0.60.0.jar: airbyte-db/jooq/build/libs/jooq-0.60.0.jar
-    stage:
-      - '*'
-
   assemble:
-    after: [jooq]
+    # after: [jooq]
     # plugin: nil
     plugin: dump
     source: https://github.com/airbytehq/airbyte-platform.git # yamllint disable-line
@@ -117,7 +87,6 @@ parts:
       - docker.io
     build-snaps:
       - docker
-      - lxd
     stage-packages:
       - openjdk-21-jdk-headless
     # override-build: |
@@ -128,30 +97,15 @@ parts:
     # stage:
     #   - app
     override-build: |
-      # git apply ${CRAFT_STAGE}/patches/*.patch
-      # ./gradlew :airbyte-db:jooq:compileJava
-      # mkdir -p ./airbyte-db/jooq/build/generated/jobsDatabase/src/main/java/ && cp ${CRAFT_STAGE}/jooq-0.60.0.jar ./airbyte-db/jooq/build/generated/jobsDatabase/src/main/java/io.airbyte.airbyte-db-jooq-dev.jar && unzip ./airbyte-db/jooq/build/generated/jobsDatabase/src/main/java/io.airbyte.airbyte-db-jooq-dev.jar -d ./airbyte-db/jooq/build/generated/jobsDatabase/src/main/java/
-      # ./gradlew generateJobsDatabaseJooq -x dockerBuildImage
-      # ./gradlew generateConfigsDatabaseJooq -x dockerBuildImage
-      # mkdir -p ./airbyte-db/db-lib/build/libs && cp ${CRAFT_STAGE}/db-lib-0.60.0.jar ./airbyte-db/db-lib/build/libs/io.airbyte.airbyte-db-db-lib-dev.jar
-      # unzip ./airbyte-db/jooq/build/libs/io.airbyte.airbyte-db-jooq-dev.jar -d ./airbyte-db/jooq/build/libs/ && unzip ./airbyte-db/db-lib/build/libs/io.airbyte.airbyte-db-db-lib-dev.jar -d ./airbyte-db/db-lib/build/libs/ && ./gradlew assemble -x dockerBuildImage -x :airbyte-db:jooq:generateConfigsDatabaseJooq -x :airbyte-db:jooq:generateJobsDatabaseJooq --stacktrace
-      # ./gradlew assemble -x dockerBuildImage -x :airbyte-db:jooq:generateConfigsDatabaseJooq -x :airbyte-db:jooq:generateJobsDatabaseJooq --stacktrace
-      ./gradlew assemble -x dockerBuildImage --no-daemon  --no-parallel --continue --stacktrace
+      ./gradlew assemble -x dockerBuildImage --no-daemon  --no-parallel --continue --stacktrace --info
+      # ./gradlew :airbyte-server:assemble -x dockerBuildImage --no-daemon  --no-parallel --continue --stacktrace --max-workers 1
 
-      # ./gradlew :airbyte-server:assemble -x dockerBuildImage -x :airbyte-db:jooq:generateConfigsDatabaseJooq -x :airbyte-db:jooq:generateJobsDatabaseJooq
-      # ./gradlew :airbyte-api-server:assemble -x dockerBuildImage -x :airbyte-db:jooq:generateConfigsDatabaseJooq -x :airbyte-db:jooq:generateJobsDatabaseJooq
-      # ./gradlew :airbyte-workers:assemble -x dockerBuildImage -x :airbyte-db:jooq:generateConfigsDatabaseJooq -x :airbyte-db:jooq:generateJobsDatabaseJooq
-      # ./gradlew :airbyte-bootloader:assemble -x dockerBuildImage -x :airbyte-db:jooq:generateConfigsDatabaseJooq -x :airbyte-db:jooq:generateJobsDatabaseJooq
-      # ./gradlew :airbyte-cron:assemble -x dockerBuildImage -x :airbyte-db:jooq:generateConfigsDatabaseJooq -x :airbyte-db:jooq:generateJobsDatabaseJooq
-      # ./gradlew :airbyte-connector-builder-server:assemble -x dockerBuildImage -x :airbyte-db:jooq:generateConfigsDatabaseJooq -x :airbyte-db:jooq:generateJobsDatabaseJooq
-
-
-      tar -xvf ./airbyte-server/build/distributions/airbyte-app.tar
-      tar -xvf ./airbyte-api-server/build/distributions/airbyte-app.tar
-      tar -xvf ./airbyte-workers/build/distributions/airbyte-app.tar
-      tar -xvf ./airbyte-bootloader/build/distributions/airbyte-app.tar
-      tar -xvf ./airbyte-cron/build/distributions/airbyte-app.tar
-      tar -xvf ./airbyte-connector-builder-server/build/distributions/airbyte-app.tar
+      tar -xvf ./airbyte-server/build/distributions/airbyte-app.tar -C ./airbyte-server/build/distributions/
+      tar -xvf ./airbyte-api-server/build/distributions/airbyte-app.tar -C ./airbyte-api-server/build/distributions/
+      tar -xvf ./airbyte-workers/build/distributions/airbyte-app.tar -C ./airbyte-workers/build/distributions/
+      tar -xvf ./airbyte-bootloader/build/distributions/airbyte-app.tar -C ./airbyte-bootloader/build/distributions/
+      tar -xvf ./airbyte-cron/build/distributions/airbyte-app.tar -C ./airbyte-cron/build/distributions/
+      tar -xvf ./airbyte-connector-builder-server/build/distributions/airbyte-app.tar -C ./airbyte-connector-builder-server/build/distributions/
 
       cp -r ./airbyte-server/build/distributions/airbyte-app/* ${CRAFT_PART_INSTALL}/airbyte-server
       cp -r ./airbyte-api-server/build/distributions/airbyte-app/* ${CRAFT_PART_INSTALL}/airbyte-api-server
