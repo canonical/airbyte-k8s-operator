@@ -59,18 +59,18 @@ environment:
 
 
 parts:
-  # patches:
-  #   plugin: dump
-  #   source: ./patches
-  #   organize:
-  #     db-jooq.patch: patches/db-jooq.patch
-  #   stage:
-  #     - patches/db-jooq.patch
-  #   prime:
-  #     - "-*"
+  patches:
+    plugin: dump
+    source: ./patches
+    organize:
+      db-jooq.patch: patches/db-jooq.patch
+    stage:
+      - patches/db-jooq.patch
+    prime:
+      - "-*"
 
   assemble:
-    # after: [jooq]
+    after: [patches]
     # plugin: nil
     plugin: dump
     source: https://github.com/airbytehq/airbyte-platform.git # yamllint disable-line
@@ -97,29 +97,32 @@ parts:
     # stage:
     #   - app
     override-build: |
-      ./gradlew assemble -x dockerBuildImage --no-daemon  --no-parallel --continue --stacktrace --info
+      git apply ${CRAFT_STAGE}/patches/*.patch
+      ./gradlew :airbyte-api-server:assemble -x dockerBuildImage -Dkotlin.daemon.enabled=false -Dorg.gradle.daemon.idletimeout=60000 --max-workers 1 --info
+      # ./gradlew :airbyte-api-server:assemble -Dorg.gradle.daemon.idletimeout=60000 -Dorg.gradle.vfs.watch=false -x dockerBuildImage --max-workers 1
+      ./gradlew --stop
       # ./gradlew :airbyte-server:assemble -x dockerBuildImage --no-daemon  --no-parallel --continue --stacktrace --max-workers 1
 
-      tar -xvf ./airbyte-server/build/distributions/airbyte-app.tar -C ./airbyte-server/build/distributions/
-      tar -xvf ./airbyte-api-server/build/distributions/airbyte-app.tar -C ./airbyte-api-server/build/distributions/
-      tar -xvf ./airbyte-workers/build/distributions/airbyte-app.tar -C ./airbyte-workers/build/distributions/
-      tar -xvf ./airbyte-bootloader/build/distributions/airbyte-app.tar -C ./airbyte-bootloader/build/distributions/
-      tar -xvf ./airbyte-cron/build/distributions/airbyte-app.tar -C ./airbyte-cron/build/distributions/
-      tar -xvf ./airbyte-connector-builder-server/build/distributions/airbyte-app.tar -C ./airbyte-connector-builder-server/build/distributions/
+    #   tar -xvf ./airbyte-server/build/distributions/airbyte-app.tar -C ./airbyte-server/build/distributions/
+    #   tar -xvf ./airbyte-api-server/build/distributions/airbyte-app.tar -C ./airbyte-api-server/build/distributions/
+    #   tar -xvf ./airbyte-workers/build/distributions/airbyte-app.tar -C ./airbyte-workers/build/distributions/
+    #   tar -xvf ./airbyte-bootloader/build/distributions/airbyte-app.tar -C ./airbyte-bootloader/build/distributions/
+    #   tar -xvf ./airbyte-cron/build/distributions/airbyte-app.tar -C ./airbyte-cron/build/distributions/
+    #   tar -xvf ./airbyte-connector-builder-server/build/distributions/airbyte-app.tar -C ./airbyte-connector-builder-server/build/distributions/
 
-      cp -r ./airbyte-server/build/distributions/airbyte-app/* ${CRAFT_PART_INSTALL}/airbyte-server
-      cp -r ./airbyte-api-server/build/distributions/airbyte-app/* ${CRAFT_PART_INSTALL}/airbyte-api-server
-      cp -r ./airbyte-workers/build/distributions/airbyte-app/* ${CRAFT_PART_INSTALL}/airbyte-workers
-      cp -r ./airbyte-bootloader/build/distributions/airbyte-app/* ${CRAFT_PART_INSTALL}/airbyte-bootloader
-      cp -r ./airbyte-cron/build/distributions/airbyte-app/* ${CRAFT_PART_INSTALL}/airbyte-cron
-      cp -r ./airbyte-connector-builder-server/build/distributions/airbyte-app/* ${CRAFT_PART_INSTALL}/airbyte-connector-builder-server
-    stage:
-      - airbyte-server
-      - airbyte-api-server
-      - airbyte-workers
-      - airbyte-bootloader
-      - airbyte-cron
-      - airbyte-connector-builder-server
+    #   cp -r ./airbyte-server/build/distributions/airbyte-app/* ${CRAFT_PART_INSTALL}/airbyte-server
+    #   cp -r ./airbyte-api-server/build/distributions/airbyte-app/* ${CRAFT_PART_INSTALL}/airbyte-api-server
+    #   cp -r ./airbyte-workers/build/distributions/airbyte-app/* ${CRAFT_PART_INSTALL}/airbyte-workers
+    #   cp -r ./airbyte-bootloader/build/distributions/airbyte-app/* ${CRAFT_PART_INSTALL}/airbyte-bootloader
+    #   cp -r ./airbyte-cron/build/distributions/airbyte-app/* ${CRAFT_PART_INSTALL}/airbyte-cron
+    #   cp -r ./airbyte-connector-builder-server/build/distributions/airbyte-app/* ${CRAFT_PART_INSTALL}/airbyte-connector-builder-server
+    # stage:
+    #   - airbyte-server
+    #   - airbyte-api-server
+    #   - airbyte-workers
+    #   - airbyte-bootloader
+    #   - airbyte-cron
+    #   - airbyte-connector-builder-server
 
   local-files:
     plugin: dump

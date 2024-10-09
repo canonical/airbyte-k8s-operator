@@ -1,31 +1,15 @@
-diff --git a/airbyte-db/jooq/build.gradle.kts b/airbyte-db/jooq/build.gradle.kts
-index 6a4b2d6138..d031b1bb3e 100644
---- a/airbyte-db/jooq/build.gradle.kts
-+++ b/airbyte-db/jooq/build.gradle.kts
-@@ -15,7 +15,7 @@ dependencies {
+diff --git a/gradle.properties b/gradle.properties
+index 038c2ac2c4..95c25d9dad 100644
+--- a/gradle.properties
++++ b/gradle.properties
+@@ -3,8 +3,9 @@
+ org.gradle.parallel=true
+ org.gradle.jvmargs=-Xmx8g -Xss4m
+ org.gradle.caching=true
++org.gradle.daemon=false
+ # Note, this might have issues on the normal Github runner.
+-org.gradle.vfs.watch=true
++org.gradle.vfs.watch=false
  
-   // jOOQ code generation)
-   implementation(libs.jooq.codegen)
--  implementation(libs.platform.testcontainers.postgresql)
-+  // implementation(libs.platform.testcontainers.postgresql)
- 
-   // These are required because gradle might be using lower version of Jna from other
-   // library transitive dependency. Can be removed if we can figure out which library is the cause.
-@@ -50,7 +50,7 @@ jooq {
- 
-   configurations {
-     create("configsDatabase") {
--      generateSchemaSourceOnCompilation = true
-+      generateSchemaSourceOnCompilation = false
-       jooqConfiguration.apply {
-         generator.apply {
-           name = "org.jooq.codegen.DefaultGenerator"
-@@ -68,7 +68,7 @@ jooq {
-     }
- 
-     create("jobsDatabase") {
--      generateSchemaSourceOnCompilation = true
-+      generateSchemaSourceOnCompilation = false
-       jooqConfiguration.apply {
-         generator.apply {
-           name = "org.jooq.codegen.DefaultGenerator"
+ # Remove once we've migrated to Gradle 9
+ # This opts in early to Gradle 9 behavior
