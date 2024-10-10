@@ -25,6 +25,23 @@ environment:
 
 
 parts:
+  install-kubectl:
+    plugin: nil
+    override-build: |      
+      # Install kubectl
+      curl -LO https://dl.k8s.io/release/v1.31.0/bin/linux/amd64/kubectl
+      curl -LO "https://dl.k8s.io/release/v1.31.0/bin/linux/amd64/kubectl.sha256"
+      echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+      mkdir -p ${CRAFT_PART_INSTALL}/usr/local/bin/kubectl
+      install -o root -g root -m 0755 kubectl ${CRAFT_PART_INSTALL}/usr/local/bin/kubectl
+    stage:
+      - usr/local/bin/kubectl
+    permissions:
+      - path: usr/local/bin/kubectl
+        owner: 584792
+        group: 584792
+        mode: "755"
+
   pull-repo:
     plugin: dump
     source: https://github.com/airbytehq/airbyte-platform.git # yamllint disable-line
@@ -32,9 +49,9 @@ parts:
     source-tag: v0.60.0
     stage-packages:
       - python3.10-venv
-    override-build: |
+    override-build: |      
       cp -r . ${CRAFT_PART_INSTALL}/airbyte-platform
-      pip install --upgrade setuptools pip airbyte-cdk==5.13.0 \
+      pip install --upgrade setuptools pip airbyte-cdk==5.12.0 \
           --target=/${CRAFT_PART_INSTALL}/dist
     organize:
       dist: usr/local/lib/python3.10/dist-packages
@@ -61,8 +78,6 @@ parts:
       - docker.io
     build-snaps:
       - docker
-    stage-snaps:
-      - kubectl
     stage-packages:
       - openjdk-21-jdk-headless
     override-build: |
