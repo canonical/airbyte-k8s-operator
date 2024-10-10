@@ -27,29 +27,40 @@ environment:
 parts:
   install-kubectl:
     plugin: nil
-    stage-packages:
-      - apt-transport-https
-      - ca-certificates
-      - curl 
-      - gnupg
     override-build: |
-      echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /' | tee /etc/apt/sources.list.d/kubernetes.list
-      chmod 644 /etc/apt/sources.list.d/kubernetes.list   # helps tools such as command-not-found to work correctly
-
-      curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
-      chmod 644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg # allow unprivileged APT programs to read this keyring
-
-      apt-get update
-      apt-get install -y kubectl
-      mkdir -p ${CRAFT_PART_INSTALL}/usr/local/bin/kubectl
-      cp -r $(which kubectl) ${CRAFT_PART_INSTALL}/usr/local/bin/kubectl
+      snap install kubectl --classic
+      mkdir -p ${CRAFT_PART_INSTALL}/snap/bin/kubectl
+      cp -r $(which kubectl) ${CRAFT_PART_INSTALL}/snap/bin/kubectl
     stage:
-      - usr/local/bin/kubectl
+      - snap/bin/kubectl
     permissions:
-      - path: usr/local/bin/kubectl
+      - path: snap/bin/kubectl
         owner: 584792
         group: 584792
         mode: "755"
+    # stage-packages:
+    #   - apt-transport-https
+    #   - ca-certificates
+    #   - curl 
+    #   - gnupg
+    # override-build: |
+    #   echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /' | tee /etc/apt/sources.list.d/kubernetes.list
+    #   chmod 644 /etc/apt/sources.list.d/kubernetes.list   # helps tools such as command-not-found to work correctly
+
+    #   curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    #   chmod 644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg # allow unprivileged APT programs to read this keyring
+
+    #   apt-get update
+    #   apt-get install -y kubectl
+    #   mkdir -p ${CRAFT_PART_INSTALL}/usr/local/bin/kubectl
+    #   cp -r $(which kubectl) ${CRAFT_PART_INSTALL}/usr/local/bin/kubectl
+    # stage:
+    #   - usr/local/bin/kubectl
+    # permissions:
+    #   - path: usr/local/bin/kubectl
+    #     owner: 584792
+    #     group: 584792
+    #     mode: "755"
 
   pull-repo:
     after: [install-kubectl]
