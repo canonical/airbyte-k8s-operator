@@ -19,6 +19,9 @@ run_user: _daemon_
 
 environment:
   JAVA_HOME: /usr/lib/jvm/java-21-openjdk-amd64
+  CDK_PYTHON: /usr/bin/python3.10
+  CDK_ENTRYPOINT: /usr/lib/python3.10/dist-packages/airbyte_cdk/connector_builder/main.py
+  CDK_VERSION: "5.12.0"
 
 
 parts:
@@ -27,10 +30,22 @@ parts:
     source: https://github.com/airbytehq/airbyte-platform.git # yamllint disable-line
     source-type: git
     source-tag: v0.60.0
+    stage-packages:
+      - python3.10-venv
     override-build: |
       cp -r . ${CRAFT_PART_INSTALL}/airbyte-platform
+      pip install --upgrade setuptools pip airbyte-cdk==5.13.0 \
+          --target=/${CRAFT_PART_INSTALL}/dist
+    organize:
+      dist: usr/local/lib/python3.10/dist-packages
     stage:
       - airbyte-platform
+      - usr/local/lib/python3.10/dist-packages
+    permissions:
+      - path: usr/local/lib/python3.10/dist-packages
+        owner: 584792
+        group: 584792
+        mode: "755"
 
   assemble:
     after: [pull-repo]
