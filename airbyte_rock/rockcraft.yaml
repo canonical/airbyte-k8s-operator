@@ -17,43 +17,6 @@ platforms:
 # The UID 584792 corresponds to _daemon_ user.
 run_user: _daemon_
 
-services:
-  airbyte-server:
-    override: replace
-    summary: "airbyte-server service"
-    startup: enabled
-    command: "/bin/bash airbyte-server/airbyte-app/bin/airbyte-server"
-  airbyte-workers:
-    override: replace
-    summary: "airbyte-workers service"
-    startup: enabled
-    command: "/bin/bash airbyte-workers/airbyte-app/bin/airbyte-workers"
-  airbyte-api-server:
-    override: replace
-    summary: "airbyte-api-server service"
-    startup: enabled
-    command: "/bin/bash airbyte-api-server/airbyte-app/bin/airbyte-api-server"
-  airbyte-bootloader:
-    override: replace
-    summary: "airbyte-bootloader service"
-    startup: enabled
-    command: "/bin/bash airbyte-bootloader/airbyte-app/bin/airbyte-bootloader"
-  airbyte-connector-builder-server:
-    override: replace
-    summary: "airbyte-connector-builder-server service"
-    startup: enabled
-    command: "/bin/bash airbyte-connector-builder-server/airbyte-app/bin/airbyte-connector-builder-server"
-  airbyte-cron:
-    override: replace
-    summary: "airbyte-cron service"
-    startup: enabled
-    command: "/bin/bash airbyte-cron/airbyte-app/bin/airbyte-cron"
-  airbyte-pod-sweeper:
-    override: replace
-    summary: "airbyte-pod-sweeper service"
-    startup: enabled
-    command: "/bin/bash airbyte-pod-sweeper/airbyte-app/bin/airbyte-pod-sweeper"
-
 environment:
   JAVA_HOME: /usr/lib/jvm/java-21-openjdk-amd64
 
