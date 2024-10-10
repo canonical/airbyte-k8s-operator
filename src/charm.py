@@ -52,7 +52,7 @@ def get_pebble_layer(application_name, context):
         "services": {
             application_name: {
                 "summary": application_name,
-                "command": f"/bin/bash -c {application_name}/airbyte-app/bin/{application_name}",
+                "command": f"/bin/bash {application_name}/airbyte-app/bin/{application_name}",
                 "startup": "enabled",
                 "override": "replace",
                 # Including config values here so that a change in the

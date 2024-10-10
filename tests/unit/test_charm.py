@@ -348,7 +348,7 @@ def create_plan(container_name, storage_type):
         "services": {
             container_name: {
                 "summary": container_name,
-                "command": f"/bin/bash -c {container_name}/airbyte-app/bin/{container_name}",
+                "command": f"/bin/bash {container_name}/airbyte-app/bin/{container_name}",
                 "startup": "enabled",
                 "override": "replace",
                 "environment": {
