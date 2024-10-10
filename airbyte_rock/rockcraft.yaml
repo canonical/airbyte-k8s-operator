@@ -22,37 +22,37 @@ services:
     override: replace
     summary: "airbyte-server service"
     startup: enabled
-    command: "/bin/bash -c airbyte-server/bin/airbyte-server"
+    command: "/bin/bash -c airbyte-server/airbyte-app/bin/airbyte-server"
   airbyte-workers:
     override: replace
     summary: "airbyte-workers service"
     startup: enabled
-    command: "/bin/bash -c airbyte-workers/bin/airbyte-workers"
+    command: "/bin/bash -c airbyte-workers/airbyte-app/bin/airbyte-workers"
   airbyte-api-server:
     override: replace
     summary: "airbyte-api-server service"
     startup: enabled
-    command: "/bin/bash -c airbyte-api-server/bin/airbyte-api-server"
+    command: "/bin/bash -c airbyte-api-server/airbyte-app/bin/airbyte-api-server"
   airbyte-bootloader:
     override: replace
     summary: "airbyte-bootloader service"
     startup: enabled
-    command: "/bin/bash -c airbyte-bootloader/bin/airbyte-bootloader"
+    command: "/bin/bash -c airbyte-bootloader/airbyte-app/bin/airbyte-bootloader"
   airbyte-connector-builder-server:
     override: replace
     summary: "airbyte-connector-builder-server service"
     startup: enabled
-    command: "/bin/bash -c airbyte-connector-builder-server/bin/airbyte-connector-builder-server"
+    command: "/bin/bash -c airbyte-connector-builder-server/airbyte-app/bin/airbyte-connector-builder-server"
   airbyte-cron:
     override: replace
     summary: "airbyte-cron service"
     startup: enabled
-    command: "/bin/bash -c airbyte-cron/bin/airbyte-cron"
+    command: "/bin/bash -c airbyte-cron/airbyte-app/bin/airbyte-cron"
   airbyte-pod-sweeper:
     override: replace
     summary: "airbyte-pod-sweeper service"
     startup: enabled
-    command: "/bin/bash -c airbyte-pod-sweeper/bin/airbyte-pod-sweeper"
+    command: "/bin/bash -c airbyte-pod-sweeper/airbyte-app/bin/airbyte-pod-sweeper"
 
 environment:
   JAVA_HOME: /usr/lib/jvm/java-21-openjdk-amd64
@@ -121,20 +121,11 @@ parts:
     plugin: dump
     source: ./local-files
     organize:
-      pod-sweeper.sh: airbyte-pod-sweeper/bin/airbyte-pod-sweeper.sh
+      pod-sweeper.sh: airbyte-pod-sweeper/airbyte-app/bin/airbyte-pod-sweeper.sh
     stage:
-      - airbyte-pod-sweeper/bin/airbyte-pod-sweeper.sh
+      - airbyte-pod-sweeper/airbyte-app/bin/airbyte-pod-sweeper.sh
     permissions:
-      - path: airbyte-pod-sweeper/bin/airbyte-pod-sweeper.sh
+      - path: airbyte-pod-sweeper/airbyte-app/bin/airbyte-pod-sweeper.sh
         owner: 584792
         group: 584792
         mode: "755"
-
-              # ./gradlew distTar -x dockerBuildImage
-      # ./gradlew distTar -x dockerBuildImage -x :airbyte-db:jooq:generateConfigsDatabaseJooq -x :airbyte-db:jooq:generateJobsDatabaseJooq
-      # ./gradlew :airbyte-server:distTar -x dockerBuildImage -x :airbyte-db:jooq:generateConfigsDatabaseJooq -x :airbyte-db:jooq:generateJobsDatabaseJooq -x :airbyte-data:kaptGenerateStubsKotlin
-      # ./gradlew :airbyte-api-server:distTar -x dockerBuildImage -x :airbyte-db:jooq:generateConfigsDatabaseJooq -x :airbyte-db:jooq:generateJobsDatabaseJooq -x :airbyte-data:kaptGenerateStubsKotlin
-      # ./gradlew :airbyte-workers:distTar -x dockerBuildImage -x :airbyte-db:jooq:generateConfigsDatabaseJooq -x :airbyte-db:jooq:generateJobsDatabaseJooq -x :airbyte-data:kaptGenerateStubsKotlin
-      # ./gradlew :airbyte-bootloader:distTar -x dockerBuildImage -x :airbyte-db:jooq:generateConfigsDatabaseJooq -x :airbyte-db:jooq:generateJobsDatabaseJooq -x :airbyte-data:kaptGenerateStubsKotlin
-      # ./gradlew :airbyte-cron:distTar -x dockerBuildImage -x :airbyte-db:jooq:generateConfigsDatabaseJooq -x :airbyte-db:jooq:generateJobsDatabaseJooq -x :airbyte-data:kaptGenerateStubsKotlin
-      # ./gradlew :airbyte-connector-builder-server:distTar -x dockerBuildImage -x :airbyte-db:jooq:generateConfigsDatabaseJooq -x :airbyte-db:jooq:generateJobsDatabaseJooq -x :airbyte-data:kaptGenerateStubsKotlin

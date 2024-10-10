@@ -9,7 +9,7 @@ on:
 
 jobs:
   integration-tests:
-    uses: kelkawi-a/operator-workflows/.github/workflows/integration_test.yaml@fc96d4589130d5cfdb96a1116b7284c3780d5fa5
+    uses: kelkawi-a/operator-workflows/.github/workflows/integration_test.yaml@2119d8c5890abff0db8ba00ffcbaa9549f6fec95
     secrets: inherit
     with:
       channel: 1.28-strict/stable

@@ -429,40 +429,43 @@ config:
 # Your workload’s containers.
 containers:
   airbyte-api-server:
-    resource: airbyte-api-server
+    resource: airbyte-image
   airbyte-bootloader:
-    resource: airbyte-bootloader
+    resource: airbyte-image
   airbyte-connector-builder-server:
-    resource: airbyte-connector-builder-server
+    resource: airbyte-image
   airbyte-cron:
-    resource: airbyte-cron
+    resource: airbyte-image
   airbyte-pod-sweeper:
-    resource: airbyte-pod-sweeper
+    resource: airbyte-image
   airbyte-server:
-    resource: airbyte-server
+    resource: airbyte-image
   airbyte-workers:
-    resource: airbyte-workers
+    resource: airbyte-image
 
 # This field populates the Resources tab on Charmhub.
 resources:
-  airbyte-api-server:
+  airbyte-image:
     type: oci-image
-    description: OCI image for Airbyte API server
-  airbyte-bootloader:
-    type: oci-image
-    description: OCI image for Airbyte Bootloader
-  airbyte-connector-builder-server:
-    type: oci-image
-    description: OCI image for Airbyte Connector Builder Server
-  airbyte-cron:
-    type: oci-image
-    description: OCI image for Airbyte Cron
-  airbyte-pod-sweeper:
-    type: oci-image
-    description: OCI image for Airbyte Pod Sweeper
-  airbyte-server:
-    type: oci-image
-    description: OCI image for Airbyte Server
-  airbyte-workers:
-    type: oci-image
-    description: OCI image for Airbyte Worker
+    description: OCI image for Airbyte
+  # airbyte-api-server:
+  #   type: oci-image
+  #   description: OCI image for Airbyte API server
+  # airbyte-bootloader:
+  #   type: oci-image
+  #   description: OCI image for Airbyte Bootloader
+  # airbyte-connector-builder-server:
+  #   type: oci-image
+  #   description: OCI image for Airbyte Connector Builder Server
+  # airbyte-cron:
+  #   type: oci-image
+  #   description: OCI image for Airbyte Cron
+  # airbyte-pod-sweeper:
+  #   type: oci-image
+  #   description: OCI image for Airbyte Pod Sweeper
+  # airbyte-server:
+  #   type: oci-image
+  #   description: OCI image for Airbyte Server
+  # airbyte-workers:
+  #   type: oci-image
+  #   description: OCI image for Airbyte Worker
