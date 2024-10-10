@@ -27,13 +27,22 @@ environment:
 parts:
   install-kubectl:
     plugin: nil
-    override-build: |      
-      # Install kubectl
-      curl -LO https://dl.k8s.io/release/v1.31.0/bin/linux/amd64/kubectl
-      curl -LO "https://dl.k8s.io/release/v1.31.0/bin/linux/amd64/kubectl.sha256"
-      echo "$(cat kubectl.sha256)  kubectl" | sha256sum --check
+    stage-packages:
+      - apt-transport-https
+      - ca-certificates
+      - curl 
+      - gnupg
+    override-build: |
+      echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /' | tee /etc/apt/sources.list.d/kubernetes.list
+      chmod 644 /etc/apt/sources.list.d/kubernetes.list   # helps tools such as command-not-found to work correctly
+
+      curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+      chmod 644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg # allow unprivileged APT programs to read this keyring
+
+      apt-get update
+      apt-get install -y kubectl
       mkdir -p ${CRAFT_PART_INSTALL}/usr/local/bin/kubectl
-      install -o root -g root -m 0755 kubectl ${CRAFT_PART_INSTALL}/usr/local/bin/kubectl
+      cp -r $(which kubectl) ${CRAFT_PART_INSTALL}/usr/local/bin/kubectl
     stage:
       - usr/local/bin/kubectl
     permissions:
@@ -43,6 +52,7 @@ parts:
         mode: "755"
 
   pull-repo:
+    after: [install-kubectl]
     plugin: dump
     source: https://github.com/airbytehq/airbyte-platform.git # yamllint disable-line
     source-type: git
@@ -113,6 +123,7 @@ parts:
       - airbyte-connector-builder-server
 
   local-files:
+    after: [organize-tars]
     plugin: dump
     source: ./local-files
     organize:
