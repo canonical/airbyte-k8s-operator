@@ -9,14 +9,14 @@ on:
 
 jobs:
   integration-tests:
-    uses: kelkawi-a/operator-workflows/.github/workflows/integration_test.yaml@2119d8c5890abff0db8ba00ffcbaa9549f6fec95
+    uses: canonical/operator-workflows/.github/workflows/integration_test.yaml@main
     secrets: inherit
     with:
       channel: 1.28-strict/stable
       modules: '["test_charm.py"]'
       juju-channel: 3.4/stable
-      # self-hosted-runner: true
-      # self-hosted-runner-label: "xlarge"
+      self-hosted-runner: true
+      self-hosted-runner-label: "xlarge"
       microk8s-addons: "dns ingress rbac storage metallb:10.15.119.2-10.15.119.4 registry"
       trivy-severity-config: CRITICAL
       rockcraft-enable-security-nesting: true
