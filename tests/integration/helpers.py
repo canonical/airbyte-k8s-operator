@@ -143,7 +143,7 @@ def get_airbyte_workspace_id(api_url):
     Returns:
         Airbyte workspace ID.
     """
-    url = f"{api_url}/v1/workspaces?includeDeleted=false&limit=20&offset=0"
+    url = f"{api_url}/api/public/v1/workspaces?includeDeleted=false&limit=20&offset=0"
     logger.info("fetching Airbyte workspace ID")
     response = requests.get(url, headers=GET_HEADERS, timeout=300)
 
@@ -161,7 +161,7 @@ def create_airbyte_source(api_url, workspace_id):
     Returns:
         Created source ID.
     """
-    url = f"{api_url}/v1/sources"
+    url = f"{api_url}/api/public/v1/sources"
     payload = {
         "configuration": {"sourceType": "pokeapi", "pokemon_name": "pikachu"},
         "name": "API Test",
@@ -188,7 +188,7 @@ def create_airbyte_destination(api_url, model_name, workspace_id, db_password):
     Returns:
         Created destination ID.
     """
-    url = f"{api_url}/v1/destinations"
+    url = f"{api_url}/api/public/v1/destinations"
     payload = {
         "configuration": {
             "destinationType": "postgres",
@@ -224,7 +224,7 @@ def create_airbyte_connection(api_url, source_id, destination_id):
     Returns:
         Created connection ID.
     """
-    url = f"{api_url}/v1/connections"
+    url = f"{api_url}/api/public/v1/connections"
     payload = {
         "schedule": {"scheduleType": "manual"},
         "dataResidency": "auto",
@@ -253,7 +253,7 @@ def trigger_airbyte_connection(api_url, connection_id):
     Returns:
         Created job ID.
     """
-    url = f"{api_url}/v1/jobs"
+    url = f"{api_url}/api/public/v1/jobs"
     payload = {"jobType": "sync", "connectionId": connection_id}
     logger.info("triggering Airbyte connection")
     response = requests.post(url, json=payload, headers=POST_HEADERS, timeout=300)
@@ -273,7 +273,7 @@ def check_airbyte_job_status(api_url, job_id):
     Returns:
         Job status.
     """
-    url = f"{api_url}/v1/jobs/{job_id}"
+    url = f"{api_url}/api/public/v1/jobs/{job_id}"
     logger.info("fetching Airbyte job status")
     response = requests.get(url, headers=GET_HEADERS, timeout=120)
     logger.info(response.json())
@@ -291,7 +291,7 @@ def cancel_airbyte_job(api_url, job_id):
     Returns:
         Job status.
     """
-    url = f"{api_url}/v1/jobs/{job_id}"
+    url = f"{api_url}/api/public/v1/jobs/{job_id}"
     logger.info("cancelling Airbyte job")
     response = requests.delete(url, headers=GET_HEADERS, timeout=120)
     logger.info(response.json())
@@ -347,7 +347,7 @@ async def run_test_sync_job(ops_test):
 
         # Wait until job is successful
         job_successful = False
-        for j in range(15):
+        for j in range(7):
             logger.info(f"job {i + 1} attempt {j + 1}: getting job status")
             status = check_airbyte_job_status(api_url, job_id)
 
@@ -359,8 +359,8 @@ async def run_test_sync_job(ops_test):
                 job_successful = True
                 break
 
-            logger.info(f"job {i + 1} attempt {j + 1}: job still running, retrying in 20 seconds")
-            time.sleep(20)
+            logger.info(f"job {i + 1} attempt {j + 1}: job still running, retrying in 10 seconds")
+            time.sleep(10)
 
         if job_successful:
             break
