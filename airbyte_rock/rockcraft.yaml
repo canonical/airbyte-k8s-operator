@@ -45,7 +45,7 @@ parts:
     plugin: dump
     source: https://github.com/airbytehq/airbyte-platform.git # yamllint disable-line
     source-type: git
-    source-tag: v0.60.0
+    source-tag: v0.63.7
     stage-packages:
       - python3.10-venv
     override-build: |      
