@@ -325,7 +325,7 @@ async def run_test_sync_job(ops_test):
         ops_test: PyTest object.
     """
     # Create connection
-    api_url = await get_unit_url(ops_test, application=APP_NAME_AIRBYTE_SERVER, unit=0, port=8006)
+    api_url = await get_unit_url(ops_test, application=APP_NAME_AIRBYTE_SERVER, unit=0, port=8001)
     logger.info("curling app address: %s", api_url)
     workspace_id = get_airbyte_workspace_id(api_url)
     db_password = await get_db_password(ops_test)
