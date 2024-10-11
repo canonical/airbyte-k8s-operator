@@ -28,25 +28,6 @@ GET_HEADERS = {"accept": "application/json"}
 POST_HEADERS = {"accept": "application/json", "content-type": "application/json"}
 
 
-def get_airbyte_charm_resources():
-    """Fetch charm resources from charmcraft.yaml.
-
-    Returns:
-        Charm resources.
-    """
-    return {
-        "airbyte-api-server": METADATA["resources"]["airbyte-api-server"]["upstream-source"],
-        "airbyte-bootloader": METADATA["resources"]["airbyte-bootloader"]["upstream-source"],
-        "airbyte-connector-builder-server": METADATA["resources"]["airbyte-connector-builder-server"][
-            "upstream-source"
-        ],
-        "airbyte-cron": METADATA["resources"]["airbyte-cron"]["upstream-source"],
-        "airbyte-pod-sweeper": METADATA["resources"]["airbyte-pod-sweeper"]["upstream-source"],
-        "airbyte-server": METADATA["resources"]["airbyte-server"]["upstream-source"],
-        "airbyte-workers": METADATA["resources"]["airbyte-workers"]["upstream-source"],
-    }
-
-
 async def run_sample_workflow(ops_test: OpsTest):
     """Connect a client and runs a basic Temporal workflow.
 

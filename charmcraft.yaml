@@ -428,8 +428,6 @@ config:
 
 # Your workload’s containers.
 containers:
-  airbyte-api-server:
-    resource: airbyte-image
   airbyte-bootloader:
     resource: airbyte-image
   airbyte-connector-builder-server:
@@ -448,24 +446,4 @@ resources:
   airbyte-image:
     type: oci-image
     description: OCI image for Airbyte
-  # airbyte-api-server:
-  #   type: oci-image
-  #   description: OCI image for Airbyte API server
-  # airbyte-bootloader:
-  #   type: oci-image
-  #   description: OCI image for Airbyte Bootloader
-  # airbyte-connector-builder-server:
-  #   type: oci-image
-  #   description: OCI image for Airbyte Connector Builder Server
-  # airbyte-cron:
-  #   type: oci-image
-  #   description: OCI image for Airbyte Cron
-  # airbyte-pod-sweeper:
-  #   type: oci-image
-  #   description: OCI image for Airbyte Pod Sweeper
-  # airbyte-server:
-  #   type: oci-image
-  #   description: OCI image for Airbyte Server
-  # airbyte-workers:
-  #   type: oci-image
-  #   description: OCI image for Airbyte Worker
+
