@@ -45,7 +45,7 @@ parts:
     plugin: dump
     source: https://github.com/airbytehq/airbyte-platform.git # yamllint disable-line
     source-type: git
-    source-tag: v1.1.0
+    source-tag: v0.63.8
     stage-packages:
       - python3.10-venv
     override-build: |      
@@ -86,21 +86,21 @@ parts:
       ls ${CRAFT_STAGE}/airbyte-platform
       ls ${CRAFT_STAGE}/airbyte-platform/airbyte-bootloader
       mkdir ${CRAFT_PART_INSTALL}/airbyte-server
-      # mkdir ${CRAFT_PART_INSTALL}/airbyte-api-server
+      mkdir ${CRAFT_PART_INSTALL}/airbyte-api-server
       mkdir ${CRAFT_PART_INSTALL}/airbyte-workers
       mkdir ${CRAFT_PART_INSTALL}/airbyte-bootloader
       mkdir ${CRAFT_PART_INSTALL}/airbyte-cron
       mkdir ${CRAFT_PART_INSTALL}/airbyte-connector-builder-server
 
       tar -xvf ${CRAFT_STAGE}/airbyte-platform/airbyte-server/build/distributions/airbyte-app.tar -C ${CRAFT_PART_INSTALL}/airbyte-server
-      # tar -xvf ${CRAFT_STAGE}/airbyte-platform/airbyte-api-server/build/distributions/airbyte-app.tar -C ${CRAFT_PART_INSTALL}/airbyte-api-server
+      tar -xvf ${CRAFT_STAGE}/airbyte-platform/airbyte-api-server/build/distributions/airbyte-app.tar -C ${CRAFT_PART_INSTALL}/airbyte-api-server
       tar -xvf ${CRAFT_STAGE}/airbyte-platform/airbyte-workers/build/distributions/airbyte-app.tar -C ${CRAFT_PART_INSTALL}/airbyte-workers
       tar -xvf ${CRAFT_STAGE}/airbyte-platform/airbyte-bootloader/build/distributions/airbyte-app.tar -C ${CRAFT_PART_INSTALL}/airbyte-bootloader
       tar -xvf ${CRAFT_STAGE}/airbyte-platform/airbyte-cron/build/distributions/airbyte-app.tar -C ${CRAFT_PART_INSTALL}/airbyte-cron
       tar -xvf ${CRAFT_STAGE}/airbyte-platform/airbyte-connector-builder-server/build/distributions/airbyte-app.tar -C ${CRAFT_PART_INSTALL}/airbyte-connector-builder-server
     stage:
       - airbyte-server
-      # - airbyte-api-server
+      - airbyte-api-server
       - airbyte-workers
       - airbyte-bootloader
       - airbyte-cron

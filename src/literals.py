@@ -12,10 +12,10 @@ DB_NAME = "airbyte-k8s_db"
 
 
 CONTAINER_HEALTH_CHECK_MAP = {
-    # "airbyte-api-server": {
-    #     "port": AIRBYTE_API_PORT,
-    #     "health_endpoint": "/health",
-    # },
+    "airbyte-api-server": {
+        "port": AIRBYTE_API_PORT,
+        "health_endpoint": "/health",
+    },
     "airbyte-bootloader": None,
     "airbyte-connector-builder-server": None,
     "airbyte-cron": {

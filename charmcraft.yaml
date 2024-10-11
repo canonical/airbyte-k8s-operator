@@ -428,6 +428,8 @@ config:
 
 # Your workload’s containers.
 containers:
+  airbyte-api-server:
+    resource: airbyte-image
   airbyte-bootloader:
     resource: airbyte-image
   airbyte-connector-builder-server:
