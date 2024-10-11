@@ -7,6 +7,9 @@ CONNECTOR_BUILDER_SERVER_API_PORT = 80
 INTERNAL_API_PORT = 8001
 AIRBYTE_API_PORT = 8006
 WORKLOAD_API_PORT = 8007
+AIRBYTE_VERSION = "0.64.7"
+DB_NAME = "airbyte-k8s_db"
+
 
 CONTAINER_HEALTH_CHECK_MAP = {
     "airbyte-api-server": {
@@ -27,9 +30,7 @@ CONTAINER_HEALTH_CHECK_MAP = {
     "airbyte-workers": {"port": 9000, "health_endpoint": "/"},
 }
 
-DB_NAME = "airbyte-k8s_db"
 REQUIRED_S3_PARAMETERS = ["region", "endpoint", "access-key", "secret-key"]
-AIRBYTE_VERSION = "0.60.0"
 BUCKET_CONFIGS = [
     "storage-bucket-logs",
     "storage-bucket-state",

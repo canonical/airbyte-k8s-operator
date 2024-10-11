@@ -137,7 +137,7 @@ def create_env(model_name, app_name, container_name, config, state):
         "CONNECTOR_BUILDER_SERVER_API_HOST": f"{app_name}:{CONNECTOR_BUILDER_SERVER_API_PORT}",
         "CONNECTOR_BUILDER_API_HOST": f"{app_name}:{CONNECTOR_BUILDER_SERVER_API_PORT}",
         "AIRBYTE_API_HOST": f"{app_name}:{AIRBYTE_API_PORT}/api/public",
-        "AIRBYTE_URL": config["webapp-url"],
+        # "AIRBYTE_URL": config["webapp-url"],
     }
 
     # https://github.com/airbytehq/airbyte/issues/29506#issuecomment-1775148609
