@@ -26,7 +26,9 @@ parts:
       - ca-certificates
       - curl 
       - gnupg
+      - python3.10-venv  
     override-build: |
+      # Install kubectl
       echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /' | tee /etc/apt/sources.list.d/kubernetes.list
       chmod 644 /etc/apt/sources.list.d/kubernetes.list   # helps tools such as command-not-found to work correctly
       curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
@@ -35,10 +37,16 @@ parts:
       apt-get install -y kubectl
       mkdir -p ${CRAFT_PART_INSTALL}/usr/local/bin
       cp -r $(which kubectl) ${CRAFT_PART_INSTALL}/kubectl
+
+      pip install --upgrade setuptools pip airbyte-cdk==5.12.0 \
+          --target=/${CRAFT_PART_INSTALL}/dist
+
     organize:
       kubectl: usr/local/bin/kubectl
+      dist: usr/local/lib/python3.10/dist-packages
     stage:
       - usr/local/bin/kubectl
+      - usr/local/lib/python3.10/dist-packages
 
   pull-airbyte-repo:
     after: [install-dependencies]
@@ -46,17 +54,10 @@ parts:
     source: https://github.com/airbytehq/airbyte-platform.git # yamllint disable-line
     source-type: git
     source-tag: v0.63.8
-    stage-packages:
-      - python3.10-venv
     override-build: |
       cp -r . ${CRAFT_PART_INSTALL}/airbyte-platform
-      pip install --upgrade setuptools pip airbyte-cdk==5.12.0 \
-          --target=/${CRAFT_PART_INSTALL}/dist
-    organize:
-      dist: usr/local/lib/python3.10/dist-packages
     stage:
       - airbyte-platform
-      - usr/local/lib/python3.10/dist-packages
 
   assemble:
     after: [pull-airbyte-repo]
