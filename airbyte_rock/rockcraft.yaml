@@ -33,9 +33,10 @@ parts:
       chmod 644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg # allow unprivileged APT programs to read this keyring
       apt-get update
       apt-get install -y kubectl
-      mkdir -p ${CRAFT_PART_INSTALL}/usr/local/bin/kubectl
-      install -o root -g root -m 0755 kubectl ${CRAFT_PART_INSTALL}/usr/local/bin/kubectl
-      cp -r $(which kubectl) ${CRAFT_PART_INSTALL}/usr/local/bin/kubectl
+      mkdir -p ${CRAFT_PART_INSTALL}/usr/local/bin
+      cp -r $(which kubectl) ${CRAFT_PART_INSTALL}/kubectl
+    organize:
+      kubectl: usr/local/bin/kubectl
     stage:
       - usr/local/bin/kubectl
 
