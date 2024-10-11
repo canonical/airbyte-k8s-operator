@@ -40,7 +40,7 @@ parts:
     stage:
       - usr/local/bin/kubectl
 
-  pull-repo:
+  pull-airbyte-repo:
     after: [install-dependencies]
     plugin: dump
     source: https://github.com/airbytehq/airbyte-platform.git # yamllint disable-line
@@ -48,7 +48,7 @@ parts:
     source-tag: v0.63.8
     stage-packages:
       - python3.10-venv
-    override-build: |      
+    override-build: |
       cp -r . ${CRAFT_PART_INSTALL}/airbyte-platform
       pip install --upgrade setuptools pip airbyte-cdk==5.12.0 \
           --target=/${CRAFT_PART_INSTALL}/dist
@@ -59,7 +59,7 @@ parts:
       - usr/local/lib/python3.10/dist-packages
 
   assemble:
-    after: [pull-repo]
+    after: [pull-airbyte-repo]
     plugin: nil
     build-packages:
       - jq
