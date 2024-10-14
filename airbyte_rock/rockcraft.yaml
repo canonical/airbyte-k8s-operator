@@ -50,6 +50,10 @@ parts:
     source: https://github.com/airbytehq/airbyte-platform.git # yamllint disable-line
     source-type: git
     source-tag: v0.63.8
+    override-build: |
+      cp -r . ${CRAFT_PART_INSTALL}/airbyte-platform
+    stage:
+      - airbyte-platform
 
   assemble:
     after: [pull-airbyte-repo]
