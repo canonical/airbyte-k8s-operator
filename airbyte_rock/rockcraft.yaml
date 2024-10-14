@@ -6,7 +6,6 @@ summary: Airbyte rock
 description: Airbyte OCI image for the Airbyte charm
 version: "1.0"
 base: ubuntu@22.04
-build-base: ubuntu@22.04
 license: Apache-2.0
 platforms:
   amd64:
@@ -36,14 +35,11 @@ parts:
       apt-get update
       apt-get install -y kubectl
       mkdir -p ${CRAFT_PART_INSTALL}/usr/local/bin
-      cp -r $(which kubectl) ${CRAFT_PART_INSTALL}/kubectl
+      mkdir -p ${CRAFT_PART_INSTALL}/usr/local/lib/python3.10/dist-packages
+      cp -r $(which kubectl) ${CRAFT_PART_INSTALL}/usr/local/bin/kubectl
 
       pip install --upgrade setuptools pip airbyte-cdk==5.12.0 \
-          --target=/${CRAFT_PART_INSTALL}/dist
-
-    organize:
-      kubectl: usr/local/bin/kubectl
-      dist: usr/local/lib/python3.10/dist-packages
+          --target=/${CRAFT_PART_INSTALL}/usr/local/lib/python3.10/dist-packages
     stage:
       - usr/local/bin/kubectl
       - usr/local/lib/python3.10/dist-packages
@@ -54,10 +50,6 @@ parts:
     source: https://github.com/airbytehq/airbyte-platform.git # yamllint disable-line
     source-type: git
     source-tag: v0.63.8
-    override-build: |
-      cp -r . ${CRAFT_PART_INSTALL}/airbyte-platform
-    stage:
-      - airbyte-platform
 
   assemble:
     after: [pull-airbyte-repo]
@@ -70,7 +62,6 @@ parts:
       - gradle
       - openjdk-21-jdk-headless
       - npm
-      - docker.io
     build-snaps:
       - docker
     stage-packages:
@@ -84,8 +75,6 @@ parts:
     after: [assemble]
     plugin: nil
     override-build: |
-      ls ${CRAFT_STAGE}/airbyte-platform
-      ls ${CRAFT_STAGE}/airbyte-platform/airbyte-bootloader
       mkdir ${CRAFT_PART_INSTALL}/airbyte-server
       mkdir ${CRAFT_PART_INSTALL}/airbyte-api-server
       mkdir ${CRAFT_PART_INSTALL}/airbyte-workers
