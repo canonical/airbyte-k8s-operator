@@ -5,7 +5,6 @@
 """Charm the application."""
 
 import logging
-from pathlib import Path
 
 import ops
 from botocore.exceptions import ClientError
@@ -53,7 +52,7 @@ def get_pebble_layer(application_name, context):
         "services": {
             application_name: {
                 "summary": application_name,
-                "command": f"/bin/bash -c airbyte-app/bin/{application_name}",
+                "command": f"/bin/bash {application_name}/airbyte-app/bin/{application_name}",
                 "startup": "enabled",
                 "override": "replace",
                 # Including config values here so that a change in the
@@ -292,18 +291,6 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             if not container.can_connect():
                 event.defer()
                 return
-
-            if container_name == "airbyte-pod-sweeper":
-                script_path = Path(__file__).parent / "scripts/pod-sweeper.sh"
-
-                with open(script_path, "r") as file_source:
-                    logger.info("pushing pod-sweeper script...")
-                    container.push(
-                        f"/airbyte-app/bin/{container_name}",
-                        file_source,
-                        make_dirs=True,
-                        permissions=0o755,
-                    )
 
             env = create_env(self.model.name, self.app.name, container_name, self.config, self._state)
             env = {k: v for k, v in env.items() if v is not None}

@@ -1,0 +1,110 @@
+# Copyright 2024 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+name: airbyte
+summary: Airbyte rock
+description: Airbyte OCI image for the Airbyte charm
+version: "1.0"
+base: ubuntu@22.04
+license: Apache-2.0
+platforms:
+  amd64:
+
+environment:
+  JAVA_HOME: /usr/lib/jvm/java-21-openjdk-amd64
+  CDK_PYTHON: /usr/bin/python3.10
+  CDK_ENTRYPOINT: /usr/lib/python3.10/dist-packages/airbyte_cdk/connector_builder/main.py
+  CDK_VERSION: "5.12.0"
+
+
+parts:
+  install-dependencies:
+    plugin: nil
+    stage-packages:
+      - apt-transport-https
+      - ca-certificates
+      - curl 
+      - gnupg
+      - python3.10-venv  
+    override-build: |
+      # Install kubectl
+      echo 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.31/deb/ /' | tee /etc/apt/sources.list.d/kubernetes.list
+      chmod 644 /etc/apt/sources.list.d/kubernetes.list   # helps tools such as command-not-found to work correctly
+      curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.31/deb/Release.key | gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+      chmod 644 /etc/apt/keyrings/kubernetes-apt-keyring.gpg # allow unprivileged APT programs to read this keyring
+      apt-get update
+      apt-get install -y kubectl
+      mkdir -p ${CRAFT_PART_INSTALL}/usr/local/bin
+      mkdir -p ${CRAFT_PART_INSTALL}/usr/local/lib/python3.10/dist-packages
+      cp -r $(which kubectl) ${CRAFT_PART_INSTALL}/usr/local/bin/kubectl
+
+      pip install --upgrade setuptools pip airbyte-cdk==5.12.0 \
+          --target=/${CRAFT_PART_INSTALL}/usr/local/lib/python3.10/dist-packages
+    stage:
+      - usr/local/bin/kubectl
+      - usr/local/lib/python3.10/dist-packages
+
+  pull-airbyte-repo:
+    after: [install-dependencies]
+    plugin: dump
+    source: https://github.com/airbytehq/airbyte-platform.git # yamllint disable-line
+    source-type: git
+    source-tag: v0.63.8
+    override-build: |
+      cp -r . ${CRAFT_PART_INSTALL}/airbyte-platform
+    stage:
+      - airbyte-platform
+
+  assemble:
+    after: [pull-airbyte-repo]
+    plugin: nil
+    build-packages:
+      - jq
+      - curl
+      - coreutils
+      - bash
+      - gradle
+      - openjdk-21-jdk-headless
+      - npm
+    build-snaps:
+      - docker
+    stage-packages:
+      - openjdk-21-jdk-headless
+    override-build: |
+      cd ${CRAFT_STAGE}/airbyte-platform
+      ./gradlew assemble -x dockerBuildImage --continue --max-workers 1
+      ./gradlew --stop
+
+  organize-tars:
+    after: [assemble]
+    plugin: nil
+    override-build: |
+      mkdir ${CRAFT_PART_INSTALL}/airbyte-server
+      mkdir ${CRAFT_PART_INSTALL}/airbyte-api-server
+      mkdir ${CRAFT_PART_INSTALL}/airbyte-workers
+      mkdir ${CRAFT_PART_INSTALL}/airbyte-bootloader
+      mkdir ${CRAFT_PART_INSTALL}/airbyte-cron
+      mkdir ${CRAFT_PART_INSTALL}/airbyte-connector-builder-server
+
+      tar -xvf ${CRAFT_STAGE}/airbyte-platform/airbyte-server/build/distributions/airbyte-app.tar -C ${CRAFT_PART_INSTALL}/airbyte-server
+      tar -xvf ${CRAFT_STAGE}/airbyte-platform/airbyte-api-server/build/distributions/airbyte-app.tar -C ${CRAFT_PART_INSTALL}/airbyte-api-server
+      tar -xvf ${CRAFT_STAGE}/airbyte-platform/airbyte-workers/build/distributions/airbyte-app.tar -C ${CRAFT_PART_INSTALL}/airbyte-workers
+      tar -xvf ${CRAFT_STAGE}/airbyte-platform/airbyte-bootloader/build/distributions/airbyte-app.tar -C ${CRAFT_PART_INSTALL}/airbyte-bootloader
+      tar -xvf ${CRAFT_STAGE}/airbyte-platform/airbyte-cron/build/distributions/airbyte-app.tar -C ${CRAFT_PART_INSTALL}/airbyte-cron
+      tar -xvf ${CRAFT_STAGE}/airbyte-platform/airbyte-connector-builder-server/build/distributions/airbyte-app.tar -C ${CRAFT_PART_INSTALL}/airbyte-connector-builder-server
+    stage:
+      - airbyte-server
+      - airbyte-api-server
+      - airbyte-workers
+      - airbyte-bootloader
+      - airbyte-cron
+      - airbyte-connector-builder-server
+
+  local-files:
+    after: [organize-tars]
+    plugin: dump
+    source: ./local-files
+    organize:
+      pod-sweeper.sh: airbyte-pod-sweeper/airbyte-app/bin/airbyte-pod-sweeper
+    stage:
+      - airbyte-pod-sweeper/airbyte-app/bin/airbyte-pod-sweeper
