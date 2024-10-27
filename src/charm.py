@@ -24,6 +24,7 @@ from literals import (
     INTERNAL_API_PORT,
     LOGS_BUCKET_CONFIG,
     REQUIRED_S3_PARAMETERS,
+    WORKLOAD_API_PORT,
 )
 from log import log_event_handler
 from relations.airbyte_ui import AirbyteServerProvider
@@ -284,7 +285,9 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             self.unit.status = BlockedStatus(f"failed to create buckets: {str(e)}")
             return
 
-        self.model.unit.set_ports(AIRBYTE_API_PORT, INTERNAL_API_PORT, CONNECTOR_BUILDER_SERVER_API_PORT)
+        self.model.unit.set_ports(
+            AIRBYTE_API_PORT, INTERNAL_API_PORT, CONNECTOR_BUILDER_SERVER_API_PORT, WORKLOAD_API_PORT
+        )
 
         for container_name in CONTAINER_HEALTH_CHECK_MAP:
             container = self.unit.get_container(container_name)

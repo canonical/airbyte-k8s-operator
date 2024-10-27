@@ -7,15 +7,16 @@ CONNECTOR_BUILDER_SERVER_API_PORT = 80
 INTERNAL_API_PORT = 8001
 AIRBYTE_API_PORT = 8006
 WORKLOAD_API_PORT = 8007
-AIRBYTE_VERSION = "0.63.8"
+AIRBYTE_VERSION = "1.1.0"
 DB_NAME = "airbyte-k8s_db"
 
 
 CONTAINER_HEALTH_CHECK_MAP = {
-    "airbyte-api-server": {
-        "port": AIRBYTE_API_PORT,
+    "airbyte-workload-api-server": {
+        "port": WORKLOAD_API_PORT,
         "health_endpoint": "/health",
     },
+    "airbyte-workload-launcher": None,
     "airbyte-bootloader": None,
     "airbyte-connector-builder-server": None,
     "airbyte-cron": {

@@ -49,7 +49,7 @@ parts:
     plugin: dump
     source: https://github.com/airbytehq/airbyte-platform.git # yamllint disable-line
     source-type: git
-    source-tag: v0.63.8
+    source-tag: v1.1.0
     override-build: |
       cp -r . ${CRAFT_PART_INSTALL}/airbyte-platform
     stage:
@@ -80,25 +80,28 @@ parts:
     plugin: nil
     override-build: |
       mkdir ${CRAFT_PART_INSTALL}/airbyte-server
-      mkdir ${CRAFT_PART_INSTALL}/airbyte-api-server
       mkdir ${CRAFT_PART_INSTALL}/airbyte-workers
       mkdir ${CRAFT_PART_INSTALL}/airbyte-bootloader
       mkdir ${CRAFT_PART_INSTALL}/airbyte-cron
       mkdir ${CRAFT_PART_INSTALL}/airbyte-connector-builder-server
+      mkdir ${CRAFT_PART_INSTALL}/airbyte-workload-api-server
+      mkdir ${CRAFT_PART_INSTALL}/airbyte-workload-launcher
 
       tar -xvf ${CRAFT_STAGE}/airbyte-platform/airbyte-server/build/distributions/airbyte-app.tar -C ${CRAFT_PART_INSTALL}/airbyte-server
-      tar -xvf ${CRAFT_STAGE}/airbyte-platform/airbyte-api-server/build/distributions/airbyte-app.tar -C ${CRAFT_PART_INSTALL}/airbyte-api-server
       tar -xvf ${CRAFT_STAGE}/airbyte-platform/airbyte-workers/build/distributions/airbyte-app.tar -C ${CRAFT_PART_INSTALL}/airbyte-workers
       tar -xvf ${CRAFT_STAGE}/airbyte-platform/airbyte-bootloader/build/distributions/airbyte-app.tar -C ${CRAFT_PART_INSTALL}/airbyte-bootloader
       tar -xvf ${CRAFT_STAGE}/airbyte-platform/airbyte-cron/build/distributions/airbyte-app.tar -C ${CRAFT_PART_INSTALL}/airbyte-cron
       tar -xvf ${CRAFT_STAGE}/airbyte-platform/airbyte-connector-builder-server/build/distributions/airbyte-app.tar -C ${CRAFT_PART_INSTALL}/airbyte-connector-builder-server
+      tar -xvf ${CRAFT_STAGE}/airbyte-platform/airbyte-workload-api-server/build/distributions/airbyte-app.tar -C ${CRAFT_PART_INSTALL}/airbyte-workload-api-server
+      tar -xvf ${CRAFT_STAGE}/airbyte-platform/airbyte-workload-launcher/build/distributions/airbyte-app.tar -C ${CRAFT_PART_INSTALL}/airbyte-workload-launcher
     stage:
       - airbyte-server
-      - airbyte-api-server
       - airbyte-workers
       - airbyte-bootloader
       - airbyte-cron
       - airbyte-connector-builder-server
+      - airbyte-workload-api-server
+      - airbyte-workload-launcher
 
   local-files:
     after: [organize-tars]
