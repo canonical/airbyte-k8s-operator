@@ -128,7 +128,7 @@ async def perform_airbyte_integrations(ops_test: OpsTest):
         raise_on_blocked=False,
         wait_for_active=True,
         idle_period=60,
-        timeout=600,
+        timeout=300,
     )
 
     assert ops_test.model.applications[APP_NAME_AIRBYTE_SERVER].units[0].workload_status == "active"

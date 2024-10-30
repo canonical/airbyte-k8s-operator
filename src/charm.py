@@ -25,6 +25,7 @@ from literals import (
     LOGS_BUCKET_CONFIG,
     REQUIRED_S3_PARAMETERS,
     WORKLOAD_API_PORT,
+    WORKLOAD_LAUNCHER_PORT,
 )
 from log import log_event_handler
 from relations.airbyte_ui import AirbyteServerProvider
@@ -286,7 +287,11 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             return
 
         self.model.unit.set_ports(
-            AIRBYTE_API_PORT, INTERNAL_API_PORT, CONNECTOR_BUILDER_SERVER_API_PORT, WORKLOAD_API_PORT
+            AIRBYTE_API_PORT,
+            INTERNAL_API_PORT,
+            CONNECTOR_BUILDER_SERVER_API_PORT,
+            WORKLOAD_API_PORT,
+            WORKLOAD_LAUNCHER_PORT,
         )
 
         for container_name in CONTAINER_HEALTH_CHECK_MAP:
