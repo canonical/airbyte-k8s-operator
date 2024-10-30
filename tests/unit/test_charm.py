@@ -195,7 +195,9 @@ class TestCharm(TestCase):
                 container.get_check.return_value.status = CheckStatus.DOWN
 
         harness.charm.on.update_status.emit()
-        self.assertEqual(harness.model.unit.status, MaintenanceStatus("Status check: DOWN"))
+        self.assertEqual(
+            harness.model.unit.status, MaintenanceStatus("Status check: 'airbyte-workload-api-server' DOWN")
+        )
 
     def test_incomplete_pebble_plan(self):
         """The charm re-applies the pebble plan if incomplete."""
@@ -408,7 +410,7 @@ def create_plan(container_name, storage_type):
                     "WEBAPP_URL": "http://airbyte-ui-k8s:8080",
                     "WORKER_LOGS_STORAGE_TYPE": storage_type,
                     "WORKER_STATE_STORAGE_TYPE": storage_type,
-                    "WORKLOAD_API_HOST": "localhost",
+                    "WORKLOAD_API_HOST": "airbyte-k8s:8007",
                 },
             },
         },

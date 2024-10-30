@@ -173,7 +173,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             check = container.get_check("up")
             if check.status != CheckStatus.UP:
                 logger.error(f"check failed for {container_name}")
-                self.unit.status = MaintenanceStatus("Status check: DOWN")
+                self.unit.status = MaintenanceStatus(f"Status check: {container_name!r} DOWN")
                 return
 
         if not all_valid_plans:

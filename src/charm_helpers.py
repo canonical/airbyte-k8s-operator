@@ -11,6 +11,7 @@ from literals import (
     BASE_ENV,
     CONNECTOR_BUILDER_SERVER_API_PORT,
     INTERNAL_API_PORT,
+    WORKLOAD_API_PORT,
 )
 from structured_config import StorageType
 
@@ -46,6 +47,7 @@ def create_env(model_name, app_name, container_name, config, state):
         "LOG_LEVEL": config["log-level"].value,
         "TEMPORAL_HOST": config["temporal-host"],
         "WEBAPP_URL": config["webapp-url"],
+        "WORKLOAD_API_HOST": f"{app_name}:{WORKLOAD_API_PORT}",
         # Secrets config
         "SECRET_PERSISTENCE": secret_persistence,
         "SECRET_STORE_GCP_PROJECT_ID": config["secret-store-gcp-project-id"],

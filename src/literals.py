@@ -63,4 +63,8 @@ BASE_ENV = {
     "CONTAINER_ORCHESTRATOR_ENABLED": "true",
     "CONTAINER_ORCHESTRATOR_IMAGE": f"airbyte/container-orchestrator:{AIRBYTE_VERSION}",
     "LOG4J_CONFIGURATION_FILE": "log4j2-minio.xml",
+    "ENTERPRISE_SOURCE_STUBS_URL": "https://connectors.airbyte.com/files/resources/connector_stubs/v0/connector_stubs.json",
+    "PUB_SUB_ENABLED": "false",
+    "PUB_SUB_TOPIC_NAME": "",
+    "DATA_PLANE_ID": "local",
 }
