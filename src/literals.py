@@ -7,6 +7,7 @@ CONNECTOR_BUILDER_SERVER_API_PORT = 80
 INTERNAL_API_PORT = 8001
 AIRBYTE_API_PORT = 8006
 WORKLOAD_API_PORT = 8007
+WORKLOAD_LAUNCHER_PORT = 8016
 AIRBYTE_VERSION = "1.1.0"
 DB_NAME = "airbyte-k8s_db"
 
@@ -16,7 +17,10 @@ CONTAINER_HEALTH_CHECK_MAP = {
         "port": WORKLOAD_API_PORT,
         "health_endpoint": "/health",
     },
-    "airbyte-workload-launcher": None,
+    "airbyte-workload-launcher": {
+        "port": WORKLOAD_LAUNCHER_PORT,
+        "health_endpoint": "/health",
+    },
     "airbyte-bootloader": None,
     "airbyte-connector-builder-server": None,
     "airbyte-cron": {
@@ -67,4 +71,5 @@ BASE_ENV = {
     "PUB_SUB_ENABLED": "false",
     "PUB_SUB_TOPIC_NAME": "",
     "DATA_PLANE_ID": "local",
+    "LOCAL_ROOT": "/tmp/airbyte_local",  # nosec
 }
