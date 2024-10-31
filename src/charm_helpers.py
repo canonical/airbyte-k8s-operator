@@ -143,7 +143,7 @@ def create_env(model_name, app_name, container_name, config, state):
     }
 
     # https://github.com/airbytehq/airbyte/issues/29506#issuecomment-1775148609
-    if container_name == "airbyte-workload-launcher":
+    if container_name in ["airbyte-workload-launcher", "airbyte-workers"]:
         env.update(
             {
                 "INTERNAL_API_HOST": f"http://{app_name}:{INTERNAL_API_PORT}",
