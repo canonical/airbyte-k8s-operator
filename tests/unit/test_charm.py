@@ -411,6 +411,7 @@ def create_plan(container_name, storage_type):
                     "WORKER_LOGS_STORAGE_TYPE": storage_type,
                     "WORKER_STATE_STORAGE_TYPE": storage_type,
                     "WORKLOAD_API_HOST": "airbyte-k8s:8007",
+                    "WORKLOAD_API_BEARER_TOKEN": ".Values.workload-api.bearerToken",
                 },
             },
         },

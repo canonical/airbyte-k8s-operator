@@ -139,6 +139,7 @@ def create_env(model_name, app_name, container_name, config, state):
         "CONNECTOR_BUILDER_API_HOST": f"{app_name}:{CONNECTOR_BUILDER_SERVER_API_PORT}",
         "AIRBYTE_API_HOST": f"{app_name}:{AIRBYTE_API_PORT}/api/public",
         "WORKLOAD_API_HOST": f"{app_name}:{WORKLOAD_API_PORT}",
+        "WORKLOAD_API_BEARER_TOKEN": ".Values.workload-api.bearerToken",
     }
 
     # https://github.com/airbytehq/airbyte/issues/29506#issuecomment-1775148609
