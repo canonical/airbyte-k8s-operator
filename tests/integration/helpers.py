@@ -224,26 +224,23 @@ def create_airbyte_connection(api_url, source_id, destination_id):
     Returns:
         Created connection ID.
     """
-    try:
-        url = f"{api_url}/api/public/v1/connections"
-        payload = {
-            "schedule": {"scheduleType": "manual"},
-            "dataResidency": "auto",
-            "namespaceDefinition": "destination",
-            "namespaceFormat": None,
-            "nonBreakingSchemaUpdatesBehavior": "ignore",
-            "sourceId": source_id,
-            "destinationId": destination_id,
-        }
+    url = f"{api_url}/api/public/v1/connections"
+    payload = {
+        "schedule": {"scheduleType": "manual"},
+        "dataResidency": "auto",
+        "namespaceDefinition": "destination",
+        "namespaceFormat": None,
+        "nonBreakingSchemaUpdatesBehavior": "ignore",
+        "sourceId": source_id,
+        "destinationId": destination_id,
+    }
 
-        logger.info("creating Airbyte connection")
-        response = requests.post(url, json=payload, headers=POST_HEADERS, timeout=900)
-        logger.info(response.json())
+    logger.info("creating Airbyte connection")
+    response = requests.post(url, json=payload, headers=POST_HEADERS, timeout=900)
+    logger.info(response.json())
 
-        assert response.status_code == 200
-        return response.json().get("connectionId")
-    except Exception as e:
-        logger.error(f"Error creating Airbyte connection: {e}")
+    assert response.status_code == 200
+    return response.json().get("connectionId")
 
 
 def trigger_airbyte_connection(api_url, connection_id):
