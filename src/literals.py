@@ -72,4 +72,5 @@ BASE_ENV = {
     "PUB_SUB_TOPIC_NAME": "",
     "DATA_PLANE_ID": "local",
     "LOCAL_ROOT": "/tmp/airbyte_local",  # nosec
+    "RUN_DATABASE_MIGRATION_ON_STARTUP": "true",
 }
