@@ -132,7 +132,7 @@ def create_env(model_name, app_name, container_name, config, state):
         "RUNNING_TTL_MINUTES": config["pod-running-ttl-minutes"],
         "SUCCEEDED_TTL_MINUTES": config["pod-successful-ttl-minutes"],
         "UNSUCCESSFUL_TTL_MINUTES": config["pod-unsuccessful-ttl-minutes"],
-        "INTERNAL_API_HOST": f"{app_name}:{INTERNAL_API_PORT}",
+        "INTERNAL_API_HOST": f"http://{app_name}:{INTERNAL_API_PORT}",
         "AIRBYTE_SERVER_HOST": f"{app_name}:{INTERNAL_API_PORT}",
         "CONFIG_API_HOST": f"{app_name}:{INTERNAL_API_PORT}",
         "CONNECTOR_BUILDER_SERVER_API_HOST": f"{app_name}:{CONNECTOR_BUILDER_SERVER_API_PORT}",
@@ -147,7 +147,7 @@ def create_env(model_name, app_name, container_name, config, state):
         env.update(
             {
                 "INTERNAL_API_HOST": f"{app_name}:{INTERNAL_API_PORT}",
-                "WORKLOAD_API_HOST": f"http://{app_name}:{WORKLOAD_API_PORT}",
+                "WORKLOAD_API_HOST": f"{app_name}:{WORKLOAD_API_PORT}",
             }
         )
 

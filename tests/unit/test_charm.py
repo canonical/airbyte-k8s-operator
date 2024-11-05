@@ -369,7 +369,7 @@ def create_plan(container_name, storage_type):
                     "DATABASE_PORT": "5432",
                     "DATABASE_URL": "jdbc:postgresql://myhost:5432/airbyte-k8s_db",
                     "DATABASE_USER": "jean-luc@db",
-                    "INTERNAL_API_HOST": "airbyte-k8s:8001",
+                    "INTERNAL_API_HOST": "http://airbyte-k8s:8001",
                     "JOBS_DATABASE_MINIMUM_FLYWAY_MIGRATION_VERSION": "0.29.15.001",
                     "JOB_KUBE_MAIN_CONTAINER_IMAGE_PULL_POLICY": "IfNotPresent",
                     "JOB_KUBE_NAMESPACE": "airbyte-model",
@@ -422,7 +422,7 @@ def create_plan(container_name, storage_type):
 
     if container_name in ["airbyte-workload-launcher", "airbyte-workers"]:
         want_plan["services"][container_name]["environment"].update(
-            {"INTERNAL_API_HOST": "airbyte-k8s:8001", "WORKLOAD_API_HOST": "http://airbyte-k8s:8007"}
+            {"INTERNAL_API_HOST": "airbyte-k8s:8001", "WORKLOAD_API_HOST": "airbyte-k8s:8007"}
         )
 
     if storage_type == StorageType.minio:
