@@ -72,7 +72,8 @@ parts:
       - openjdk-21-jdk-headless
     override-build: |
       cd ${CRAFT_STAGE}/airbyte-platform
-      ./gradlew assemble -x dockerBuildImage --continue --max-workers 1
+      # ./gradlew assemble -x dockerBuildImage --continue --max-workers 1
+      ./gradlew build --continue
       ./gradlew --stop
 
   organize-tars:

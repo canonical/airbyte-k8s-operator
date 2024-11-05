@@ -146,8 +146,8 @@ def create_env(model_name, app_name, container_name, config, state):
     if container_name in ["airbyte-workload-launcher", "airbyte-workers"]:
         env.update(
             {
-                "INTERNAL_API_HOST": f"{app_name}:{INTERNAL_API_PORT}",
-                "WORKLOAD_API_HOST": f"{app_name}:{WORKLOAD_API_PORT}",
+                "INTERNAL_API_HOST": f"http://{app_name}:{INTERNAL_API_PORT}",
+                "WORKLOAD_API_HOST": f"http://{app_name}:{WORKLOAD_API_PORT}",
             }
         )
 
