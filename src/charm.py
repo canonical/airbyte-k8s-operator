@@ -64,6 +64,13 @@ def get_pebble_layer(application_name, context):
         },
     }
 
+    if application_name == "airbyte-bootloader":
+        pebble_layer["services"][application_name].update(
+            {
+                "on-success": "ignore",
+            }
+        )
+
     application_info = CONTAINER_HEALTH_CHECK_MAP[application_name]
     if application_info is not None:
         pebble_layer["services"][application_name].update(

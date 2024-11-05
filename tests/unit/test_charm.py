@@ -417,6 +417,9 @@ def create_plan(container_name, storage_type):
         },
     }
 
+    if container_name == "airbyte-bootloader":
+        want_plan["services"][container_name].update({"on-success": "ignore"})
+
     if container_name in ["airbyte-workload-launcher", "airbyte-workers"]:
         want_plan["services"][container_name]["environment"].update(
             {"INTERNAL_API_HOST": "http://airbyte-k8s:8001", "WORKLOAD_API_HOST": "http://airbyte-k8s:8007"}
