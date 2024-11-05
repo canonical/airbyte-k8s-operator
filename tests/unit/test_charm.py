@@ -422,7 +422,7 @@ def create_plan(container_name, storage_type):
 
     if container_name in ["airbyte-workload-launcher", "airbyte-workers"]:
         want_plan["services"][container_name]["environment"].update(
-            {"INTERNAL_API_HOST": "http://airbyte-k8s:8001", "WORKLOAD_API_HOST": "http://airbyte-k8s:8007"}
+            {"INTERNAL_API_HOST": "airbyte-k8s:8001", "WORKLOAD_API_HOST": "http://airbyte-k8s:8007"}
         )
 
     if storage_type == StorageType.minio:
