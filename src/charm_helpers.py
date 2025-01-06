@@ -40,7 +40,7 @@ def create_env(model_name, app_name, container_name, config, state):
         secret_persistence = config["secret-persistence"].value
 
     # Some defaults are extracted from Helm chart:
-    # https://github.com/airbytehq/airbyte-platform/tree/v1.1.0/charts/airbyte
+    # https://github.com/airbytehq/airbyte-platform/tree/v1.3.0/charts/airbyte
     env = {
         **BASE_ENV,
         # Airbye services config
