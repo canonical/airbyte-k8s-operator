@@ -12,6 +12,7 @@ jobs:
     uses: canonical/operator-workflows/.github/workflows/integration_test.yaml@main
     secrets: inherit
     with:
+      test-timeout: 60
       channel: 1.28-strict/stable
       modules: '["test_charm.py"]'
       juju-channel: 3.4/stable
