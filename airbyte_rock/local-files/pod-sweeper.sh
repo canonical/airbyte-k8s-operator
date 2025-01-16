@@ -13,7 +13,7 @@ get_job_pods() {
 
 fetch_pod_logs() {
     pod_name="$1"
-    printf "Fetching logs for pod: %s\n" "$pod_name"
+    echo "Fetching logs for pod: ${pod_name}"
     kubectl -n "${JOB_KUBE_NAMESPACE}" logs "$pod_name"
 }
 

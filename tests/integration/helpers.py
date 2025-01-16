@@ -5,10 +5,9 @@
 """Charm integration test helpers."""
 
 import logging
+import os
 import time
 from pathlib import Path
-import airbyte_api
-from airbyte_api import models
 
 import requests
 import yaml
@@ -164,13 +163,24 @@ def create_airbyte_source(api_url, workspace_id):
         Created source ID.
     """
     url = f"{api_url}/api/public/v1/sources"
+    # payload = {
+    #     "configuration": {"sourceType": "pokeapi", "pokemon_name": "pikachu"},
+    #     "name": "API Test",
+    #     "workspaceId": workspace_id,
+    # }
     payload = {
-        "configuration": {"sourceType": "pokeapi", "pokemon_name": "pikachu"},
-        "name": "API Test",
+        "configuration": {
+            "sourceType": "jira",
+            "api_token": os.getenv("JIRA_SANDBOX_API_TOKEN"),
+            "domain": os.getenv("JIRA_SANDBOX_DOMAIN"),
+            "email": os.getenv("JIRA_SANDBOX_EMAIL"),
+        },
+        "name": "JIRA API Test",
         "workspaceId": workspace_id,
     }
 
     logger.info("creating Airbyte source")
+    logger.info(f"Jira email: {os.getenv('JIRA_SANDBOX_EMAIL')}")
     response = requests.post(url, json=payload, headers=POST_HEADERS, timeout=300)
     logger.info(response.json())
 
@@ -227,31 +237,33 @@ def create_airbyte_connection(api_url, source_id, destination_id):
         Created connection ID.
     """
     logger.info("creating Airbyte connection")
-    s = airbyte_api.AirbyteAPI(server_url=f'{api_url}/api/public/v1')
-    res = s.connections.create_connection(request=models.ConnectionCreateRequest(
-        destination_id=destination_id,
-        source_id=source_id,
-        name='Pokeapi-to-postgres',
-    ))
+    # s = airbyte_api.AirbyteAPI(server_url=f"{api_url}/api/public/v1")
+    # res = s.connections.create_connection(
+    #     request=models.ConnectionCreateRequest(
+    #         destination_id=destination_id,
+    #         source_id=source_id,
+    #         name="Pokeapi-to-postgres",
+    #     )
+    # )
 
-    logger.info(res)
-    # url = f"{api_url}/api/public/v1/connections"
-    # payload = {
-    #     "schedule": {"scheduleType": "manual"},
-    #     "dataResidency": "auto",
-    #     "namespaceDefinition": "destination",
-    #     "namespaceFormat": None,
-    #     "nonBreakingSchemaUpdatesBehavior": "ignore",
-    #     "sourceId": source_id,
-    #     "destinationId": destination_id,
-    # }
+    # logger.info(res)
+    url = f"{api_url}/api/public/v1/connections"
+    payload = {
+        "schedule": {"scheduleType": "manual"},
+        "dataResidency": "auto",
+        "namespaceDefinition": "destination",
+        "namespaceFormat": None,
+        "nonBreakingSchemaUpdatesBehavior": "ignore",
+        "sourceId": source_id,
+        "destinationId": destination_id,
+    }
 
-    # logger.info("creating Airbyte connection")
-    # response = requests.post(url, json=payload, headers=POST_HEADERS, timeout=1800)
-    # logger.info(response.json())
+    logger.info("creating Airbyte connection")
+    response = requests.post(url, json=payload, headers=POST_HEADERS, timeout=1800)
+    logger.info(response.json())
 
-    # assert response.status_code == 200
-    # return response.json().get("connectionId")
+    assert response.status_code == 200
+    return response.json().get("connectionId")
 
 
 def trigger_airbyte_connection(api_url, connection_id):
