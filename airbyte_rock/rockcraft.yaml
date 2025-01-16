@@ -66,10 +66,14 @@ parts:
       - gradle
       - openjdk-21-jdk-headless
       - npm
+      - libpq-dev
+      - python3-dev
     build-snaps:
       - docker
     stage-packages:
       - openjdk-21-jdk-headless
+      - libpq-dev
+      - python3-dev
     override-build: |
       cd ${CRAFT_STAGE}/airbyte-platform
       ./gradlew assemble -x dockerBuildImage --continue --max-workers 1
