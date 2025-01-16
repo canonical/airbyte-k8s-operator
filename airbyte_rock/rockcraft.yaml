@@ -49,7 +49,7 @@ parts:
     plugin: dump
     source: https://github.com/airbytehq/airbyte-platform.git # yamllint disable-line
     source-type: git
-    source-tag: v1.0.0
+    source-tag: v1.3.0
     override-build: |
       cp -r . ${CRAFT_PART_INSTALL}/airbyte-platform
     stage:
@@ -72,8 +72,7 @@ parts:
       - openjdk-21-jdk-headless
     override-build: |
       cd ${CRAFT_STAGE}/airbyte-platform
-      ./gradlew assemble -x dockerBuildImage --continue
-      # ./gradlew build --continue
+      ./gradlew assemble -x dockerBuildImage --continue --max-workers 1
       ./gradlew --stop
 
   organize-tars:

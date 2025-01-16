@@ -7,6 +7,8 @@
 import logging
 import time
 from pathlib import Path
+import airbyte_api
+from airbyte_api import models
 
 import requests
 import yaml
@@ -224,23 +226,32 @@ def create_airbyte_connection(api_url, source_id, destination_id):
     Returns:
         Created connection ID.
     """
-    url = f"{api_url}/api/public/v1/connections"
-    payload = {
-        "schedule": {"scheduleType": "manual"},
-        "dataResidency": "auto",
-        "namespaceDefinition": "destination",
-        "namespaceFormat": None,
-        "nonBreakingSchemaUpdatesBehavior": "ignore",
-        "sourceId": source_id,
-        "destinationId": destination_id,
-    }
-
     logger.info("creating Airbyte connection")
-    response = requests.post(url, json=payload, headers=POST_HEADERS, timeout=900)
-    logger.info(response.json())
+    s = airbyte_api.AirbyteAPI(server_url=f'{api_url}/api/public/v1')
+    res = s.connections.create_connection(request=models.ConnectionCreateRequest(
+        destination_id=destination_id,
+        source_id=source_id,
+        name='Pokeapi-to-postgres',
+    ))
 
-    assert response.status_code == 200
-    return response.json().get("connectionId")
+    logger.info(res)
+    # url = f"{api_url}/api/public/v1/connections"
+    # payload = {
+    #     "schedule": {"scheduleType": "manual"},
+    #     "dataResidency": "auto",
+    #     "namespaceDefinition": "destination",
+    #     "namespaceFormat": None,
+    #     "nonBreakingSchemaUpdatesBehavior": "ignore",
+    #     "sourceId": source_id,
+    #     "destinationId": destination_id,
+    # }
+
+    # logger.info("creating Airbyte connection")
+    # response = requests.post(url, json=payload, headers=POST_HEADERS, timeout=1800)
+    # logger.info(response.json())
+
+    # assert response.status_code == 200
+    # return response.json().get("connectionId")
 
 
 def trigger_airbyte_connection(api_url, connection_id):
