@@ -6,6 +6,13 @@ concurrency:
 
 on:
   pull_request:
+    secrets:
+      JIRA_SANDBOX_API_TOKEN:
+        required: true
+      JIRA_SANDBOX_DOMAIN:
+        required: true
+      JIRA_SANDBOX_EMAIL:
+        required: true
 
 jobs:
   integration-tests:
