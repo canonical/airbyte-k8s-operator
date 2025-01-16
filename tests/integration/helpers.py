@@ -16,6 +16,9 @@ from temporal_client.activities import say_hello
 from temporal_client.workflows import SayHello
 from temporalio.client import Client
 from temporalio.worker import Worker
+import psycopg2
+from psycopg2 import sql
+from psycopg2.extras import RealDictCursor
 
 logger = logging.getLogger(__name__)
 
@@ -151,6 +154,24 @@ def get_airbyte_workspace_id(api_url):
     assert response.status_code == 200
     return response.json().get("data")[0]["workspaceId"]
 
+def update_pokeapi_connector_version(db_host, db_password):
+    with psycopg2.connect(
+        host=db_host,
+        dbname="airbyte-k8s_db",
+        user="operator",
+        password=db_password,
+        port=5432,
+    ) as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            update_connector = sql.SQL(
+                """
+                    UPDATE {table_name}
+                    SET docker_image_tag = '0.2.1'
+                    WHERE name LIKE '%poke%';
+            """
+            ).format(table=sql.Identifier("actor_definition_version"))
+            cursor.execute(update_connector)
+            conn.commit()
 
 def create_airbyte_source(api_url, workspace_id):
     """Create Airbyte sample source.
@@ -163,21 +184,21 @@ def create_airbyte_source(api_url, workspace_id):
         Created source ID.
     """
     url = f"{api_url}/api/public/v1/sources"
-    # payload = {
-    #     "configuration": {"sourceType": "pokeapi", "pokemon_name": "pikachu"},
-    #     "name": "API Test",
-    #     "workspaceId": workspace_id,
-    # }
     payload = {
-        "configuration": {
-            "sourceType": "jira",
-            "api_token": os.getenv("JIRA_SANDBOX_API_TOKEN"),
-            "domain": os.getenv("JIRA_SANDBOX_DOMAIN"),
-            "email": os.getenv("JIRA_SANDBOX_EMAIL"),
-        },
-        "name": "JIRA API Test",
+        "configuration": {"sourceType": "pokeapi", "pokemon_name": "pikachu"},
+        "name": "API Test",
         "workspaceId": workspace_id,
     }
+    # payload = {
+    #     "configuration": {
+    #         "sourceType": "jira",
+    #         "api_token": os.getenv("JIRA_SANDBOX_API_TOKEN"),
+    #         "domain": os.getenv("JIRA_SANDBOX_DOMAIN"),
+    #         "email": os.getenv("JIRA_SANDBOX_EMAIL"),
+    #     },
+    #     "name": "JIRA API Test",
+    #     "workspaceId": workspace_id,
+    # }
 
     logger.info("creating Airbyte source")
     logger.info(f"Jira email: {os.getenv('JIRA_SANDBOX_EMAIL')}")
@@ -349,10 +370,19 @@ async def run_test_sync_job(ops_test):
     """
     # Create connection
     api_url = await get_unit_url(ops_test, application=APP_NAME_AIRBYTE_SERVER, unit=0, port=8001)
+    db_url = await get_unit_url(ops_test, application="postgresql-k8s", unit=0, port=5432)
+
+    # Get DB URL
+    status = await ops_test.model.get_status()  # noqa: F821
+    db_host = status["applications"]["postgresql-k8s"]["units"][f"postgresql-k8s/0"]["address"]
+
     logger.info("curling app address: %s", api_url)
     workspace_id = get_airbyte_workspace_id(api_url)
     db_password = await get_db_password(ops_test)
     assert db_password
+
+    # Update Pokeapi connector version, latest version does not work.
+    update_pokeapi_connector_version(db_host, db_password)
 
     # Create Source
     source_id = create_airbyte_source(api_url, workspace_id)
