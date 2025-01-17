@@ -9,16 +9,16 @@ import os
 import time
 from pathlib import Path
 
+import psycopg2
 import requests
 import yaml
+from psycopg2 import sql
+from psycopg2.extras import RealDictCursor
 from pytest_operator.plugin import OpsTest
 from temporal_client.activities import say_hello
 from temporal_client.workflows import SayHello
 from temporalio.client import Client
 from temporalio.worker import Worker
-import psycopg2
-from psycopg2 import sql
-from psycopg2.extras import RealDictCursor
 
 logger = logging.getLogger(__name__)
 
@@ -154,6 +154,7 @@ def get_airbyte_workspace_id(api_url):
     assert response.status_code == 200
     return response.json().get("data")[0]["workspaceId"]
 
+
 def update_pokeapi_connector_version(db_host, db_password):
     with psycopg2.connect(
         host=db_host,
@@ -165,13 +166,14 @@ def update_pokeapi_connector_version(db_host, db_password):
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
             update_connector = sql.SQL(
                 """
-                    UPDATE {table_name}
+                    UPDATE {table}
                     SET docker_image_tag = '0.2.1'
                     WHERE name LIKE '%poke%';
             """
             ).format(table=sql.Identifier("actor_definition_version"))
             cursor.execute(update_connector)
             conn.commit()
+
 
 def create_airbyte_source(api_url, workspace_id):
     """Create Airbyte sample source.
@@ -370,11 +372,11 @@ async def run_test_sync_job(ops_test):
     """
     # Create connection
     api_url = await get_unit_url(ops_test, application=APP_NAME_AIRBYTE_SERVER, unit=0, port=8001)
-    db_url = await get_unit_url(ops_test, application="postgresql-k8s", unit=0, port=5432)
+    # db_url = await get_unit_url(ops_test, application="postgresql-k8s", unit=0, port=5432)
 
     # Get DB URL
     status = await ops_test.model.get_status()  # noqa: F821
-    db_host = status["applications"]["postgresql-k8s"]["units"][f"postgresql-k8s/0"]["address"]
+    db_host = status["applications"]["postgresql-k8s"]["units"]["postgresql-k8s/0"]["address"]
 
     logger.info("curling app address: %s", api_url)
     workspace_id = get_airbyte_workspace_id(api_url)
