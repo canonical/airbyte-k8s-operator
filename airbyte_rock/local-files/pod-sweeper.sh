@@ -3,13 +3,22 @@
 # See LICENSE file for licensing details.
 
 # https://github.com/airbytehq/airbyte-platform/blob/main/charts/airbyte-pod-sweeper/templates/configmap.yaml
-# TODO(kelkawi-a): Move this to Airbyte ROCK
 
 get_job_pods() {
     # echo "Running kubectl command to get job pods..."
     kubectl -n "${JOB_KUBE_NAMESPACE}" -L airbyte -l airbyte=job-pod \
         get pods \
         -o=jsonpath='{range .items[*]} {.metadata.name} {.status.phase} {.status.conditions[0].lastTransitionTime} {.status.startTime}{"\n"}{end}'
+}
+
+fetch_pod_logs() {
+    pod_name="$1"
+    echo "Fetching logs for pod: ${pod_name}"
+    kubectl -n "${JOB_KUBE_NAMESPACE}" describe pod "$pod_name"
+    kubectl -n "${JOB_KUBE_NAMESPACE}" get pod "$pod_name" -o yaml | grep serviceAccount
+    kubectl -n "${JOB_KUBE_NAMESPACE}" logs "$pod_name"
+    kubectl -n "${JOB_KUBE_NAMESPACE}" logs "$pod_name -c init"
+    kubectl -n "${JOB_KUBE_NAMESPACE}" logs "$pod_name -c main"
 }
 
 delete_pod() {
@@ -20,6 +29,7 @@ delete_pod() {
 while :
 do
     echo "Starting pod sweeper cycle:"
+    sleep 120
 
     if [ -n "${RUNNING_TTL_MINUTES}" ]; then 
         # Time window for running pods
@@ -48,6 +58,7 @@ do
 
         POD_DATE=$(date -d "${POD_DATE_STR:-$POD_START_DATE_STR}" '+%s')
         echo "Evaluating pod: $POD_NAME with status $POD_STATUS since $POD_DATE_STR"
+        fetch_pod_logs "$POD_NAME"
 
         if [ -n "${RUNNING_TTL_MINUTES}" ] && [ "$POD_STATUS" = "Running" ]; then
             if [ "$POD_DATE" -lt "$RUNNING_DATE" ]; then
