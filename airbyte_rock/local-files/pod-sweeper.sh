@@ -14,7 +14,11 @@ get_job_pods() {
 fetch_pod_logs() {
     pod_name="$1"
     echo "Fetching logs for pod: ${pod_name}"
+    kubectl -n "${JOB_KUBE_NAMESPACE}" describe pod "$pod_name"
+    kubectl -n "${JOB_KUBE_NAMESPACE}" get pod "$pod_name" -o yaml | grep serviceAccount
     kubectl -n "${JOB_KUBE_NAMESPACE}" logs "$pod_name"
+    kubectl -n "${JOB_KUBE_NAMESPACE}" logs "$pod_name -c init"
+    kubectl -n "${JOB_KUBE_NAMESPACE}" logs "$pod_name -c main"
 }
 
 delete_pod() {
@@ -25,6 +29,7 @@ delete_pod() {
 while :
 do
     echo "Starting pod sweeper cycle:"
+    sleep 120
 
     if [ -n "${RUNNING_TTL_MINUTES}" ]; then 
         # Time window for running pods

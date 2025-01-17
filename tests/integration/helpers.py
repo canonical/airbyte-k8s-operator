@@ -166,11 +166,16 @@ def update_pokeapi_connector_version(db_host, db_password):
         with conn.cursor(cursor_factory=RealDictCursor) as cursor:
             update_connector = sql.SQL(
                 """
-                    UPDATE {table}
+                    UPDATE {adv_table}
                     SET docker_image_tag = '0.2.1'
-                    WHERE name LIKE '%poke%';
+                    WHERE id IN (
+                        SELECT adv.id
+                        FROM {ad_table} ad
+                        JOIN {adv_table} adv ON ad.default_version_id = adv.id
+                        WHERE ad.name LIKE '%Poke%'
+                    );
             """
-            ).format(table=sql.Identifier("actor_definition_version"))
+            ).format(adv_table=sql.Identifier("actor_definition_version"), ad_table=sql.Identifier("actor_definition"))
             cursor.execute(update_connector)
             conn.commit()
 
