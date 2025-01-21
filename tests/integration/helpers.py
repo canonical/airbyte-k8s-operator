@@ -287,11 +287,15 @@ def create_airbyte_connection(api_url, source_id, destination_id):
     }
 
     logger.info("creating Airbyte connection")
-    response = requests.post(url, json=payload, headers=POST_HEADERS, timeout=1800)
-    logger.info(response.json())
+    for i in range(5):
+        response = requests.post(url, json=payload, headers=POST_HEADERS, timeout=1800)
+        logger.info(response.json())
 
-    assert response.status_code == 200
-    return response.json().get("connectionId")
+        # assert response.status_code == 200
+        if response.status_code == 200:
+            return response.json().get("connectionId")
+        
+    assert False
 
 
 def trigger_airbyte_connection(api_url, connection_id):
