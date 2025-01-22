@@ -11,6 +11,7 @@ get_job_pods() {
         -o=jsonpath='{range .items[*]} {.metadata.name} {.status.phase} {.status.conditions[0].lastTransitionTime} {.status.startTime}{"\n"}{end}'
 }
 
+# Useful function when debugging
 fetch_pod_logs() {
     pod_name="$1"
     echo "Fetching logs for pod: ${pod_name}"
@@ -58,7 +59,6 @@ do
 
         POD_DATE=$(date -d "${POD_DATE_STR:-$POD_START_DATE_STR}" '+%s')
         echo "Evaluating pod: $POD_NAME with status $POD_STATUS since $POD_DATE_STR"
-        fetch_pod_logs "$POD_NAME"
 
         if [ -n "${RUNNING_TTL_MINUTES}" ] && [ "$POD_STATUS" = "Running" ]; then
             if [ "$POD_DATE" -lt "$RUNNING_DATE" ]; then

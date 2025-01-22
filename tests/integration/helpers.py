@@ -383,11 +383,10 @@ async def run_test_sync_job(ops_test):
     """
     # Create connection
     api_url = await get_unit_url(ops_test, application=APP_NAME_AIRBYTE_SERVER, unit=0, port=8001)
-    # db_url = await get_unit_url(ops_test, application="postgresql-k8s", unit=0, port=5432)
 
     # Get DB URL
     status = await ops_test.model.get_status()  # noqa: F821
-    db_host = status["applications"]["postgresql-k8s"]["units"]["postgresql-k8s/0"]["address"]
+    # db_host = status["applications"]["postgresql-k8s"]["units"]["postgresql-k8s/0"]["address"]
 
     logger.info("curling app address: %s", api_url)
     workspace_id = get_airbyte_workspace_id(api_url)
@@ -395,7 +394,7 @@ async def run_test_sync_job(ops_test):
     assert db_password
 
     # Update Pokeapi connector version, latest version does not work.
-    update_pokeapi_connector_version(db_host, db_password)
+    # update_pokeapi_connector_version(db_host, db_password)
 
     # Create Source
     source_id = create_airbyte_source(api_url, workspace_id)

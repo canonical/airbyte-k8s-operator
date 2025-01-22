@@ -42,8 +42,6 @@ class SecretPersistenceType(str, Enum):
     TESTING_CONFIG_DB_TABLE = "TESTING_CONFIG_DB_TABLE"
     VAULT = "VAULT"
 
-    secret_persistence: Optional["SecretPersistenceType"] = None
-
 
 class VaultAuthType(str, Enum):
     """Enum for the `vault-auth-method` field."""
