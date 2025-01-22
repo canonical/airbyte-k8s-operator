@@ -156,6 +156,12 @@ def get_airbyte_workspace_id(api_url):
 
 
 def update_pokeapi_connector_version(db_host, db_password):
+    """Updates pokeapi connector version.
+
+    Args:
+        db_host: Database host.
+        db_password: Database password.
+    """
     with psycopg2.connect(
         host=db_host,
         dbname="airbyte-k8s_db",
@@ -264,7 +270,7 @@ def create_airbyte_connection(api_url, source_id, destination_id):
     Returns:
         Created connection ID.
     """
-    logger.info("creating Airbyte connection")
+    # logger.info("creating Airbyte connection")
     # s = airbyte_api.AirbyteAPI(server_url=f"{api_url}/api/public/v1")
     # res = s.connections.create_connection(
     #     request=models.ConnectionCreateRequest(
@@ -287,15 +293,11 @@ def create_airbyte_connection(api_url, source_id, destination_id):
     }
 
     logger.info("creating Airbyte connection")
-    for i in range(5):
-        response = requests.post(url, json=payload, headers=POST_HEADERS, timeout=1800)
-        logger.info(response.json())
+    response = requests.post(url, json=payload, headers=POST_HEADERS, timeout=1800)
+    logger.info(response.json())
 
-        # assert response.status_code == 200
-        if response.status_code == 200:
-            return response.json().get("connectionId")
-        
-    assert False
+    assert response.status_code == 200
+    return response.json().get("connectionId")
 
 
 def trigger_airbyte_connection(api_url, connection_id):

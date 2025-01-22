@@ -17,8 +17,8 @@ fetch_pod_logs() {
     kubectl -n "${JOB_KUBE_NAMESPACE}" describe pod "$pod_name"
     kubectl -n "${JOB_KUBE_NAMESPACE}" get pod "$pod_name" -o yaml | grep serviceAccount
     kubectl -n "${JOB_KUBE_NAMESPACE}" logs "$pod_name"
-    kubectl -n "${JOB_KUBE_NAMESPACE}" logs "$pod_name -c init"
-    kubectl -n "${JOB_KUBE_NAMESPACE}" logs "$pod_name -c main"
+    kubectl -n "${JOB_KUBE_NAMESPACE}" logs "$pod_name" -c init
+    kubectl -n "${JOB_KUBE_NAMESPACE}" logs "$pod_name" -c main
 }
 
 delete_pod() {
