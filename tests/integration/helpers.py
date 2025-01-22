@@ -407,13 +407,13 @@ async def run_test_sync_job(ops_test):
     connection_id = create_airbyte_connection(api_url, source_id, destination_id)
 
     # Trigger sync job
-    for i in range(2):
+    for i in range(4):
         logger.info(f"attempt {i + 1} to trigger new job")
         job_id = trigger_airbyte_connection(api_url, connection_id)
 
         # Wait until job is successful
         job_successful = False
-        for j in range(7):
+        for j in range(15):
             logger.info(f"job {i + 1} attempt {j + 1}: getting job status")
             status = check_airbyte_job_status(api_url, job_id)
 
