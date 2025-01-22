@@ -5,11 +5,15 @@
 """Charm integration test helpers."""
 
 import logging
+import os
 import time
 from pathlib import Path
 
+import psycopg2
 import requests
 import yaml
+from psycopg2 import sql
+from psycopg2.extras import RealDictCursor
 from pytest_operator.plugin import OpsTest
 from temporal_client.activities import say_hello
 from temporal_client.workflows import SayHello
@@ -128,7 +132,7 @@ async def perform_airbyte_integrations(ops_test: OpsTest):
         raise_on_blocked=False,
         wait_for_active=True,
         idle_period=60,
-        timeout=600,
+        timeout=300,
     )
 
     assert ops_test.model.applications[APP_NAME_AIRBYTE_SERVER].units[0].workload_status == "active"
@@ -151,6 +155,37 @@ def get_airbyte_workspace_id(api_url):
     return response.json().get("data")[0]["workspaceId"]
 
 
+def update_pokeapi_connector_version(db_host, db_password):
+    """Updates pokeapi connector version.
+
+    Args:
+        db_host: Database host.
+        db_password: Database password.
+    """
+    with psycopg2.connect(
+        host=db_host,
+        dbname="airbyte-k8s_db",
+        user="operator",
+        password=db_password,
+        port=5432,
+    ) as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            update_connector = sql.SQL(
+                """
+                    UPDATE {adv_table}
+                    SET docker_image_tag = '0.2.1'
+                    WHERE id IN (
+                        SELECT adv.id
+                        FROM {ad_table} ad
+                        JOIN {adv_table} adv ON ad.default_version_id = adv.id
+                        WHERE ad.name LIKE '%Poke%'
+                    );
+            """
+            ).format(adv_table=sql.Identifier("actor_definition_version"), ad_table=sql.Identifier("actor_definition"))
+            cursor.execute(update_connector)
+            conn.commit()
+
+
 def create_airbyte_source(api_url, workspace_id):
     """Create Airbyte sample source.
 
@@ -167,8 +202,19 @@ def create_airbyte_source(api_url, workspace_id):
         "name": "API Test",
         "workspaceId": workspace_id,
     }
+    # payload = {
+    #     "configuration": {
+    #         "sourceType": "jira",
+    #         "api_token": os.getenv("JIRA_SANDBOX_API_TOKEN"),
+    #         "domain": os.getenv("JIRA_SANDBOX_DOMAIN"),
+    #         "email": os.getenv("JIRA_SANDBOX_EMAIL"),
+    #     },
+    #     "name": "JIRA API Test",
+    #     "workspaceId": workspace_id,
+    # }
 
     logger.info("creating Airbyte source")
+    logger.info(f"Jira email: {os.getenv('JIRA_SANDBOX_EMAIL')}")
     response = requests.post(url, json=payload, headers=POST_HEADERS, timeout=300)
     logger.info(response.json())
 
@@ -224,6 +270,17 @@ def create_airbyte_connection(api_url, source_id, destination_id):
     Returns:
         Created connection ID.
     """
+    # logger.info("creating Airbyte connection")
+    # s = airbyte_api.AirbyteAPI(server_url=f"{api_url}/api/public/v1")
+    # res = s.connections.create_connection(
+    #     request=models.ConnectionCreateRequest(
+    #         destination_id=destination_id,
+    #         source_id=source_id,
+    #         name="Pokeapi-to-postgres",
+    #     )
+    # )
+
+    # logger.info(res)
     url = f"{api_url}/api/public/v1/connections"
     payload = {
         "schedule": {"scheduleType": "manual"},
@@ -236,7 +293,7 @@ def create_airbyte_connection(api_url, source_id, destination_id):
     }
 
     logger.info("creating Airbyte connection")
-    response = requests.post(url, json=payload, headers=POST_HEADERS, timeout=300)
+    response = requests.post(url, json=payload, headers=POST_HEADERS, timeout=1800)
     logger.info(response.json())
 
     assert response.status_code == 200
@@ -326,10 +383,18 @@ async def run_test_sync_job(ops_test):
     """
     # Create connection
     api_url = await get_unit_url(ops_test, application=APP_NAME_AIRBYTE_SERVER, unit=0, port=8001)
+
+    # Get DB URL
+    status = await ops_test.model.get_status()  # noqa: F821
+    # db_host = status["applications"]["postgresql-k8s"]["units"]["postgresql-k8s/0"]["address"]
+
     logger.info("curling app address: %s", api_url)
     workspace_id = get_airbyte_workspace_id(api_url)
     db_password = await get_db_password(ops_test)
     assert db_password
+
+    # Update Pokeapi connector version, latest version does not work.
+    # update_pokeapi_connector_version(db_host, db_password)
 
     # Create Source
     source_id = create_airbyte_source(api_url, workspace_id)
@@ -341,13 +406,13 @@ async def run_test_sync_job(ops_test):
     connection_id = create_airbyte_connection(api_url, source_id, destination_id)
 
     # Trigger sync job
-    for i in range(2):
+    for i in range(4):
         logger.info(f"attempt {i + 1} to trigger new job")
         job_id = trigger_airbyte_connection(api_url, connection_id)
 
         # Wait until job is successful
         job_successful = False
-        for j in range(7):
+        for j in range(15):
             logger.info(f"job {i + 1} attempt {j + 1}: getting job status")
             status = check_airbyte_job_status(api_url, job_id)
 

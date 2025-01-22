@@ -24,6 +24,8 @@ from literals import (
     INTERNAL_API_PORT,
     LOGS_BUCKET_CONFIG,
     REQUIRED_S3_PARAMETERS,
+    WORKLOAD_API_PORT,
+    WORKLOAD_LAUNCHER_PORT,
 )
 from log import log_event_handler
 from relations.airbyte_ui import AirbyteServerProvider
@@ -61,6 +63,13 @@ def get_pebble_layer(application_name, context):
             },
         },
     }
+
+    if application_name == "airbyte-bootloader":
+        pebble_layer["services"][application_name].update(
+            {
+                "on-success": "ignore",
+            }
+        )
 
     application_info = CONTAINER_HEALTH_CHECK_MAP[application_name]
     if application_info is not None:
@@ -172,7 +181,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             check = container.get_check("up")
             if check.status != CheckStatus.UP:
                 logger.error(f"check failed for {container_name}")
-                self.unit.status = MaintenanceStatus("Status check: DOWN")
+                self.unit.status = MaintenanceStatus(f"Status check: {container_name!r} DOWN")
                 return
 
         if not all_valid_plans:
@@ -284,7 +293,13 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             self.unit.status = BlockedStatus(f"failed to create buckets: {str(e)}")
             return
 
-        self.model.unit.set_ports(AIRBYTE_API_PORT, INTERNAL_API_PORT, CONNECTOR_BUILDER_SERVER_API_PORT)
+        self.model.unit.set_ports(
+            AIRBYTE_API_PORT,
+            INTERNAL_API_PORT,
+            CONNECTOR_BUILDER_SERVER_API_PORT,
+            WORKLOAD_API_PORT,
+            WORKLOAD_LAUNCHER_PORT,
+        )
 
         for container_name in CONTAINER_HEALTH_CHECK_MAP:
             container = self.unit.get_container(container_name)

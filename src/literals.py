@@ -7,13 +7,18 @@ CONNECTOR_BUILDER_SERVER_API_PORT = 80
 INTERNAL_API_PORT = 8001
 AIRBYTE_API_PORT = 8006
 WORKLOAD_API_PORT = 8007
-AIRBYTE_VERSION = "0.63.8"
+WORKLOAD_LAUNCHER_PORT = 8016
+AIRBYTE_VERSION = "1.4.0"
 DB_NAME = "airbyte-k8s_db"
 
 
 CONTAINER_HEALTH_CHECK_MAP = {
-    "airbyte-api-server": {
-        "port": AIRBYTE_API_PORT,
+    "airbyte-workload-api-server": {
+        "port": WORKLOAD_API_PORT,
+        "health_endpoint": "/health",
+    },
+    "airbyte-workload-launcher": {
+        "port": WORKLOAD_LAUNCHER_PORT,
         "health_endpoint": "/health",
     },
     "airbyte-bootloader": None,
@@ -62,4 +67,11 @@ BASE_ENV = {
     "CONTAINER_ORCHESTRATOR_ENABLED": "true",
     "CONTAINER_ORCHESTRATOR_IMAGE": f"airbyte/container-orchestrator:{AIRBYTE_VERSION}",
     "LOG4J_CONFIGURATION_FILE": "log4j2-minio.xml",
+    "ENTERPRISE_SOURCE_STUBS_URL": "https://connectors.airbyte.com/files/resources/connector_stubs/v0/connector_stubs.json",
+    "PUB_SUB_ENABLED": "false",
+    "PUB_SUB_TOPIC_NAME": "",
+    "DATA_PLANE_ID": "local",
+    "LOCAL_ROOT": "/tmp/airbyte_local",  # nosec
+    "RUN_DATABASE_MIGRATION_ON_STARTUP": "true",
+    "API_AUTHORIZATION_ENABLED": "false",
 }
