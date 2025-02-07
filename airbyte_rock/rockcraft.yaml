@@ -4,7 +4,7 @@
 name: airbyte
 summary: Airbyte rock
 description: Airbyte OCI image for the Airbyte charm
-version: "1.0.0"
+version: "1.4.0"
 base: ubuntu@22.04
 license: Apache-2.0
 platforms:

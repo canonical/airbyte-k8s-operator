@@ -30,7 +30,6 @@ delete_pod() {
 while :
 do
     echo "Starting pod sweeper cycle:"
-    sleep 120
 
     if [ -n "${RUNNING_TTL_MINUTES}" ]; then 
         # Time window for running pods
