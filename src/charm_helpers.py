@@ -11,6 +11,7 @@ from literals import (
     BASE_ENV,
     CONNECTOR_BUILDER_SERVER_API_PORT,
     INTERNAL_API_PORT,
+    WORKLOAD_API_PORT,
 )
 from structured_config import StorageType
 
@@ -39,7 +40,7 @@ def create_env(model_name, app_name, container_name, config, state):
         secret_persistence = config["secret-persistence"].value
 
     # Some defaults are extracted from Helm chart:
-    # https://github.com/airbytehq/airbyte-platform/tree/v0.60.0/charts/airbyte
+    # https://github.com/airbytehq/airbyte-platform/tree/v1.4.0/charts/airbyte
     env = {
         **BASE_ENV,
         # Airbye services config
@@ -137,11 +138,18 @@ def create_env(model_name, app_name, container_name, config, state):
         "CONNECTOR_BUILDER_SERVER_API_HOST": f"{app_name}:{CONNECTOR_BUILDER_SERVER_API_PORT}",
         "CONNECTOR_BUILDER_API_HOST": f"{app_name}:{CONNECTOR_BUILDER_SERVER_API_PORT}",
         "AIRBYTE_API_HOST": f"{app_name}:{AIRBYTE_API_PORT}/api/public",
+        "WORKLOAD_API_HOST": f"{app_name}:{WORKLOAD_API_PORT}",
+        "WORKLOAD_API_BEARER_TOKEN": ".Values.workload-api.bearerToken",
     }
 
     # https://github.com/airbytehq/airbyte/issues/29506#issuecomment-1775148609
-    if container_name == "airbyte-api-server":
-        env.update({"INTERNAL_API_HOST": f"http://{app_name}:{INTERNAL_API_PORT}"})
+    if container_name in ["airbyte-workload-launcher", "airbyte-workers"]:
+        env.update(
+            {
+                "INTERNAL_API_HOST": f"http://{app_name}:{INTERNAL_API_PORT}",
+                "WORKLOAD_API_HOST": f"http://{app_name}:{WORKLOAD_API_PORT}",
+            }
+        )
 
     if config["storage-type"].value == StorageType.minio and state.minio:
         minio_endpoint = construct_svc_endpoint(

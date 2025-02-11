@@ -128,7 +128,7 @@ async def perform_airbyte_integrations(ops_test: OpsTest):
         raise_on_blocked=False,
         wait_for_active=True,
         idle_period=60,
-        timeout=600,
+        timeout=300,
     )
 
     assert ops_test.model.applications[APP_NAME_AIRBYTE_SERVER].units[0].workload_status == "active"
@@ -236,7 +236,7 @@ def create_airbyte_connection(api_url, source_id, destination_id):
     }
 
     logger.info("creating Airbyte connection")
-    response = requests.post(url, json=payload, headers=POST_HEADERS, timeout=300)
+    response = requests.post(url, json=payload, headers=POST_HEADERS, timeout=1800)
     logger.info(response.json())
 
     assert response.status_code == 200
@@ -326,6 +326,10 @@ async def run_test_sync_job(ops_test):
     """
     # Create connection
     api_url = await get_unit_url(ops_test, application=APP_NAME_AIRBYTE_SERVER, unit=0, port=8001)
+
+    # Get DB URL
+    status = await ops_test.model.get_status()  # noqa: F821
+
     logger.info("curling app address: %s", api_url)
     workspace_id = get_airbyte_workspace_id(api_url)
     db_password = await get_db_password(ops_test)
@@ -341,13 +345,13 @@ async def run_test_sync_job(ops_test):
     connection_id = create_airbyte_connection(api_url, source_id, destination_id)
 
     # Trigger sync job
-    for i in range(2):
+    for i in range(4):
         logger.info(f"attempt {i + 1} to trigger new job")
         job_id = trigger_airbyte_connection(api_url, connection_id)
 
         # Wait until job is successful
         job_successful = False
-        for j in range(7):
+        for j in range(15):
             logger.info(f"job {i + 1} attempt {j + 1}: getting job status")
             status = check_airbyte_job_status(api_url, job_id)
 

@@ -3,13 +3,23 @@
 # See LICENSE file for licensing details.
 
 # https://github.com/airbytehq/airbyte-platform/blob/main/charts/airbyte-pod-sweeper/templates/configmap.yaml
-# TODO(kelkawi-a): Move this to Airbyte ROCK
 
 get_job_pods() {
     # echo "Running kubectl command to get job pods..."
     kubectl -n "${JOB_KUBE_NAMESPACE}" -L airbyte -l airbyte=job-pod \
         get pods \
         -o=jsonpath='{range .items[*]} {.metadata.name} {.status.phase} {.status.conditions[0].lastTransitionTime} {.status.startTime}{"\n"}{end}'
+}
+
+# Useful function when debugging
+fetch_pod_logs() {
+    pod_name="$1"
+    echo "Fetching logs for pod: ${pod_name}"
+    kubectl -n "${JOB_KUBE_NAMESPACE}" describe pod "$pod_name"
+    kubectl -n "${JOB_KUBE_NAMESPACE}" get pod "$pod_name" -o yaml | grep serviceAccount
+    kubectl -n "${JOB_KUBE_NAMESPACE}" logs "$pod_name"
+    kubectl -n "${JOB_KUBE_NAMESPACE}" logs "$pod_name" -c init
+    kubectl -n "${JOB_KUBE_NAMESPACE}" logs "$pod_name" -c main
 }
 
 delete_pod() {

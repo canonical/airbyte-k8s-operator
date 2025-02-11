@@ -428,7 +428,9 @@ config:
 
 # Your workload’s containers.
 containers:
-  airbyte-api-server:
+  airbyte-workload-api-server:
+    resource: airbyte-image
+  airbyte-workload-launcher:
     resource: airbyte-image
   airbyte-bootloader:
     resource: airbyte-image
@@ -448,4 +450,3 @@ resources:
   airbyte-image:
     type: oci-image
     description: OCI image for Airbyte
-
