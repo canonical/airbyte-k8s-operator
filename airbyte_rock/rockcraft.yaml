@@ -86,9 +86,8 @@ parts:
       - libpq-dev
       - python3-dev
     override-build: |
-      git apply ${CRAFT_STAGE}/patches/*.patch
-
       cd ${CRAFT_STAGE}/airbyte-platform
+      git apply ${CRAFT_STAGE}/patches/*.patch
       ./gradlew assemble -x dockerBuildImage --continue --max-workers 1
       ./gradlew --stop
 
