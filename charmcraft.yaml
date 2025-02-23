@@ -444,6 +444,8 @@ containers:
     resource: airbyte-image
   airbyte-workers:
     resource: airbyte-image
+  airbyte-webapp:
+    resource: airbyte-image
 
 # This field populates the Resources tab on Charmhub.
 resources:

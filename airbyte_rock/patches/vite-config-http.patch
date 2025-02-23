@@ -1,0 +1,15 @@
+# Copyright 2024 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+diff --git a/airbyte-webapp/vite.config.mts b/airbyte-webapp/vite.config.mts
+index a5ac6fa87d..962717506e 100644
+--- a/airbyte-webapp/vite.config.mts
++++ b/airbyte-webapp/vite.config.mts
+@@ -127,6 +127,7 @@ export default defineConfig(() => {
+       },
+     },
+     server: {
++      https: false,
+       host: true,
+       port: Number(process.env.PORT) || 3000,
+       strictPort: true,

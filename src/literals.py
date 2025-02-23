@@ -8,11 +8,16 @@ INTERNAL_API_PORT = 8001
 AIRBYTE_API_PORT = 8006
 WORKLOAD_API_PORT = 8007
 WORKLOAD_LAUNCHER_PORT = 8016
+WEB_UI_PORT = 9090
 AIRBYTE_VERSION = "1.4.0"
 DB_NAME = "airbyte-k8s_db"
 
 
 CONTAINER_HEALTH_CHECK_MAP = {
+    "airbyte-webapp": {
+        "port": WEB_UI_PORT,
+        "health_endpoint": "/",
+    },
     "airbyte-workload-api-server": {
         "port": WORKLOAD_API_PORT,
         "health_endpoint": "/health",
@@ -74,4 +79,16 @@ BASE_ENV = {
     "LOCAL_ROOT": "/tmp/airbyte_local",  # nosec
     "RUN_DATABASE_MIGRATION_ON_STARTUP": "true",
     "API_AUTHORIZATION_ENABLED": "false",
+}
+
+WEB_ENV = {
+    "AIRBYTE_VERSION": AIRBYTE_VERSION,
+    "API_URL": "/api/v1/",
+    "AIRBYTE_EDITION": "community",
+    "AIRBYTE_SERVER_HOST": f"airbyte-k8s:{INTERNAL_API_PORT}",
+    "INTERNAL_API_HOST": f"airbyte-k8s:{INTERNAL_API_PORT}",
+    "CONNECTOR_BUILDER_API_HOST": f"airbyte-k8s:{CONNECTOR_BUILDER_SERVER_API_PORT}",
+    "CONNECTOR_BUILDER_API_URL": "/connector-builder-api",
+    "KEYCLOAK_INTERNAL_HOST": "localhost",
+    "PORT": WEB_UI_PORT,
 }

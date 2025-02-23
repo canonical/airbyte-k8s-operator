@@ -115,3 +115,62 @@ parts:
       pod-sweeper.sh: airbyte-pod-sweeper/airbyte-app/bin/airbyte-pod-sweeper
     stage:
       - airbyte-pod-sweeper/airbyte-app/bin/airbyte-pod-sweeper
+
+# webapp
+  patches:
+    plugin: dump
+    source: ./patches
+    organize:
+      vite-config-http.patch: patches/vite-config-http.patch
+    stage:
+      - patches/vite-config-http.patch
+    prime:
+      - "-*"
+
+  airbyte-webapp:
+    after: [organize-tars, patches]
+    plugin: dump
+    source: https://github.com/airbytehq/airbyte-platform.git # yamllint disable-line
+    source-type: git
+    source-tag: v1.4.0
+    build-packages:
+      - jq
+      - curl
+      - nodejs
+      - npm
+      - coreutils
+      - bash
+    override-build: |
+      git apply ${CRAFT_STAGE}/patches/*.patch
+
+      curl https://raw.githubusercontent.com/creationix/nvm/v0.40.1/install.sh | bash
+      source ~/.bashrc
+      cd airbyte-webapp
+      nvm install 20.11.0
+      nvm alias default 20.11.0
+      npm install -g pnpm@8.6.12 --force
+
+      pnpm install
+      pnpm run build
+
+      mkdir -p ${CRAFT_PART_INSTALL}/bin ${CRAFT_PART_INSTALL}/lib
+
+      # Copy build directory files to app
+      cp -r . ${CRAFT_PART_INSTALL}/airbyte-webapp
+      cp -r ../airbyte-connector-builder-resources/ ${CRAFT_PART_INSTALL}/airbyte-connector-builder-resources
+      cp -r ../airbyte-commons-auth/ ${CRAFT_PART_INSTALL}/airbyte-commons-auth
+      cp -r ../airbyte-api/ ${CRAFT_PART_INSTALL}/airbyte-api
+      cp -r /root/.nvm/versions/node/v20.11.0/bin/node ${CRAFT_PART_INSTALL}/node
+      cp -r /root/.nvm/versions/node/v20.11.0/bin/pnpm ${CRAFT_PART_INSTALL}/pnpm
+      cp -r /root/.nvm/versions/node/v20.11.0/lib ${CRAFT_PART_INSTALL}/
+    organize:
+      node: bin/node
+      pnpm: bin/pnpm
+    stage:
+      - airbyte-webapp
+      - airbyte-connector-builder-resources
+      - airbyte-commons-auth
+      - airbyte-api
+      - bin/node
+      - bin/pnpm
+      - lib

@@ -24,6 +24,8 @@ from literals import (
     INTERNAL_API_PORT,
     LOGS_BUCKET_CONFIG,
     REQUIRED_S3_PARAMETERS,
+    WEB_ENV,
+    WEB_UI_PORT,
     WORKLOAD_API_PORT,
     WORKLOAD_LAUNCHER_PORT,
 )
@@ -307,11 +309,42 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
                 event.defer()
                 return
 
-            env = create_env(self.model.name, self.app.name, container_name, self.config, self._state)
-            env = {k: v for k, v in env.items() if v is not None}
-            pebble_layer = get_pebble_layer(container_name, env)
-            container.add_layer(container_name, pebble_layer, combine=True)
-            container.replan()
+            # TODO (kelkawi-a): clean this up after testing
+            if container_name == "airbyte-webapp":
+                env = WEB_ENV
+                self.model.unit.set_ports(WEB_UI_PORT)
+
+                pebble_layer = {
+                    "summary": "airbyte webapp layer",
+                    "services": {
+                        container_name: {
+                            "summary": container_name,
+                            "command": "/usr/bin/pnpm -C airbyte-webapp start oss-k8s",
+                            "startup": "enabled",
+                            "override": "replace",
+                            # Including config values here so that a change in the
+                            # config forces replanning to restart the service.
+                            "environment": env,
+                            "on-check-failure": {"up": "ignore"},
+                        },
+                    },
+                    "checks": {
+                        "up": {
+                            "override": "replace",
+                            "period": "10s",
+                            "http": {"url": f"http://localhost:{WEB_UI_PORT}"},
+                        }
+                    },
+                }
+                container.add_layer(container_name, pebble_layer, combine=True)
+                container.replan()
+
+            else:
+                env = create_env(self.model.name, self.app.name, container_name, self.config, self._state)
+                env = {k: v for k, v in env.items() if v is not None}
+                pebble_layer = get_pebble_layer(container_name, env)
+                container.add_layer(container_name, pebble_layer, combine=True)
+                container.replan()
 
         self.unit.status = MaintenanceStatus("replanning application")
 

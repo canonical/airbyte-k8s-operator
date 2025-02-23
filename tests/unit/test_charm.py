@@ -16,7 +16,7 @@ from ops.pebble import CheckStatus
 from ops.testing import Harness
 
 from charm import AirbyteK8SOperatorCharm
-from src.literals import BASE_ENV, CONTAINER_HEALTH_CHECK_MAP
+from src.literals import BASE_ENV, CONTAINER_HEALTH_CHECK_MAP, WEB_ENV, WEB_UI_PORT
 from src.structured_config import StorageType
 
 logging.basicConfig(level=logging.DEBUG)
@@ -195,9 +195,7 @@ class TestCharm(TestCase):
                 container.get_check.return_value.status = CheckStatus.DOWN
 
         harness.charm.on.update_status.emit()
-        self.assertEqual(
-            harness.model.unit.status, MaintenanceStatus("Status check: 'airbyte-workload-api-server' DOWN")
-        )
+        self.assertEqual(harness.model.unit.status, MaintenanceStatus("Status check: 'airbyte-webapp' DOWN"))
 
     def test_incomplete_pebble_plan(self):
         """The charm re-applies the pebble plan if incomplete."""
@@ -346,6 +344,27 @@ def create_plan(container_name, storage_type):
     Returns:
         Container pebble plan.
     """
+    if container_name == "airbyte-webapp":
+        return {
+            "services": {
+                container_name: {
+                    "summary": container_name,
+                    "command": "/usr/bin/pnpm -C airbyte-webapp start oss-k8s",
+                    "startup": "enabled",
+                    "override": "replace",
+                    "environment": {**WEB_ENV},
+                    "on-check-failure": {"up": "ignore"},
+                },
+            },
+            "checks": {
+                "up": {
+                    "override": "replace",
+                    "period": "10s",
+                    "http": {"url": f"http://localhost:{WEB_UI_PORT}"},
+                }
+            },
+        }
+
     want_plan = {
         "services": {
             container_name: {
