@@ -55,8 +55,19 @@ parts:
     stage:
       - airbyte-platform
 
-  assemble:
+  patches:
     after: [pull-airbyte-repo]
+    plugin: dump
+    source: ./patches
+    organize:
+      cors-disable.patch: patches/cors-disable.patch
+    stage:
+      - patches/cors-disable.patch
+    prime:
+      - "-*"
+
+  assemble:
+    after: [pull-airbyte-repo, patches]
     plugin: nil
     build-packages:
       - jq
@@ -75,6 +86,8 @@ parts:
       - libpq-dev
       - python3-dev
     override-build: |
+      git apply ${CRAFT_STAGE}/patches/*.patch
+
       cd ${CRAFT_STAGE}/airbyte-platform
       ./gradlew assemble -x dockerBuildImage --continue --max-workers 1
       ./gradlew --stop

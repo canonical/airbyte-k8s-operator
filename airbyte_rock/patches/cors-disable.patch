@@ -1,0 +1,13 @@
+diff --git a/airbyte-server/src/main/resources/application.yml b/airbyte-server/src/main/resources/application.yml
+index 1ee54a9da7..825b566345 100644
+--- a/airbyte-server/src/main/resources/application.yml
++++ b/airbyte-server/src/main/resources/application.yml
+@@ -59,7 +59,7 @@ micronaut:
+   server:
+     port: 8001
+     cors:
+-      enabled: true
++      enabled: false
+       configurations:
+         web:
+           allowed-origins-regex: ${CORS_ALLOWED_ORIGINS_REGEX:}
