@@ -74,6 +74,10 @@ parts:
       - openjdk-21-jdk-headless
       - libpq-dev
       - python3-dev
+      - jq
+      - curl
+      - gzip
+      - tar
     override-build: |
       cd ${CRAFT_STAGE}/airbyte-platform
       ./gradlew assemble -x dockerBuildImage --continue --max-workers 1
@@ -140,16 +144,27 @@ parts:
       - npm
       - coreutils
       - bash
+    stage-packages:
+      - jq
+      - curl
+      - gzip
+      - tar
     override-build: |
       git apply ${CRAFT_STAGE}/patches/*.patch
 
+      apt-get update
+      apt-get install -y jq curl
+
+      ./gradlew :oss:airbyte-webapp:build --continue --max-workers 1
+      ./gradlew --stop
+
       curl https://raw.githubusercontent.com/creationix/nvm/v0.40.1/install.sh | bash
       source ~/.bashrc
-      cd airbyte-webapp
       nvm install 20.11.0
       nvm alias default 20.11.0
       npm install -g pnpm@8.6.12 --force
 
+      cd airbyte-webapp
       pnpm install
       pnpm run build
 
@@ -163,9 +178,14 @@ parts:
       cp -r /root/.nvm/versions/node/v20.11.0/bin/node ${CRAFT_PART_INSTALL}/node
       cp -r /root/.nvm/versions/node/v20.11.0/bin/pnpm ${CRAFT_PART_INSTALL}/pnpm
       cp -r /root/.nvm/versions/node/v20.11.0/lib ${CRAFT_PART_INSTALL}/
+
+      # cp -r /usr/bin/jq ${CRAFT_PART_INSTALL}/jq
+      # cp -r /usr/bin/curl ${CRAFT_PART_INSTALL}/curl
     organize:
       node: bin/node
       pnpm: bin/pnpm
+      # jq: bin/jq
+      # curl: bin/curl
     stage:
       - airbyte-webapp
       - airbyte-connector-builder-resources
@@ -174,3 +194,5 @@ parts:
       - bin/node
       - bin/pnpm
       - lib
+      # - bin/jq
+      # - bin/curl

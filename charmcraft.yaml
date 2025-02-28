@@ -108,7 +108,7 @@ config:
 
     webapp-url:
       description: URL for the Airbyte webapp.
-      default: "http://airbyte-ui-k8s:8080"
+      default: "http://airbyte-k8s:9090"
       type: string
 
     ##### Secrets config #####

@@ -79,16 +79,19 @@ BASE_ENV = {
     "LOCAL_ROOT": "/tmp/airbyte_local",  # nosec
     "RUN_DATABASE_MIGRATION_ON_STARTUP": "true",
     "API_AUTHORIZATION_ENABLED": "false",
+    "PORT": WEB_UI_PORT,
 }
 
 WEB_ENV = {
     "AIRBYTE_VERSION": AIRBYTE_VERSION,
-    "API_URL": "/api/v1/",
+    "API_URL": f"airbyte-k8s:{INTERNAL_API_PORT}/api/v1/",
     "AIRBYTE_EDITION": "community",
     "AIRBYTE_SERVER_HOST": f"airbyte-k8s:{INTERNAL_API_PORT}",
-    "INTERNAL_API_HOST": f"airbyte-k8s:{INTERNAL_API_PORT}",
-    "CONNECTOR_BUILDER_API_HOST": f"airbyte-k8s:{CONNECTOR_BUILDER_SERVER_API_PORT}",
+    "INTERNAL_API_HOST": f"http://airbyte-k8s:{INTERNAL_API_PORT}",
+    "CONNECTOR_BUILDER_API_HOST": f"http://airbyte-k8s:{CONNECTOR_BUILDER_SERVER_API_PORT}",
     "CONNECTOR_BUILDER_API_URL": "/connector-builder-api",
     "KEYCLOAK_INTERNAL_HOST": "localhost",
     "PORT": WEB_UI_PORT,
+    # "REACT_APP_API_URL": f"airbyte-k8s:{INTERNAL_API_PORT}/api/v1/",
+    # "REACT_APP_CONNECTOR_BUILDER_API_URL": f"http://airbyte-k8s:{CONNECTOR_BUILDER_SERVER_API_PORT}",
 }
