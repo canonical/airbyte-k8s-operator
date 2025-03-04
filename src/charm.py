@@ -341,6 +341,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
                 # }
                 env = create_env(self.model.name, self.app.name, container_name, self.config, self._state)
                 env = {k: v for k, v in env.items() if v is not None}
+                env.update({"PORT": WEB_UI_PORT})
                 pebble_layer = get_pebble_layer(container_name, env)
                 container.add_layer(container_name, pebble_layer, combine=True)
                 container.replan()
