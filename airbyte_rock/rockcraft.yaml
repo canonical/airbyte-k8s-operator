@@ -4,7 +4,7 @@
 name: airbyte
 summary: Airbyte rock
 description: Airbyte OCI image for the Airbyte charm
-version: "1.6.0"
+version: "1.6.2"
 base: ubuntu@22.04
 license: Apache-2.0
 platforms:
@@ -49,7 +49,7 @@ parts:
     plugin: dump
     source: https://github.com/airbytehq/airbyte-platform.git # yamllint disable-line
     source-type: git
-    source-tag: v1.6.0
+    source-commit: 396822378a00d92e1b359d070a0e2bbd9af808e5 # v1.6.2
     override-build: |
       cp -r . ${CRAFT_PART_INSTALL}/airbyte-platform
     stage:

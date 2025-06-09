@@ -8,7 +8,7 @@ INTERNAL_API_PORT = 8001
 AIRBYTE_API_PORT = 8006
 WORKLOAD_API_PORT = 8007
 WORKLOAD_LAUNCHER_PORT = 8016
-AIRBYTE_VERSION = "1.6.0"
+AIRBYTE_VERSION = "1.6.2"
 DB_NAME = "airbyte-k8s_db"
 
 
@@ -70,6 +70,7 @@ BASE_ENV = {
     "ENTERPRISE_SOURCE_STUBS_URL": "https://connectors.airbyte.com/files/resources/connector_stubs/v0/connector_stubs.json",
     "PUB_SUB_ENABLED": "false",
     "PUB_SUB_TOPIC_NAME": "",
+    "DATA_PLANE_ID": "local",
     "LOCAL_ROOT": "/tmp/airbyte_local",  # nosec
     "RUN_DATABASE_MIGRATION_ON_STARTUP": "true",
     "API_AUTHORIZATION_ENABLED": "false",
