@@ -49,7 +49,7 @@ parts:
     plugin: dump
     source: https://github.com/airbytehq/airbyte-platform.git # yamllint disable-line
     source-type: git
-    source-branch: main # v1.6.3 for now, since there is no release on Github yet
+    source-commit: f985273ef1cb6459c19e36b96aff80691d4183d1 # v1.6.3 for now, since there is no release on Github yet
     override-build: |
       cp -r . ${CRAFT_PART_INSTALL}/airbyte-platform
     stage:

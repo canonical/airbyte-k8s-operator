@@ -75,4 +75,5 @@ BASE_ENV = {
     "RUN_DATABASE_MIGRATION_ON_STARTUP": "true",
     "API_AUTHORIZATION_ENABLED": "false",
     "DATAPLANE_CLIENT_ID": "dataplane-client-id",
+    "DATAPLANE_CLIENT_SECRET": "dataplane-client-secret",
 }
