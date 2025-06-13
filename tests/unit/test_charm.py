@@ -360,6 +360,7 @@ def create_plan(container_name, storage_type):
                     "AWS_ACCESS_KEY_ID": "access",
                     "AWS_SECRET_ACCESS_KEY": "secret",
                     "CONFIG_API_HOST": "airbyte-k8s:8001",
+                    "CONTROL_PLANE_TOKEN_ENDPOINT": "http://airbyte-k8s:8001/api/v1/dataplanes/token",
                     "CONNECTOR_BUILDER_API_HOST": "airbyte-k8s:80",
                     "CONNECTOR_BUILDER_API_URL": "/connector-builder-api",
                     "CONNECTOR_BUILDER_SERVER_API_HOST": "airbyte-k8s:80",
