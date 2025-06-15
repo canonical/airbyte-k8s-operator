@@ -66,6 +66,8 @@ BASE_ENV = {
     "TEMPORAL_WORKER_PORTS": "9001,9002,9003,9004,9005,9006,9007,9008,9009,9010,9011,9012,9013,9014,9015,9016,9017,9018,9019,9020,9021,9022,9023,9024,9025,9026,9027,9028,9029,9030",
     "CONTAINER_ORCHESTRATOR_ENABLED": "true",
     "CONTAINER_ORCHESTRATOR_IMAGE": f"airbyte/container-orchestrator:{AIRBYTE_VERSION}",
+    "CONNECTOR_PROFILER_IMAGE": f"airbyte/async-profiler:{AIRBYTE_VERSION}",
+    "CONNECTOR_SIDECAR_IMAGE": f"airbyte/connector-sidecar:{AIRBYTE_VERSION}",
     "LOG4J_CONFIGURATION_FILE": "log4j2-minio.xml",
     "ENTERPRISE_SOURCE_STUBS_URL": "https://connectors.airbyte.com/files/resources/connector_stubs/v0/connector_stubs.json",
     "PUB_SUB_ENABLED": "false",
@@ -74,8 +76,6 @@ BASE_ENV = {
     "LOCAL_ROOT": "/tmp/airbyte_local",  # nosec
     "RUN_DATABASE_MIGRATION_ON_STARTUP": "true",
     "API_AUTHORIZATION_ENABLED": "false",
-    "DATAPLANE_CLIENT_ID": "placeholder",
-    "DATAPLANE_CLIENT_SECRET": "placeholder",
     "DATAPLANE_CLIENT_ID_SECRET_NAME": "airbyte-auth-secrets",
     "DATAPLANE_CLIENT_ID_SECRET_KEY": "dataplane-client-id",
     "DATAPLANE_CLIENT_SECRET_SECRET_NAME": "airbyte-auth-secrets",
