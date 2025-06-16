@@ -75,7 +75,7 @@ BASE_ENV = {
     "DATA_PLANE_ID": "local",
     "LOCAL_ROOT": "/tmp/airbyte_local",  # nosec
     "RUN_DATABASE_MIGRATION_ON_STARTUP": "true",
-    "API_AUTHORIZATION_ENABLED": "false",
+    "API_AUTHORIZATION_ENABLED": "true",
     "DATAPLANE_CLIENT_ID_SECRET_NAME": "airbyte-auth-secrets",
     "DATAPLANE_CLIENT_ID_SECRET_KEY": "dataplane-client-id",
     "DATAPLANE_CLIENT_SECRET_SECRET_NAME": "airbyte-auth-secrets",

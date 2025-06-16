@@ -233,7 +233,6 @@ def create_airbyte_connection(api_url, source_id, destination_id):
         "nonBreakingSchemaUpdatesBehavior": "ignore",
         "sourceId": source_id,
         "destinationId": destination_id,
-        "geography": "auto",
     }
 
     logger.info("creating Airbyte connection")
