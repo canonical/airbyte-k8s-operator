@@ -2,6 +2,7 @@
 # See LICENSE file for licensing details.
 
 """Charm literals."""
+# import secrets
 
 CONNECTOR_BUILDER_SERVER_API_PORT = 80
 INTERNAL_API_PORT = 8001
@@ -75,7 +76,8 @@ BASE_ENV = {
     "DATA_PLANE_ID": "local",
     "LOCAL_ROOT": "/tmp/airbyte_local",  # nosec
     "RUN_DATABASE_MIGRATION_ON_STARTUP": "true",
-    "API_AUTHORIZATION_ENABLED": "true",
+    "API_AUTHORIZATION_ENABLED": "false",
+    # "AB_JWT_SIGNATURE_SECRET_KEY": secrets.token_hex(32),
     "DATAPLANE_CLIENT_ID_SECRET_NAME": "airbyte-auth-secrets",
     "DATAPLANE_CLIENT_ID_SECRET_KEY": "dataplane-client-id",
     "DATAPLANE_CLIENT_SECRET_SECRET_NAME": "airbyte-auth-secrets",
