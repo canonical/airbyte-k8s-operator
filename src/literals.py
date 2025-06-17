@@ -9,7 +9,7 @@ INTERNAL_API_PORT = 8001
 AIRBYTE_API_PORT = 8006
 WORKLOAD_API_PORT = 8007
 WORKLOAD_LAUNCHER_PORT = 8016
-AIRBYTE_VERSION = "1.6.3"
+AIRBYTE_VERSION = "1.7.0"
 DB_NAME = "airbyte-k8s_db"
 
 
@@ -69,6 +69,7 @@ BASE_ENV = {
     "CONTAINER_ORCHESTRATOR_IMAGE": f"airbyte/container-orchestrator:{AIRBYTE_VERSION}",
     "CONNECTOR_PROFILER_IMAGE": f"airbyte/async-profiler:{AIRBYTE_VERSION}",
     "CONNECTOR_SIDECAR_IMAGE": f"airbyte/connector-sidecar:{AIRBYTE_VERSION}",
+    "WORKLOAD_INIT_IMAGE": "airbyte/workload-init-container:1.5.0",
     "LOG4J_CONFIGURATION_FILE": "log4j2-minio.xml",
     "ENTERPRISE_SOURCE_STUBS_URL": "https://connectors.airbyte.com/files/resources/connector_stubs/v0/connector_stubs.json",
     "PUB_SUB_ENABLED": "false",
@@ -77,7 +78,6 @@ BASE_ENV = {
     "LOCAL_ROOT": "/tmp/airbyte_local",  # nosec
     "RUN_DATABASE_MIGRATION_ON_STARTUP": "true",
     "API_AUTHORIZATION_ENABLED": "false",
-    # "AB_JWT_SIGNATURE_SECRET_KEY": secrets.token_hex(32),
     "DATAPLANE_CLIENT_ID_SECRET_NAME": "airbyte-auth-secrets",
     "DATAPLANE_CLIENT_ID_SECRET_KEY": "dataplane-client-id",
     "DATAPLANE_CLIENT_SECRET_SECRET_NAME": "airbyte-auth-secrets",
