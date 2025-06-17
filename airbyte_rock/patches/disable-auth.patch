@@ -1,0 +1,54 @@
+diff --git a/airbyte-api/server-api/src/main/kotlin/io/airbyte/api/client/auth/DataplaneAccessTokenInterceptor.kt b/airbyte-api/server-api/src/main/kotlin/io/airbyte/api/client/auth/DataplaneAccessTokenInterceptor.kt
+index 133c08aae3..e58f4a8aed 100644
+--- a/airbyte-api/server-api/src/main/kotlin/io/airbyte/api/client/auth/DataplaneAccessTokenInterceptor.kt
++++ b/airbyte-api/server-api/src/main/kotlin/io/airbyte/api/client/auth/DataplaneAccessTokenInterceptor.kt
+@@ -120,26 +120,28 @@ open class DataplaneAccessTokenInterceptor(
+   }
+ 
+   override fun intercept(chain: Interceptor.Chain): Response {
+-    val originalRequest: Request = chain.request()
+-    val builder: Request.Builder = originalRequest.newBuilder()
+-    try {
+-      logger.debug { "Fetching dataplane access token from control plane..." }
+-      val accessToken = getCachedToken()
+-      builder.addHeader(HttpHeaders.AUTHORIZATION, "Bearer $accessToken")
+-      logger.debug { "Dataplane token added successfully" }
+-    } catch (e: Exception) {
+-      logger.error(e) { "Failed to obtain or add dataplane access token" }
+-      return chain.proceed(originalRequest)
+-    }
+-    val resp = chain.proceed(builder.build())
+-
+-    // If the request failed with http 403 forbidden, then the current token is invalid
+-    // and should be cleared. The caller is expected to retry.
+-    if (resp.code == 403) {
+-      synchronized(this) {
+-        this.cachedToken = null
+-      }
+-    }
+-    return resp
++    // PATCH: Disable all token logic for OSS
++    return chain.proceed(chain.request())
++    // val originalRequest: Request = chain.request()
++    // val builder: Request.Builder = originalRequest.newBuilder()
++    // try {
++    //   logger.debug { "Fetching dataplane access token from control plane..." }
++    //   val accessToken = getCachedToken()
++    //   builder.addHeader(HttpHeaders.AUTHORIZATION, "Bearer $accessToken")
++    //   logger.debug { "Dataplane token added successfully" }
++    // } catch (e: Exception) {
++    //   logger.error(e) { "Failed to obtain or add dataplane access token" }
++    //   return chain.proceed(originalRequest)
++    // }
++    // val resp = chain.proceed(builder.build())
++
++    // // If the request failed with http 403 forbidden, then the current token is invalid
++    // // and should be cleared. The caller is expected to retry.
++    // if (resp.code == 403) {
++    //   synchronized(this) {
++    //     this.cachedToken = null
++    //   }
++    // }
++    // return resp
+   }
+ }

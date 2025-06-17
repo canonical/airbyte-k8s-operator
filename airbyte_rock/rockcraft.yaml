@@ -45,7 +45,7 @@ parts:
       - usr/local/lib/python3.10/dist-packages
 
   pull-airbyte-repo:
-    after: [install-dependencies]
+    after: [install-dependencies, patches]
     plugin: dump
     source: https://github.com/airbytehq/airbyte-platform.git # yamllint disable-line
     source-type: git
@@ -55,8 +55,18 @@ parts:
     stage:
       - airbyte-platform
 
+  patches:
+    plugin: dump
+    source: ./patches
+    organize:
+      disable-auth.patch: patches/disable-auth.patch
+    stage:
+      - patches/disable-auth.patch
+    prime:
+      - "-*"
+
   assemble:
-    after: [pull-airbyte-repo]
+    after: [patches, pull-airbyte-repo]
     plugin: nil
     build-packages:
       - jq
@@ -76,6 +86,7 @@ parts:
       - python3-dev
     override-build: |
       cd ${CRAFT_STAGE}/airbyte-platform
+      git apply ${CRAFT_STAGE}/patches/*.patch
       ./gradlew assemble -x dockerBuildImage --continue --max-workers 1
       ./gradlew --stop
 
