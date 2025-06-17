@@ -229,7 +229,6 @@ def create_airbyte_connection(api_url, source_id, destination_id):
         "schedule": {"scheduleType": "manual"},
         "dataResidency": "auto",
         "namespaceDefinition": "destination",
-        "namespaceFormat": None,
         "nonBreakingSchemaUpdatesBehavior": "ignore",
         "sourceId": source_id,
         "destinationId": destination_id,

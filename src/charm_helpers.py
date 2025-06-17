@@ -140,11 +140,11 @@ def create_env(model_name, app_name, container_name, config, state):
         "AIRBYTE_API_HOST": f"{app_name}:{AIRBYTE_API_PORT}/api/public",
         "WORKLOAD_API_HOST": f"{app_name}:{WORKLOAD_API_PORT}",
         "WORKLOAD_API_BEARER_TOKEN": ".Values.workload-api.bearerToken",
-        "CONTROL_PLANE_TOKEN_ENDPOINT": f"http://{app_name}:{INTERNAL_API_PORT}/api/public/v1/dataplanes/token",
+        "CONTROL_PLANE_TOKEN_ENDPOINT": f"http://{app_name}:{INTERNAL_API_PORT}/api/v1/dataplanes/token",
     }
 
     # https://github.com/airbytehq/airbyte/issues/29506#issuecomment-1775148609
-    if container_name in ["airbyte-workload-launcher", "airbyte-workers"]:
+    if container_name in ["airbyte-workload-launcher", "airbyte-workers", "airbyte-cron"]:
         env.update(
             {
                 "INTERNAL_API_HOST": f"http://{app_name}:{INTERNAL_API_PORT}",
