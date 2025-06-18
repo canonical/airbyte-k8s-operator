@@ -4,19 +4,23 @@
 
 """Charm the application."""
 
+import base64
 import logging
 
+import kubernetes.client
 import ops
 from botocore.exceptions import ClientError
 from charms.data_platform_libs.v0.data_models import TypedCharmBase
 from charms.data_platform_libs.v0.database_requires import DatabaseRequires
 from charms.data_platform_libs.v0.s3 import S3Requirer
+from kubernetes.client.exceptions import ApiException
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingStatus
 from ops.pebble import CheckStatus
 
 from charm_helpers import create_env
 from literals import (
     AIRBYTE_API_PORT,
+    AIRBYTE_AUTH_K8S_SECRET_NAME,
     AIRBYTE_VERSION,
     BUCKET_CONFIGS,
     CONNECTOR_BUILDER_SERVER_API_PORT,
@@ -112,6 +116,9 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             args: Ignore.
         """
         super().__init__(*args)
+        kubernetes.config.load_incluster_config()
+        self._k8s_client = kubernetes.client.CoreV1Api()
+
         self._state = State(self.app, lambda: self.model.get_relation("airbyte-peer"))
 
         self.framework.observe(self.on.config_changed, self._on_config_changed)
@@ -263,7 +270,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             if len(missing_params) > 0:
                 raise ValueError(f"s3:missing parameters {missing_params!r}")
 
-    def _update(self, event):
+    def _update(self, event):  # noqa: C901
         """Update configuration and replan its execution.
 
         Args:
@@ -309,6 +316,26 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
 
             env = create_env(self.model.name, self.app.name, container_name, self.config, self._state)
             env = {k: v for k, v in env.items() if v is not None}
+
+            # Read values from k8s secret created by airbyte-bootloader and add
+            # them to the pebble plan.
+            try:
+                secret = self._k8s_client.read_namespaced_secret(AIRBYTE_AUTH_K8S_SECRET_NAME, self.model.name)
+                decoded_data = {k: base64.b64decode(v).decode("utf-8") for k, v in secret.data.items()}
+
+                if decoded_data.get("dataplane-client-id"):
+                    env.update({"DATAPLANE_CLIENT_ID": decoded_data["dataplane-client-id"]})
+                if decoded_data.get("dataplane-client-secret"):
+                    env.update({"DATAPLANE_CLIENT_SECRET": decoded_data["dataplane-client-secret"]})
+
+            except ApiException as e:
+                if e.status == 404:
+                    logging.info(
+                        "Secret '%s' not found in namespace '%s'.", AIRBYTE_AUTH_K8S_SECRET_NAME, self.model.name
+                    )
+                else:
+                    logging.error("Error: %s", str(e))
+
             pebble_layer = get_pebble_layer(container_name, env)
             container.add_layer(container_name, pebble_layer, combine=True)
             container.replan()

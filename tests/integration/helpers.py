@@ -229,14 +229,13 @@ def create_airbyte_connection(api_url, source_id, destination_id):
         "schedule": {"scheduleType": "manual"},
         "dataResidency": "auto",
         "namespaceDefinition": "destination",
-        "namespaceFormat": None,
         "nonBreakingSchemaUpdatesBehavior": "ignore",
         "sourceId": source_id,
         "destinationId": destination_id,
     }
 
     logger.info("creating Airbyte connection")
-    response = requests.post(url, json=payload, headers=POST_HEADERS, timeout=1800)
+    response = requests.post(url, json=payload, headers=POST_HEADERS, timeout=300)
     logger.info(response.json())
 
     assert response.status_code == 200
