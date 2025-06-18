@@ -2,7 +2,6 @@
 # See LICENSE file for licensing details.
 
 """Charm literals."""
-# import secrets
 
 CONNECTOR_BUILDER_SERVER_API_PORT = 80
 INTERNAL_API_PORT = 8001

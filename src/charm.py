@@ -329,7 +329,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
                 if e.status == 404:
                     logging.info("Secret 'airbyte-auth-secrets' not found in namespace '%s'.", self.model.name)
                 else:
-                    logging.info(f"Error: {e}")
+                    logging.error(f"Error: {e}")
 
             pebble_layer = get_pebble_layer(container_name, env)
             container.add_layer(container_name, pebble_layer, combine=True)
