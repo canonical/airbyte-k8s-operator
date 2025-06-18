@@ -4,7 +4,7 @@
 name: airbyte
 summary: Airbyte rock
 description: Airbyte OCI image for the Airbyte charm
-version: "1.6.3"
+version: "1.7.0"
 base: ubuntu@22.04
 license: Apache-2.0
 platforms:
@@ -49,21 +49,11 @@ parts:
     plugin: dump
     source: https://github.com/airbytehq/airbyte-platform.git # yamllint disable-line
     source-type: git
-    source-branch: main # v1.7.0 for now, since there is no release on Github yet
+    source-tag: v1.7.0
     override-build: |
       cp -r . ${CRAFT_PART_INSTALL}/airbyte-platform
     stage:
       - airbyte-platform
-
-  # patches:
-  #   plugin: dump
-  #   source: ./patches
-  #   organize:
-  #     disable-auth.patch: patches/disable-auth.patch
-  #   stage:
-  #     - patches/disable-auth.patch
-  #   prime:
-  #     - "-*"
 
   assemble:
     after: [pull-airbyte-repo]
@@ -86,7 +76,6 @@ parts:
       - python3-dev
     override-build: |
       cd ${CRAFT_STAGE}/airbyte-platform
-      # git apply ${CRAFT_STAGE}/patches/*.patch
       ./gradlew assemble -x dockerBuildImage --continue --max-workers 1
       ./gradlew --stop
 

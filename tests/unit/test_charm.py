@@ -8,8 +8,10 @@
 
 # pylint:disable=protected-access,too-many-public-methods
 
+import base64
 import logging
 from unittest import TestCase, mock
+from unittest.mock import MagicMock, patch
 
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus
 from ops.pebble import CheckStatus
@@ -48,6 +50,23 @@ class TestCharm(TestCase):
 
     def setUp(self):
         """Set up for the unit tests."""
+        patcher1 = patch("kubernetes.config.load_incluster_config")
+        patcher2 = patch("kubernetes.client.CoreV1Api")
+        self.mock_incluster_config = patcher1.start()
+        self.mock_k8s_api = patcher2.start()
+        self.addCleanup(patcher1.stop)
+        self.addCleanup(patcher2.stop)
+        self.mock_core_v1_instance = MagicMock()
+        self.mock_k8s_api.return_value = self.mock_core_v1_instance
+
+        fake_secret = MagicMock()
+        fake_secret.data = {
+            "dataplane-client-id": base64.b64encode(b"sample-client-id"),
+            "dataplane-client-secret": base64.b64encode(b"sample-client-secret"),
+        }
+
+        self.mock_core_v1_instance.read_namespaced_secret.return_value = fake_secret
+
         self.harness = Harness(AirbyteK8SOperatorCharm)
         self.addCleanup(self.harness.cleanup)
         for container_name in CONTAINER_HEALTH_CHECK_MAP:
@@ -371,6 +390,8 @@ def create_plan(container_name, storage_type):
                     "DATABASE_PORT": "5432",
                     "DATABASE_URL": "jdbc:postgresql://myhost:5432/airbyte-k8s_db",
                     "DATABASE_USER": "jean-luc@db",
+                    "DATAPLANE_CLIENT_ID": "sample-client-id",
+                    "DATAPLANE_CLIENT_SECRET": "sample-client-secret",
                     "INTERNAL_API_HOST": "http://airbyte-k8s:8001",
                     "JOBS_DATABASE_MINIMUM_FLYWAY_MIGRATION_VERSION": "0.29.15.001",
                     "JOB_KUBE_MAIN_CONTAINER_IMAGE_PULL_POLICY": "IfNotPresent",
@@ -413,6 +434,7 @@ def create_plan(container_name, storage_type):
                     "WORKER_LOGS_STORAGE_TYPE": storage_type,
                     "WORKER_STATE_STORAGE_TYPE": storage_type,
                     "WORKLOAD_API_HOST": "airbyte-k8s:8007",
+                    "WORKLOAD_INIT_IMAGE": "airbyte/workload-init-container:1.7.0",
                     "WORKLOAD_API_BEARER_TOKEN": ".Values.workload-api.bearerToken",
                 },
             },
@@ -422,7 +444,7 @@ def create_plan(container_name, storage_type):
     if container_name == "airbyte-bootloader":
         want_plan["services"][container_name].update({"on-success": "ignore"})
 
-    if container_name in ["airbyte-workload-launcher", "airbyte-workers"]:
+    if container_name in ["airbyte-workload-launcher", "airbyte-workers", "airbyte-cron"]:
         want_plan["services"][container_name]["environment"].update(
             {"INTERNAL_API_HOST": "http://airbyte-k8s:8001", "WORKLOAD_API_HOST": "http://airbyte-k8s:8007"}
         )
