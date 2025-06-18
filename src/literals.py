@@ -69,7 +69,7 @@ BASE_ENV = {
     "CONTAINER_ORCHESTRATOR_IMAGE": f"airbyte/container-orchestrator:{AIRBYTE_VERSION}",
     "CONNECTOR_PROFILER_IMAGE": f"airbyte/async-profiler:{AIRBYTE_VERSION}",
     "CONNECTOR_SIDECAR_IMAGE": f"airbyte/connector-sidecar:{AIRBYTE_VERSION}",
-    "WORKLOAD_INIT_IMAGE": "airbyte/workload-init-container:1.5.0",
+    "WORKLOAD_INIT_IMAGE": f"airbyte/workload-init-container:{AIRBYTE_VERSION}",
     "LOG4J_CONFIGURATION_FILE": "log4j2-minio.xml",
     "ENTERPRISE_SOURCE_STUBS_URL": "https://connectors.airbyte.com/files/resources/connector_stubs/v0/connector_stubs.json",
     "PUB_SUB_ENABLED": "false",
