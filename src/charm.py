@@ -20,6 +20,7 @@ from ops.pebble import CheckStatus
 from charm_helpers import create_env
 from literals import (
     AIRBYTE_API_PORT,
+    AIRBYTE_AUTH_K8S_SECRET_NAME,
     AIRBYTE_VERSION,
     BUCKET_CONFIGS,
     CONNECTOR_BUILDER_SERVER_API_PORT,
@@ -316,8 +317,10 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             env = create_env(self.model.name, self.app.name, container_name, self.config, self._state)
             env = {k: v for k, v in env.items() if v is not None}
 
+            # Read values from k8s secret created by airbyte-bootloader and add
+            # them to the pebble plan.
             try:
-                secret = self._k8s_client.read_namespaced_secret("airbyte-auth-secrets", self.model.name)
+                secret = self._k8s_client.read_namespaced_secret(AIRBYTE_AUTH_K8S_SECRET_NAME, self.model.name)
                 decoded_data = {k: base64.b64decode(v).decode("utf-8") for k, v in secret.data.items()}
 
                 if decoded_data.get("dataplane-client-id"):
@@ -327,9 +330,11 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
 
             except ApiException as e:
                 if e.status == 404:
-                    logging.info("Secret 'airbyte-auth-secrets' not found in namespace '%s'.", self.model.name)
+                    logging.info(
+                        "Secret '%s' not found in namespace '%s'.", AIRBYTE_AUTH_K8S_SECRET_NAME, self.model.name
+                    )
                 else:
-                    logging.error(f"Error: {e}")
+                    logging.error("Error: %s", str(e))
 
             pebble_layer = get_pebble_layer(container_name, env)
             container.add_layer(container_name, pebble_layer, combine=True)
