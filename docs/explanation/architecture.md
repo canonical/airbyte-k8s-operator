@@ -29,7 +29,7 @@ One instance for:
 This ingress handles:
 * HTTP routing
 * TLS termination (if Lego or a manual TLS secret is configured)
-* Source-range whitelisting
+* Source-range allowlist
 * Timeout configuration
 
 ### Nginx Ingress Integrator (Webhooks)
