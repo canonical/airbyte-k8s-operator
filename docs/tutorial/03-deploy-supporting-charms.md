@@ -22,8 +22,6 @@ juju status --watch 2s
 
 > Deployment may take ~10 minutes. Expect `active` status for all units once complete.
 
----
-
 ## Deploy MinIO
 
 ```bash
@@ -32,8 +30,6 @@ juju status --watch 2s
 ```
 
 > Deployment completes when all units are `active`.
-
----
 
 ## Deploy Temporal
 

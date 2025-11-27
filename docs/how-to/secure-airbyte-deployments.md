@@ -58,8 +58,6 @@ juju status lego
 
 > Look for `1/1 certificate requests are fulfilled` to confirm active TLS certificates.
 
----
-
 ### Using Kubernetes Secrets
 
 Alternatively, you can provide your own TLS certificates via Kubernetes secrets:
@@ -90,8 +88,6 @@ Validate ingress:
 kubectl get ingress
 kubectl describe ingress <YOUR_INGRESS_NAME>
 ```
-
----
 
 ## Enable OAuth2 Authentication
 
@@ -133,8 +129,6 @@ Relate the proxy to ingress:
 ```bash
 juju relate oauth2-proxy-k8s nginx-ingress-integrator
 ```
-
----
 
 ## Configure Airbyte Webhooks
 

@@ -1,56 +1,8 @@
 # Charmed Airbyte Architecture
 
-The Charmed Airbyte deployment consists of multiple charms orchestrated to provide data ingestion, workflow scheduling, authentication, ingress, and object storage. This diagram reflects a high-level architecture.
+The Charmed Airbyte ecosystem consists of a number of different charmed operators related together. The diagram below shows a high-level illustration of the different charms and their communication.The components are as follows:
 
-## High-Level Architecture Diagram
-
-```
-                          ┌─────────────────────────┐
-                          │         LEGO (ACME)      │
-                          │   Optional TLS provider  │
-                          └──────────┬───────────────┘
-                                     │ certificates
-                     ┌───────────────▼────────────────┐
-                     │     Nginx Ingress Integrator    │
-                     │ (for Airbyte UI + OAuth2 Proxy) │
-                     └───────┬───────────────┬────────┘
-                             │               │
-                nginx-route  │               │ nginx-route
-                             │               │
-                     ┌───────▼───────────────▼───────────────┐
-                     │           OAuth2 Proxy K8s             │
-                     │  (AuthN/AuthZ + upstream to Airbyte)   │
-                     └──────────┬─────────────────────────────┘
-                                │ upstream
-                     ┌──────────▼───────────┐
-                     │     Airbyte-k8s      │
-                     │  Server / Scheduler  │
-                     │  API + Web UI        │
-                     └──────────┬───────────┘
-                                │
-        ┌───────────────────────┼──────────────────────────┐
-        │                       │                          │
-┌───────▼────────┐     ┌────────▼──────────┐       ┌────────▼────────┐
-│     MinIO      │     │ PostgreSQL (DBaaS)│       │    Temporal     │
-│ Object Storage │     │ External via offer│       │   Orchestration │
-└────────────────┘     └───────────────────┘       └────────┬────────┘
-                                                             │ admin
-                                                   ┌─────────▼─────────┐
-                                                   │ Temporal Admin K8s │
-                                                   └────────────────────┘
-
-
-                      ┌────────────────────────────────────────┐
-                      │      Airbyte Webhooks K8s              │
-                      │ (Webhook → Temporal Workflow triggers) │
-                      └──────────┬─────────────────────────────┘
-                                 │ ingress
-                ┌────────────────▼─────────────────────────────┐
-                │  Nginx Ingress Integrator (Webhooks only)    │
-                └──────────────────────────────────────────────┘
-```
-
----
+![Architecture](../media/architecture.png)
 
 # Component Descriptions
 
