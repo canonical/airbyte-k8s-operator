@@ -12,13 +12,6 @@ Deploy it:
 juju deploy nginx-ingress-integrator --trust
 ```
 
-Configure timeouts or IP whitelists if needed:
-
-```bash
-juju config nginx-ingress-integrator proxy-read-timeout=600
-juju config nginx-ingress-integrator whitelist-source-range="<CIDR_RANGE>"
-```
-
 ## Manage TLS Certificates with Lego
 
 Airbyte can automatically provision and renew TLS certificates with [Lego](https://charmhub.io/lego).
