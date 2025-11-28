@@ -15,9 +15,8 @@ jobs:
       test-timeout: 60
       channel: 1.28-strict/stable
       modules: '["test_charm.py"]'
-      juju-channel: 3.4/stable
+      juju-channel: 3.6/stable
       self-hosted-runner: true
-      self-hosted-runner-image: "noble"
       self-hosted-runner-label: "xlarge"
       microk8s-addons: "dns ingress rbac storage metallb:10.15.119.2-10.15.119.4 registry"
       trivy-severity-config: CRITICAL
