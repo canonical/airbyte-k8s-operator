@@ -104,14 +104,13 @@ parts:
       JINJAVA_BASE_URL="https://repo1.maven.org/maven2/com/hubspot/jinjava/jinjava"
       
       # Find and replace jinjava JAR files
-      find . -name "jinjava-2.7.4.jar" -type f | while read -r jar_file; do
+      find ${CRAFT_PART_INSTALL} -name "jinjava-2.7.4.jar" -type f | while read -r jar_file; do
         jar_dir=$(dirname "$jar_file")
         echo "Replacing jinjava in: $jar_file"
         curl -L ${JINJAVA_BASE_URL}/${JINJAVA_VERSION}/jinjava-${JINJAVA_VERSION}.jar \
           -o "${jar_dir}/jinjava-${JINJAVA_VERSION}.jar"
         rm -f "$jar_file"
       done
-
     stage:
       - airbyte-server
       - airbyte-workers
