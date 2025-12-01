@@ -79,19 +79,6 @@ parts:
       ./gradlew assemble -x dockerBuildImage --continue --max-workers 1
       ./gradlew --stop
 
-      # Fix CVE-2025-59340 by replacing jinjava 2.7.4 with 2.7.5
-      JINJAVA_VERSION="2.7.5"
-      JINJAVA_BASE_URL="https://repo1.maven.org/maven2/com/hubspot/jinjava/jinjava"
-      
-      # Find and replace jinjava JAR files
-      find . -name "jinjava-2.7.4.jar" -type f | while read -r jar_file; do
-        jar_dir=$(dirname "$jar_file")
-        echo "Replacing jinjava in: $jar_file"
-        curl -L ${JINJAVA_BASE_URL}/${JINJAVA_VERSION}/jinjava-${JINJAVA_VERSION}.jar \
-          -o "${jar_dir}/jinjava-${JINJAVA_VERSION}.jar"
-        rm -f "$jar_file"
-      done
-
   organize-tars:
     after: [assemble]
     plugin: nil
@@ -111,6 +98,20 @@ parts:
       tar -xvf ${CRAFT_STAGE}/airbyte-platform/airbyte-connector-builder-server/build/distributions/airbyte-app.tar -C ${CRAFT_PART_INSTALL}/airbyte-connector-builder-server
       tar -xvf ${CRAFT_STAGE}/airbyte-platform/airbyte-workload-api-server/build/distributions/airbyte-app.tar -C ${CRAFT_PART_INSTALL}/airbyte-workload-api-server
       tar -xvf ${CRAFT_STAGE}/airbyte-platform/airbyte-workload-launcher/build/distributions/airbyte-app.tar -C ${CRAFT_PART_INSTALL}/airbyte-workload-launcher
+
+      # Fix CVE-2025-59340 by replacing jinjava 2.7.4 with 2.7.5
+      JINJAVA_VERSION="2.7.5"
+      JINJAVA_BASE_URL="https://repo1.maven.org/maven2/com/hubspot/jinjava/jinjava"
+      
+      # Find and replace jinjava JAR files
+      find . -name "jinjava-2.7.4.jar" -type f | while read -r jar_file; do
+        jar_dir=$(dirname "$jar_file")
+        echo "Replacing jinjava in: $jar_file"
+        curl -L ${JINJAVA_BASE_URL}/${JINJAVA_VERSION}/jinjava-${JINJAVA_VERSION}.jar \
+          -o "${jar_dir}/jinjava-${JINJAVA_VERSION}.jar"
+        rm -f "$jar_file"
+      done
+
     stage:
       - airbyte-server
       - airbyte-workers
