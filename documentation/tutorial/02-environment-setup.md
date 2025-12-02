@@ -27,7 +27,7 @@ sudo snap alias microk8s.kubectl kubectl
 
 ## Set up Juju
 
-Charmed Superset uses Juju as the orchestration engine for software operators. Install and connect it to your MicroK8s cloud with the following steps.
+Charmed Airbyte uses Juju as the orchestration engine for software operators. Install and connect it to your MicroK8s cloud with the following steps.
 
 Firstly, install `juju` from a snap:
 ```bash

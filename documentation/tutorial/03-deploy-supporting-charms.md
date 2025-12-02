@@ -7,7 +7,7 @@ This part of the tutorial focuses on deploying supporting charms that Airbyte re
 | **Database**        | [`postgresql-k8s`](https://charmhub.io/postgresql-k8s)                     | Stores metadata, job configurations, and sync history |
 | **Workflow Engine** | [`temporal-k8s`](https://charmhub.io/temporal-k8s)                         | Manages task queues and workflow execution            |
 | **Admin UI**        | [`temporal-admin-k8s`](https://charmhub.io/temporal-admin-k8s)             | Manages Temporal namespaces and admin tasks           |
-| **Object Storage**  | [`minio`](https://charmhub.io/minio) or S3 Integrator                      | Stores sync logs, state, and artifacts                |
+| **Object Storage**  | [`minio`](https://charmhub.io/minio) or [`S3 Integrator`](https://charmhub.io/s3-integrator) | Stores sync logs, state, and artifacts                |
 | **Ingress**         | [`nginx-ingress-integrator`](https://charmhub.io/nginx-ingress-integrator) | Provides TLS termination and routing                  |
 | **TLS Management**  | [`lego`](https://charmhub.io/lego)                                         | Auto-provisions TLS certificates for ingress          |
 

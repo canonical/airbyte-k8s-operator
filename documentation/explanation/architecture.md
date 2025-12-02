@@ -1,6 +1,6 @@
 # Charmed Airbyte Architecture
 
-The Charmed Airbyte ecosystem consists of a number of different charmed operators related together. The diagram below shows a high-level illustration of the different charms and their communication.The components are as follows:
+The Charmed Airbyte ecosystem consists of a number of different charmed operators related together. The diagram below shows a high-level illustration of the different charms and their communication. The components are as follows:
 
 ![Architecture](../media/architecture.png)
 
@@ -9,7 +9,7 @@ The Charmed Airbyte ecosystem consists of a number of different charmed operator
 ### Airbyte-k8s
 * Runs the server, scheduler and API.
 * Uses MinIO as object storage.
-* Uses an external PostgreSQL database (DBaaS) because cross-controller relations are disabled.
+* Uses a PostgreSQL database (DBaaS).
 * Integrates with:
   * OAuth2 Proxy for authentication
   * MinIO for blobs, logs, state

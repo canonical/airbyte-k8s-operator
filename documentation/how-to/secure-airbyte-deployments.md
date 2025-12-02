@@ -34,7 +34,7 @@ juju config lego \
 3. Grant Lego access to secrets:
 
 ```bash
-juju add-access-secret lego --applications=lego --secret-id=your-secret-id
+juju grant-secret your-secret-id lego
 ```
 
 4. Relate Lego to your ingress integrator:

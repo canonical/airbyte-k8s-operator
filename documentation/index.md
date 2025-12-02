@@ -3,7 +3,7 @@
 
 **Charmed Airbyte K8s Operator** is an open-source, production-ready data integration platform operator for **Kubernetes**, based on [Airbyte](https://airbyte.io/).
 
-Airbyte simplifies the process of **extracting and loading data** from various sources into a variety of sources such as **data warehouses, data lakes, or data meshes**, enabling continuous, scheduled data synchronization to ensure data freshness and reliability.
+Airbyte simplifies the process of **extracting and loading data** from various sources into a variety of destinations such as **data warehouses, data lakes, or data meshes**, enabling continuous, scheduled data synchronization to ensure data freshness and reliability.
 
 The Charmed Airbyte K8s Operator automates the **deployment, configuration, and lifecycle management** of the Airbyte server on Kubernetes using **Juju**. It wraps the official Airbyte server distribution and integrates with other charms to form a complete data ingestion pipeline within the Canonical data ecosystem.
 
