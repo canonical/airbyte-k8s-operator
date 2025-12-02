@@ -9,16 +9,6 @@ The Charmed Airbyte K8s Operator automates the **deployment, configuration, and 
 
 It is intended for **data engineers and platform teams** who want to automate and scale Airbyte deployments while maintaining consistency and observability across environments.
 
-### Key Dependencies
-
-| Requirement | Charm | Purpose |
-| --- | --- | --- |
-| **Database** | [`postgresql-k8s`](https://charmhub.io/postgresql-k8s) | Stores Airbyte metadata, job configurations, and sync history |
-| **Workflow Engine** | [`temporal-k8s`](https://charmhub.io/temporal-k8s) | Manages task queues and workflow execution |
-| **Object Storage** | [`minio`](https://charmhub.io/minio) or [`s3-integrator`](https://charmhub.io/s3-integrator) | Stores sync logs, state, and artifacts |
-
-> Note: Either MinIO or S3 Integrator can be used as the object store; not both.
-
 ### Features
 
 - Automated deployment and scaling on Kubernetes
@@ -31,6 +21,6 @@ It is intended for **data engineers and platform teams** who want to automate an
 
 | Section | Description |
 | --- | --- |
-| **Tutorial** | A hands-on guide to deploying and configuring Charmed Airbyte for new users |
-| **How-to guides** | Step-by-step instructions for common operational tasks, such as ingress, authentication, and upgrades |
-| **Reference** | Technical details on configuration options, actions, and relations |
+| **Tutorial** | **Get started** - A hands-on guide to deploying and configuring Charmed Airbyte, including creating your first data connection |
+| **How-to guides** | **Step-by-step guides** - Instructions for common operational tasks and advanced configurations |
+| **Reference** | **Technical reference** - Comprehensive details on configuration options, actions, relations, and APIs |
