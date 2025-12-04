@@ -20,30 +20,16 @@ The Charmed Airbyte ecosystem consists of a number of different charmed operator
 * Acts as a reverse proxy for the Airbyte.
 * Exposed through the same nginx ingress integrator as Airbyte.
 
-### Nginx Ingress Integrator (Airbyte)
+### Nginx Ingress Integrator
 One instance for:
 * Airbyte
 * OAuth2 Proxy
-* Certificates from Lego
 
 This ingress handles:
 * HTTP routing
-* TLS termination (if Lego or a manual TLS secret is configured)
+* TLS termination (if TLS secret is configured)
 * Source-range allowlist
 * Timeout configuration
-
-### Nginx Ingress Integrator (Webhooks)
-A separate ingress dedicated to the Airbyte Webhooks application.
-
-Its purpose is to:
-* Keep webhook routing isolated
-* Enable different hostname/paths
-* Simplify independent TLS or routing behavior
-
-### Lego
-ACME provider for TLS certificates.
-
-It is only used if one wants Let’s Encrypt certificates. Airbyte will still work without Lego (HTTP mode or user-supplied TLS secret).
 
 ### MinIO
 Its purpose is to store state, large logs (objects) and job artifacts
@@ -60,12 +46,3 @@ Orchestration engine powering:
 Provides:
 * Namespace administration
 * Workflow debugging tools
-
-### Airbyte Webhooks
-A separate charm:
-* Receives webhook events
-* Authenticates + transforms payloads
-* Triggers Temporal workflows
-* Uses Temporal as downstream execution engine
-
-Exposed through its own nginx ingress integrator.

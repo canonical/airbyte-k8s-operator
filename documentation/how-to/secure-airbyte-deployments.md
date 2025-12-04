@@ -1,134 +1,94 @@
-# Secure Airbyte Deployments
+# Enable security features
+This guide describes the implementation of security features such as encryption and authentication.
 
-This guide explains how to configure security, authentication, ingress, and webhook features for a Charmed Airbyte deployment.
+## Terminate TLS at ingress
+Airbyte can terminate Transport Layer Security (TLS) at the ingress by leveraging the [Nginx Ingress Integrator Charm](https://charmhub.io/nginx-ingress-integrator).
 
-## Terminate TLS at Ingress
-
-Airbyte can terminate Transport Layer Security (TLS) at the ingress using the [Nginx Ingress Integrator Charm](https://charmhub.io/nginx-ingress-integrator).
-
-Deploy it:
+Deploy this by running:
 
 ```bash
 juju deploy nginx-ingress-integrator --trust
 ```
 
-## Manage TLS Certificates with Lego
+### Using K8s secrets
+You can use a self-signed or production-grade TLS certificate stored in a Kubernetes secret. The secret is then associated with the ingress to encrypt traffic between clients and Airbyte.
 
-Airbyte can automatically provision and renew TLS certificates with [Lego](https://charmhub.io/lego).
+For self-signed certificates you can do the following:
 
-1. Deploy the Lego charm:
-
-```bash
-juju deploy lego --trust
-```
-
-2. Configure the charm:
-
-```bash
-juju config lego \
-  plugin="your-plugin" \
-  email="your-email@example.com" \
-  plugin-config-secret-id="your-secret-id"
-```
-
-3. Grant Lego access to secrets:
-
-```bash
-juju grant-secret your-secret-id lego
-```
-
-4. Relate Lego to your ingress integrator:
-
-```bash
-juju relate lego nginx-ingress-integrator
-```
-
-5. Validate certificate requests:
-
-```bash
-juju status lego
-```
-
-> Look for `1/1 certificate requests are fulfilled` to confirm active TLS certificates.
-
-### Using Kubernetes Secrets
-
-Alternatively, you can provide your own TLS certificates via Kubernetes secrets:
+1. First generate a private key using `openssl` and a certificate signing request using they key you just created. Replace `<YOUR_HOSTNAME>` with an appropriate hostname such as `airbyte-k8s.com`:
 
 ```bash
 openssl genrsa -out server.key 2048
 openssl req -new -key server.key -out server.csr -subj "/CN=<YOUR_HOSTNAME>"
+```
+2. You can now sign this signing request, creating your self-signed certificate:
+```bash
 openssl x509 -req -days 365 -in server.csr -signkey server.key -out server.crt -extfile <(printf "subjectAltName=DNS:<YOUR_HOSTNAME>")
+```
+3. Next, add this certificate and key as a Kubernetes secret to be used by the ingress:
+```bash
 kubectl create secret tls airbyte-tls --cert=server.crt --key=server.key
 ```
-
-Configure Airbyte to use this secret:
+4. You then need to provide the name of the Kubernetes secret to the Airbyte charm, along with the hostname you included in the certificate:
 
 ```bash
 juju config airbyte-k8s tls-secret-name=airbyte-tls
 juju config airbyte-k8s external-hostname=<YOUR_HOSTNAME>
+
 ```
-
-Relate Airbyte to the ingress integrator:
-
+5. Finally, relate Airbyte with the Nginx Ingress Integrator to create your ingress resource:
 ```bash
 juju relate airbyte-k8s nginx-ingress-integrator
 ```
+[note]
+If you have a production-grade certificate, skip to step 3.
+[/note]
 
-Validate ingress:
-
+Validate your ingress has been created with the TLS certificates:
 ```bash
 kubectl get ingress
-kubectl describe ingress <YOUR_INGRESS_NAME>
+kubectl describe <YOUR_INGRESS_NAME>
 ```
-
-## Enable OAuth2 Authentication
-
-Airbyte supports OAuth2 via [oauth2-proxy](https://oauth2-proxy.github.io/oauth2-proxy/), allowing login with providers such as Google.
-
-### Obtain OAuth2 Credentials
-
-1. Navigate to your provider’s developer console (e.g., Google Cloud).
-2. Create a new OAuth2 client ID for a web application.
-3. Add an Authorized Redirect URI in the format:
+The ingress has the format `<relation_num>-<hostname>-ingress`. The `describe` command should show something similar to the below, with the Kubernetes secret you configured in `TLS`:
 
 ```
-https://<host>/oauth2/callback
+Name:             relation-201-airbyte-k8s-com-ingress
+Labels:           app.juju.is/created-by=nginx-ingress-integrator
+                  nginx-ingress-integrator.charm.juju.is/managed-by=nginx-ingress-integrator
+Namespace:        airbyte-model
+Address:          <list-of-ips>
+Ingress Class:    nginx-ingress-controller
+Default backend:  <default>
+TLS:
+  airbyte-tls terminates airbyte-k8s.com
 ```
 
-4. Save the client ID and secret.
+## Enable Google Oauth
+Enabling Google Oauth for Charmed Airbyte allows users to authenticate using their Google accounts, streamlining login and increasing security.
 
-### Apply OAuth2 Configuration
+To enable Google Oauth, you need a Google project. You can create one [here](https://console.cloud.google.com/projectcreate).
 
-Create `oauth.yaml`:
+#### Obtain Oauth2 credentials
+If you do not already have Oauth2 credentials set up then follow the steps below:
+1. Navigate to https://console.cloud.google.com/apis/credentials.
+2. Click `+ Create Credentials`.
+3. Select `Oauth client ID`.
+4. Select application type (`Web application`).
+5. Name the application.
+6. Add an Authorized redirect URI (`https://<host>:8088/oauth-authorized/google`).
+7. Create and download your client ID and client secret.
 
+### Apply Oauth configuration to Airbyte charm
+Create a file `oauth.yaml` using the Oauth2 credentials you obtained from Google, following the example below and replacing the values:
 ```yaml
-oauth2-proxy-k8s:
-  client-id: "<client_id>"
-  client-secret: "<client_secret>"
-  cookie-secret: "<cookie_secret>"
-  external-hostname: "<your-hostname>"
-  authenticated-emails-list: "<emails>"
+airbyte-k8s:
+  google-client-id: "client_id"
+  google-client-secret: "client_secret"
+  oauth-domain: "companydomain.com"
+  oauth-admin-email: "user@companydomain.com"
 ```
-
-Apply the configuration:
+This file can now be applied to Charmed Airbyte with:
 
 ```bash
-juju config oauth2-proxy-k8s --file=oauth.yaml
+juju config airbyte-k8s --file=path/to/oauth.yaml
 ```
-
-Relate the proxy to ingress:
-
-```bash
-juju relate oauth2-proxy-k8s nginx-ingress-integrator
-```
-
-## Configure Airbyte Webhooks
-
-Use the [airbyte-webhooks-k8s](https://charmhub.io/airbyte-webhooks-k8s) charm for secure webhook access. Relate it to a dedicated ingress:
-
-```bash
-juju relate airbyte-webhooks-k8s nginx-ingress-integrator-airbyte-webhooks
-```
-
-> Webhooks can be used to trigger pipelines or notifications securely.
