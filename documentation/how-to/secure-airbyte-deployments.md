@@ -79,7 +79,7 @@ If you do not already have Oauth2 credentials set up, follow the steps below:
 7. Create and download your client ID and client secret.
 
 ### Apply Oauth configuration to Nginx Ingress Integrator charm
-The oauth2-proxy-k8s charm manages all OAuth configuration for Airbyte. Create a file `oauth2-proxy.yaml` containining your Google Oauth details:
+The oauth2-proxy-k8s charm manages all OAuth configuration for Airbyte. Create a file `oauth2-proxy.yaml` containinng your Google Oauth details:
 
 ```yaml
 oauth2-proxy-k8s:
