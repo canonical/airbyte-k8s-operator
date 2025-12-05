@@ -64,12 +64,12 @@ TLS:
 ```
 
 ## Enable Google Oauth
-Enabling Google Oauth for Charmed Airbyte allows users to authenticate using their Google accounts, streamlining login and increasing security.
+Enabling Google Oauth for Charmed Airbyte allows users to authenticate using their Google accounts, streamlining login and increasing security. Google OAuth is handled by the `oauth2-proxy-k8s` charm, which sits in front of Airbyte and is exposed through `nginx-ingress-integrator`.
 
-To enable Google Oauth, you need a Google project. You can create one [here](https://console.cloud.google.com/projectcreate).
+To enable Google Oauth, you need a Google Cloud project. You can create one [here](https://console.cloud.google.com/projectcreate).
 
 #### Obtain Oauth2 credentials
-If you do not already have Oauth2 credentials set up then follow the steps below:
+If you do not already have Oauth2 credentials set up, follow the steps below:
 1. Navigate to https://console.cloud.google.com/apis/credentials.
 2. Click `+ Create Credentials`.
 3. Select `Oauth client ID`.
@@ -78,17 +78,25 @@ If you do not already have Oauth2 credentials set up then follow the steps below
 6. Add an Authorized redirect URI (`https://<host>:8088/oauth-authorized/google`).
 7. Create and download your client ID and client secret.
 
-### Apply Oauth configuration to Airbyte charm
-Create a file `oauth.yaml` using the Oauth2 credentials you obtained from Google, following the example below and replacing the values:
-```yaml
-airbyte-k8s:
-  google-client-id: "client_id"
-  google-client-secret: "client_secret"
-  oauth-domain: "companydomain.com"
-  oauth-admin-email: "user@companydomain.com"
-```
-This file can now be applied to Charmed Airbyte with:
+### Apply Oauth configuration to Nginx Ingress Integrator charm
+The oauth2-proxy-k8s charm manages all OAuth configuration for Airbyte. Create a file `oauth2-proxy.yaml` containining your Google Oauth details:
 
-```bash
-juju config airbyte-k8s --file=path/to/oauth.yaml
+```yaml
+oauth2-proxy-k8s:
+  client_id: "<google_client_id>"
+  client_secret: "<google_client_secret>"
+  cookie_secret: "<random_32_byte_secret>"
+  external_hostname: "airbyte.company.com"
+  authenticated_emails_list: "user1@company.com,user2@company.com,<service-account>"
+  additional_config: "--upstream-timeout=1200s --skip-jwt-bearer-tokens=true --extra-jwt-issuers=https://accounts.google.com=<google_client_id>"
+  upstream: "http://airbyte-k8s:8001"
 ```
+- `cookie_secret` must be a 32-byte base64-encoded value
+- `external_hostname` must match what Google OAuth expects
+- `authenticated_emails_list` controls who can access Airbyte
+
+Apply the configuration
+```bash
+juju config oauth2-proxy-k8s --file=path/to/oauth2-proxy.yaml
+```
+This will update the running `oauth2-proxy` unit and enforce Google OAuth in front of Airbyte.
