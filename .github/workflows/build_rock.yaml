@@ -19,12 +19,12 @@ jobs:
           sudo snap install rockcraft --classic --edge
       - name: Build ROCK
         run: |
+          cd airbyte_rock
           app_version=$(yq '.version' rockcraft.yaml)
           version=$(yq '(.version|split("-"))[0]' rockcraft.yaml)
           base=$(yq '(.base|split("@"))[1]' rockcraft.yaml)
           risk=edge
           tag=${version}-${base}-${risk}
-          cd airbyte_rock
 
           sed -i "0,/${app_version}/{s//${tag}/}" rockcraft.yaml
           rockcraft pack --verbose
