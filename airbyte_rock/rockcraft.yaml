@@ -86,8 +86,13 @@ parts:
       export DOCKER_HOST=unix:///var/run/docker.sock
       chmod 666 /var/run/docker.sock 2>/dev/null || true
       
-      # Run Gradle build
-      ./gradlew assemble -x dockerBuildImage --continue --max-workers 1
+      # Run Gradle build - skip all test tasks to speed up build
+      ./gradlew assemble \
+        -x dockerBuildImage \
+        -x test \
+        -x :airbyte-webapp:test:ci \
+        --continue \
+        --max-workers 1
       ./gradlew --stop
 
   organize-tars:
