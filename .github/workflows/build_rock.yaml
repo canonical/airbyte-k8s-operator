@@ -13,21 +13,21 @@ jobs:
         uses: actions/checkout@v3
       - name: Setup LXD
         uses: canonical/setup-lxd@main
-      - name: Install dependencies
-        run: |
-          sudo snap install yq
-          sudo snap install rockcraft --classic --edge
+      # - name: Install dependencies
+      #   run: |
+      #     sudo snap install yq
+      #     sudo snap install rockcraft --classic --edge
       - name: Build ROCK
         run: |
           cd airbyte_rock
-          app_version=$(yq '.version' rockcraft.yaml)
-          version=$(yq '(.version|split("-"))[0]' rockcraft.yaml)
-          base=$(yq '(.base|split("@"))[1]' rockcraft.yaml)
-          risk=edge
-          tag=${version}-${base}-${risk}
+          # app_version=$(yq '.version' rockcraft.yaml)
+          # version=$(yq '(.version|split("-"))[0]' rockcraft.yaml)
+          # base=$(yq '(.base|split("@"))[1]' rockcraft.yaml)
+          # risk=edge
+          # tag=${version}-${base}-${risk}
 
-          sed -i "0,/${app_version}/{s//${tag}/}" rockcraft.yaml
-          # Destructive mode needs root privileges; run via sudo
+          # sed -i "0,/${app_version}/{s//${tag}/}" rockcraft.yaml
+          # # Destructive mode needs root privileges; run via sudo
           sudo rockcraft pack --destructive-mode --verbose
           ls -la
 
