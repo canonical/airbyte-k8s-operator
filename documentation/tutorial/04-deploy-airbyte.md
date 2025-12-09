@@ -57,11 +57,6 @@ Airbyte depends on two Temporal charms:
 
 Add the relations:
 ```bash
-juju relate temporal-k8s airbyte-k8s
-juju relate temporal-k8s temporal-admin-k8s
-```
-
-```bash
 juju relate temporal-k8s:db postgresql-k8s:database
 juju relate temporal-k8s:visibility postgresql-k8s:database
 juju relate temporal-k8s:admin temporal-admin-k8s:admin

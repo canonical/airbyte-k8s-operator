@@ -63,7 +63,7 @@ juju add-model airbyte-model
 After this, you should see something similar to the below when running `juju status`:
 ```bash
 # >>> Model           Controller           Cloud/Region        Version  SLA          Timestamp
-# >>> airbyte-model  airbyte-controller  microk8s/localhost  3.5.3    unsupported  12:45:50+03:00
+# >>> airbyte-model  airbyte-controller  microk8s/localhost  3.6.12    unsupported  12:45:50+03:00
 
 # >>> Model "admin/airbyte-model" is empty.
 ```
