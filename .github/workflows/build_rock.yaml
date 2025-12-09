@@ -27,7 +27,7 @@ jobs:
           tag=${version}-${base}-${risk}
 
           sed -i "0,/${app_version}/{s//${tag}/}" rockcraft.yaml
-          rockcraft pack --verbose
+          rockcraft pack --destructive-mode --verbose
           ls -la
 
       - name: Upload locally built ROCK artifact
