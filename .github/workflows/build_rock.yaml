@@ -27,7 +27,8 @@ jobs:
           tag=${version}-${base}-${risk}
 
           sed -i "0,/${app_version}/{s//${tag}/}" rockcraft.yaml
-          rockcraft pack --destructive-mode --verbose
+          # Destructive mode needs root privileges; run via sudo
+          sudo rockcraft pack --destructive-mode --verbose
           ls -la
 
       - name: Upload locally built ROCK artifact
