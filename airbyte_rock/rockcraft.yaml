@@ -90,7 +90,7 @@ parts:
       ./gradlew assemble \
         -x dockerBuildImage \
         -x test \
-        -x :airbyte-webapp:test:ci \
+        -x check \
         --continue \
         --max-workers 1
       ./gradlew --stop
