@@ -27,8 +27,13 @@ jobs:
           # tag=${version}-${base}-${risk}
 
           # sed -i "0,/${app_version}/{s//${tag}/}" rockcraft.yaml
-          # # Destructive mode needs root privileges; run via sudo
-          sudo rockcraft pack --destructive-mode --verbose
+          # Destructive mode needs root privileges; run via sudo.
+          # On some runners, snap binaries are only available at /snap/bin under sudo.
+          if command -v rockcraft >/dev/null 2>&1; then
+            sudo env PATH="$PATH" rockcraft pack --destructive-mode --verbose
+          else
+            sudo /snap/bin/rockcraft pack --destructive-mode --verbose
+          fi
           ls -la
 
       - name: Upload locally built ROCK artifact
