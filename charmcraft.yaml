@@ -423,6 +423,21 @@ config:
       default: 1440
       type: int
 
+    airbyte-flags-yaml:
+      description: |
+        Custom Airbyte flags.yaml content. This allows you to configure Airbyte feature flags 
+        and runtime parameters such as heartbeat-max-seconds-between-messages.
+        
+        Example:
+          juju config airbyte-k8s airbyte-flags-yaml="$(cat <<EOF
+          heartbeat-max-seconds-between-messages: 3600
+          some-other-flag: value
+          EOF
+          )"
+        
+        Leave empty to use Airbyte defaults.
+      type: string
+
 # The containers and resources metadata apply to Kubernetes charms only.
 # See https://juju.is/docs/sdk/metadata-reference for a checklist and guidance.
 

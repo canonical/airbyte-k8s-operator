@@ -43,12 +43,13 @@ from structured_config import CharmConfig, StorageType
 logger = logging.getLogger(__name__)
 
 
-def get_pebble_layer(application_name, context):
+def get_pebble_layer(application_name, context, flags_configmap_name=None):
     """Create pebble layer based on application.
 
     Args:
         application_name: Name of Airbyte application.
         context: environment to include with the pebble plan.
+        flags_configmap_name: Name of the ConfigMap containing flags.yaml (optional).
 
     Returns:
         pebble plan dict.
@@ -242,6 +243,68 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
                 missing_params.append(key)
         return missing_params
 
+    def _create_or_update_flags_configmap(self):
+        """Create or update the Kubernetes ConfigMap for Airbyte flags.yaml.
+
+        This method creates a ConfigMap containing the flags.yaml content if provided
+        in the charm configuration. If the ConfigMap exists, it updates it.
+        """
+        flags_yaml_content = self.config.get("airbyte-flags-yaml", "")
+        configmap_name = f"{self.app.name}-flags"
+        
+        if not flags_yaml_content:
+            # If no content provided, try to delete the ConfigMap if it exists
+            try:
+                self._k8s_client.delete_namespaced_config_map(
+                    name=configmap_name,
+                    namespace=self.model.name
+                )
+                logger.info(f"Deleted ConfigMap {configmap_name} as no flags.yaml content provided")
+            except ApiException as e:
+                if e.status == 404:
+                    # ConfigMap doesn't exist, which is fine
+                    pass
+                else:
+                    logger.warning(f"Error deleting ConfigMap: {e}")
+            return
+
+        # Create ConfigMap body
+        configmap_body = kubernetes.client.V1ConfigMap(
+            api_version="v1",
+            kind="ConfigMap",
+            metadata=kubernetes.client.V1ObjectMeta(
+                name=configmap_name,
+                namespace=self.model.name,
+                labels={"app.kubernetes.io/managed-by": "juju"}
+            ),
+            data={"flags.yaml": flags_yaml_content}
+        )
+
+        try:
+            # Try to read the ConfigMap first
+            self._k8s_client.read_namespaced_config_map(
+                name=configmap_name,
+                namespace=self.model.name
+            )
+            # If it exists, update it
+            self._k8s_client.patch_namespaced_config_map(
+                name=configmap_name,
+                namespace=self.model.name,
+                body=configmap_body
+            )
+            logger.info(f"Updated ConfigMap {configmap_name}")
+        except ApiException as e:
+            if e.status == 404:
+                # ConfigMap doesn't exist, create it
+                self._k8s_client.create_namespaced_config_map(
+                    namespace=self.model.name,
+                    body=configmap_body
+                )
+                logger.info(f"Created ConfigMap {configmap_name}")
+            else:
+                logger.error(f"Error managing ConfigMap: {e}")
+                raise
+
     def _validate(self):
         """Validate that configuration and relations are valid and ready.
 
@@ -308,6 +371,16 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             WORKLOAD_LAUNCHER_PORT,
         )
 
+        # Create or update the flags ConfigMap if flags.yaml is provided
+        try:
+            self._create_or_update_flags_configmap()
+        except Exception as e:
+            logger.error(f"Failed to manage flags ConfigMap: {e}")
+            self.unit.status = BlockedStatus(f"failed to manage flags ConfigMap: {str(e)}")
+            return
+
+        flags_configmap_name = f"{self.app.name}-flags" if self.config.get("airbyte-flags-yaml") else None
+
         for container_name in CONTAINER_HEALTH_CHECK_MAP:
             container = self.unit.get_container(container_name)
             if not container.can_connect():
@@ -316,6 +389,17 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
 
             env = create_env(self.model.name, self.app.name, container_name, self.config, self._state)
             env = {k: v for k, v in env.items() if v is not None}
+
+            # Push flags.yaml to container if provided
+            flags_yaml_content = self.config.get("airbyte-flags-yaml")
+            if flags_yaml_content:
+                try:
+                    container.push("/etc/airbyte/flags.yaml", flags_yaml_content, make_dirs=True)
+                    logger.info(f"Pushed flags.yaml to {container_name}")
+                except Exception as e:
+                    logger.error(f"Failed to push flags.yaml to {container_name}: {e}")
+                    self.unit.status = BlockedStatus(f"failed to push flags.yaml: {str(e)}")
+                    return
 
             # Read values from k8s secret created by airbyte-bootloader and add
             # them to the pebble plan.
@@ -336,7 +420,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
                 else:
                     logging.error("Error: %s", str(e))
 
-            pebble_layer = get_pebble_layer(container_name, env)
+            pebble_layer = get_pebble_layer(container_name, env, flags_configmap_name)
             container.add_layer(container_name, pebble_layer, combine=True)
             container.replan()
 
