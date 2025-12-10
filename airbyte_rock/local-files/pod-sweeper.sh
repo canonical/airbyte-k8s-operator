@@ -2,7 +2,7 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-# https://github.com/airbytehq/airbyte-platform/blob/main/charts/airbyte-pod-sweeper/templates/configmap.yaml
+# https://github.com/airbytehq/airbyte-platform/blob/v1.3.0/charts/airbyte-pod-sweeper/templates/configmap.yaml
 
 get_job_pods() {
     # echo "Running kubectl command to get job pods..."

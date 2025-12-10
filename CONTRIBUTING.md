@@ -57,39 +57,51 @@ PR, please run `tox` to ensure proper formatting and linting is performed.
 This charm is used to deploy Airbyte server in a k8s cluster. For a local
 deployment, follow the following steps:
 
+
+#### Install Rockcraft
+
+```bash
+sudo snap install rockcraft --edge --classic
+sudo snap install lxd
+lxd init --auto
+```
+
 #### Install Microk8s
 
 ```bash
-# Install Microk8s from snap
-sudo snap install microk8s --classic --channel=1.25
-
 # Install charmcraft from snap
-sudo snap install charmcraft --classic
+sudo snap install charmcraft --channel latest/edge --classic
 
-# Add the 'ubuntu' user to the Microk8s group
-sudo usermod -a -G microk8s ubuntu
+# Install Microk8s from snap
+sudo snap install microk8s --channel 1.32-strict/stable
 
-# Give the 'ubuntu' user permissions to read the ~/.kube directory
-sudo chown -f -R ubuntu ~/.kube
+# Add your user to MicroK8s group and refresh session
+sudo adduser $USER snap_microk8s
+sudo chown -R $USER ~/.kube # -- chown: cannot access '/home/ubuntu/.kube': No such file or directory
 
-# Create the 'microk8s' group
-newgrp microk8s
+newgrp snap_microk8s
 
 # Enable the necessary Microk8s addons
-microk8s enable hostpath-storage dns
+sudo microk8s enable rbac
+sudo microk8s enable hostpath-storage
+sudo microk8s enable dns
+sudo microk8s enable registry
+sudo microk8s enable ingress
 ```
 
 #### Set up the Juju OLM
 
 ```bash
 # Install the Juju CLI client, juju. Minimum version required is juju>=3.1.
-sudo snap install juju --classic
+sudo snap install juju --channel 3.6/stable
+mkdir -p ~/.local/share
 
 # Install a "juju" controller into your "microk8s" cloud
 juju bootstrap microk8s airbyte-controller
 
 # Create a 'model' on this controller
 juju add-model airbyte
+juju set-model-constraints -m airbyte arch=$(dpkg --print-architecture)
 
 # Enable DEBUG logging
 juju model-config logging-config="<root>=INFO;unit=DEBUG"
@@ -99,17 +111,58 @@ juju status --relations --watch 2s
 juju debug-log
 ```
 
+
+#### Packing the Rock
+
+**Preferred: destructive-mode (no nested containers)**
+
+To reliably build the Airbyte rock, use Rockcraft’s destructive-mode so the build runs on the host instead of inside LXD. This avoids Testcontainers/cgroup issues during Gradle’s jOOQ code generation.
+
+Requirements when using destructive-mode:
+- Host Ubuntu version should match the rock base in `airbyte_rock/rockcraft.yaml` (currently `ubuntu@22.04`). Building on a different series can cause toolchain/package mismatches.
+- Root privileges (sudo) on the build machine.
+- Sufficient resources: at least 4 CPU cores and 16 GB RAM are recommended. Rock builds compile multiple components (server, workers, UI) and run Gradle tasks that are memory/CPU intensive.
+
+Example (native host matching base, e.g., Ubuntu 22.04):
+
+```bash
+cd airbyte_rock
+sudo rockcraft pack --destructive-mode --verbose
+```
+
+**Multipass users (arm64 on Apple Silicon, etc.)**
+
+- Do NOT build from a host-mounted directory inside the VM (e.g., a folder under `/home/ubuntu` that is mounted from the host). umoci will fail with `lchown permission denied` when unpacking the base.
+- Instead, clone the repository directly inside the VM (or copy it to a native, non-mounted path), and run destructive-mode there. Running under `/root` is the most reliable:
+
+```bash
+# inside the Multipass VM
+git clone https://github.com/canonical/airbyte-k8s-operator.git /root/work/airbyte-k8s-operator
+cd /root/work/airbyte-k8s-operator/airbyte_rock
+sudo rockcraft pack --destructive-mode --verbose
+```
+
+#### Upload Rock to registry
+The rock needs to be copied to the Microk8s registry so that it can be deployed in the Kubernetes cluster:
+
+```bash
+rockcraft.skopeo --insecure-policy copy --dest-tls-verify=false oci-archive:airbyte_1.7.0_$(dpkg --print-architecture).rock docker://localhost:32000/airbyte:1.7.0
+```
+
 #### Deploy Charm
 
 ```bash
+# Go to root directory of the project
+cd ..
+
 # Pack the charm
 charmcraft pack # the --destructive-mode flag can be used to pack the charm using the current host.
 
 # Deploy the charm
-juju deploy ./airbyte-k8s_ubuntu-22.04-amd64.charm --resource airbyte-api-server=airbyte/airbyte-api-server:0.60.0 --resource airbyte-bootloader=airbyte/bootloader:0.60.0 --resource airbyte-connector-builder-server=airbyte/connector-builder-server:0.60.0 --resource airbyte-cron=airbyte/cron:0.60.0 --resource airbyte-pod-sweeper=bitnami/kubectl:1.29.4 --resource airbyte-server=airbyte/server:0.60.0 --resource airbyte-workers=airbyte/worker:0.60.0
+juju deploy ./airbyte-k8s_ubuntu-22.04-$(dpkg --print-architecture).charm --resource airbyte-image=localhost:32000/airbyte:1.7.0 --constraints='arch=arm64'
+# add the following constraints if your cpu architecture is arm64:  --constraints='arch=arm64'
 
-# Deploy ui charm (Only if modifying UI charm, otherwise deploy using `juju deploy airbyte-ui-k8s --channel edge`)
-juju deploy ./airbyte-ui-k8s_ubuntu-22.04-amd64.charm --resource airbyte-webapp=airbyte/webapp:0.60.0
+juju model-config juju-no-proxy="127.0.0.1,localhost,::1,10.0.0.0/8,192.168.0.0/16,10.1.0.0/16"
 ```
 
 #### Relate Charms
