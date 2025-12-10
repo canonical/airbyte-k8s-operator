@@ -49,7 +49,7 @@ def create_env(model_name, app_name, container_name, config, state):
         "WEBAPP_URL": config["webapp-url"],
         # Flags config - point to the mounted flags.yaml file if heartbeat flag is set
         "FEATURE_FLAG_PATH": "/etc/airbyte/flags.yaml"
-        if config.get("heartbeat-max-seconds-between-messages") is not None
+        if config["heartbeat-max-seconds-between-messages"] is not None
         else None,
         # Secrets config
         "SECRET_PERSISTENCE": secret_persistence,

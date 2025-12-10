@@ -312,7 +312,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         )
 
         # Generate flags.yaml content from opinionated config if provided
-        heartbeat_val = self.config.get("heartbeat-max-seconds-between-messages")
+        heartbeat_val = self.config["heartbeat-max-seconds-between-messages"]
         flags_yaml_content = None
         if heartbeat_val is not None:
             flags_yaml_content = f"heartbeat-max-seconds-between-messages: {int(heartbeat_val)}\n"
