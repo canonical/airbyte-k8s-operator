@@ -77,22 +77,7 @@ parts:
       - python3-dev
     override-build: |
       cd ${CRAFT_STAGE}/airbyte-platform
-      
-      # Disable Testcontainers ryuk and checks to work around nested containerization
-      export TESTCONTAINERS_RYUK_DISABLED=true
-      export TESTCONTAINERS_CHECKS_DISABLE=true
-      
-      # Configure Docker to work in LXD environment
-      export DOCKER_HOST=unix:///var/run/docker.sock
-      chmod 666 /var/run/docker.sock 2>/dev/null || true
-      
-      # Run Gradle build - skip all test tasks to speed up build
-      ./gradlew assemble \
-        -x dockerBuildImage \
-        -x test \
-        -x check \
-        --continue \
-        --max-workers 1
+      ./gradlew assemble -x dockerBuildImage --continue --max-workers 1
       ./gradlew --stop
 
   organize-tars:
