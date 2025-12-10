@@ -8,8 +8,8 @@ version: "1.7.0"
 base: ubuntu@22.04
 license: Apache-2.0
 platforms:
-  # amd64:
-  arm64:
+  amd64:
+  # arm64:
 
 environment:
   CDK_PYTHON: /usr/bin/python3.10
