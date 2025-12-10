@@ -64,6 +64,17 @@ deployment, follow the following steps:
 sudo snap install rockcraft --edge --classic
 sudo snap install lxd
 lxd init --auto
+
+# Note: Docker must be installed after LXD is initialized due to firewall rules incompatibility.
+sudo snap install docker
+sudo groupadd docker
+sudo usermod -aG docker $USER
+newgrp docker
+
+# Note: disabling and enabling docker snap is required to avoid sudo requirement. 
+# As described in https://github.com/docker-snap/docker-snap.
+sudo snap disable docker
+sudo snap enable docker
 ```
 
 #### Install Microk8s
@@ -78,7 +89,6 @@ sudo snap install microk8s --channel 1.32-strict/stable
 # Add your user to MicroK8s group and refresh session
 sudo adduser $USER snap_microk8s
 sudo chown -R $USER ~/.kube # -- chown: cannot access '/home/ubuntu/.kube': No such file or directory
-
 newgrp snap_microk8s
 
 # Enable the necessary Microk8s addons
