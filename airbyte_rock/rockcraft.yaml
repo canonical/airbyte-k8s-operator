@@ -29,6 +29,7 @@ parts:
       - ca-certificates
       - curl 
       - gnupg
+      - python3-pip
       - python3.10-venv  
     override-build: |
       # Install kubectl
@@ -42,8 +43,9 @@ parts:
       mkdir -p ${CRAFT_PART_INSTALL}/usr/local/lib/python3.10/dist-packages
       cp -r $(which kubectl) ${CRAFT_PART_INSTALL}/usr/local/bin/kubectl
 
-      pip install --upgrade setuptools pip airbyte-cdk==5.12.0 \
-          --target=/${CRAFT_PART_INSTALL}/usr/local/lib/python3.10/dist-packages
+        # Use python3.10 -m pip explicitly to avoid PATH issues
+        /usr/bin/python3.10 -m pip install --upgrade setuptools pip airbyte-cdk==5.12.0 \
+          --target=${CRAFT_PART_INSTALL}/usr/local/lib/python3.10/dist-packages
     stage:
       - usr/local/bin/kubectl
       - usr/local/lib/python3.10/dist-packages
