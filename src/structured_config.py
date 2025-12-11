@@ -222,3 +222,24 @@ class CharmConfig(BaseConfigModel):
         if int_value > 0:
             return value
         raise ValueError("Invalid CPU request/limit value.")
+
+    @validator("heartbeat_max_seconds_between_messages")
+    @classmethod
+    def heartbeat_positive(cls, value: Optional[int]) -> Optional[int]:
+        """Ensure heartbeat value is a positive integer when provided.
+
+        Args:
+            value: Heartbeat value in seconds.
+
+        Returns:
+            The validated integer or None if unset.
+
+        Raises:
+            ValueError: If the value is not > 0.
+        """
+        if value is None:
+            return None
+        iv = int(value)
+        if iv > 0:
+            return iv
+        raise ValueError("heartbeat-max-seconds-between-messages must be > 0")

@@ -315,7 +315,13 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         heartbeat_val = self.config["heartbeat-max-seconds-between-messages"]
         flags_yaml_content = None
         if heartbeat_val is not None:
-            flags_yaml_content = f"heartbeat-max-seconds-between-messages: {int(heartbeat_val)}\n"
+            # Airbyte 1.7 expects 'flags' as array entries with 'name' and 'serve'.
+            # 'serve' should be a string for heartbeat-max-seconds-between-messages according to example.
+            flags_yaml_content = (
+                "flags:\n"
+                "  - name: heartbeat-max-seconds-between-messages\n"
+                f"    serve: \"{int(heartbeat_val)}\"\n"
+            )
 
         for container_name in CONTAINER_HEALTH_CHECK_MAP:
             container = self.unit.get_container(container_name)
