@@ -312,16 +312,31 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         )
 
         # Generate flags.yaml content from opinionated config if provided
+        flags = []
+        
+        # heartbeat-max-seconds-between-messages (integer as string)
         heartbeat_val = self.config["heartbeat-max-seconds-between-messages"]
-        flags_yaml_content = None
         if heartbeat_val is not None:
-            # Airbyte 1.7 expects 'flags' as array entries with 'name' and 'serve'.
-            # 'serve' should be a string for heartbeat-max-seconds-between-messages according to example.
-            flags_yaml_content = (
-                "flags:\n"
-                "  - name: heartbeat-max-seconds-between-messages\n"
-                f"    serve: \"{int(heartbeat_val)}\"\n"
-            )
+            flags.append(f"  - name: heartbeat-max-seconds-between-messages\n    serve: \"{int(heartbeat_val)}\"")
+        
+        # heartbeat.failSync (boolean)
+        heartbeat_fail_sync = self.config["heartbeat-fail-sync"]
+        if heartbeat_fail_sync is not None:
+            flags.append(f"  - name: heartbeat.failSync\n    serve: {str(heartbeat_fail_sync).lower()}")
+        
+        # destination-timeout.seconds (integer as string)
+        dest_timeout = self.config["destination-timeout-max-seconds"]
+        if dest_timeout is not None:
+            flags.append(f"  - name: destination-timeout.seconds\n    serve: \"{int(dest_timeout)}\"")
+        
+        # destination-timeout.failSync (boolean)
+        dest_timeout_fail = self.config["destination-timeout-fail-sync"]
+        if dest_timeout_fail is not None:
+            flags.append(f"  - name: destination-timeout.failSync\n    serve: {str(dest_timeout_fail).lower()}")
+        
+        flags_yaml_content = None
+        if flags:
+            flags_yaml_content = "flags:\n" + "\n".join(flags) + "\n"
 
         for container_name in CONTAINER_HEALTH_CHECK_MAP:
             container = self.unit.get_container(container_name)

@@ -120,6 +120,9 @@ class CharmConfig(BaseConfigModel):
     pod_successful_ttl_minutes: int
     pod_unsuccessful_ttl_minutes: int
     heartbeat_max_seconds_between_messages: Optional[int]
+    heartbeat_fail_sync: Optional[bool]
+    destination_timeout_max_seconds: Optional[int]
+    destination_timeout_fail_sync: Optional[bool]
 
     @validator("*", pre=True)
     @classmethod
@@ -243,3 +246,24 @@ class CharmConfig(BaseConfigModel):
         if iv > 0:
             return iv
         raise ValueError("heartbeat-max-seconds-between-messages must be > 0")
+
+    @validator("destination_timeout_max_seconds")
+    @classmethod
+    def destination_timeout_positive(cls, value: Optional[int]) -> Optional[int]:
+        """Ensure destination timeout value is a positive integer when provided.
+
+        Args:
+            value: Destination timeout value in seconds.
+
+        Returns:
+            The validated integer or None if unset.
+
+        Raises:
+            ValueError: If the value is not > 0.
+        """
+        if value is None:
+            return None
+        iv = int(value)
+        if iv > 0:
+            return iv
+        raise ValueError("destination-timeout-max-seconds must be > 0")
