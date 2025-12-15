@@ -327,11 +327,14 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         # destination-timeout.seconds (integer as string)
         dest_timeout = self.config["destination-timeout-max-seconds"]
         if dest_timeout is not None:
+            # When destination timeout is configured, ensure the feature is enabled
+            flags.append("  - name: destination-timeout-enabled\n    serve: true")
             flags.append(f"  - name: destination-timeout.seconds\n    serve: \"{int(dest_timeout)}\"")
         
         # destination-timeout.failSync (boolean)
         dest_timeout_fail = self.config["destination-timeout-fail-sync"]
         if dest_timeout_fail is not None:
+            flags.append("  - name: destination-timeout-enabled\n    serve: true")
             flags.append(f"  - name: destination-timeout.failSync\n    serve: {str(dest_timeout_fail).lower()}")
         
         flags_yaml_content = None

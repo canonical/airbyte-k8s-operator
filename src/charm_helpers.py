@@ -48,7 +48,24 @@ def create_env(model_name, app_name, container_name, config, state):
         "TEMPORAL_HOST": config["temporal-host"],
         "WEBAPP_URL": config["webapp-url"],
         # Flags config - point to the mounted flags.yaml file if any flag is set
+        # Airbyte 1.7 uses OpenFeature by default; ensure both legacy and OpenFeature envs are set
         "FEATURE_FLAG_PATH": "/etc/airbyte/flags.yaml"
+        if any([
+            config["heartbeat-max-seconds-between-messages"] is not None,
+            config["heartbeat-fail-sync"] is not None,
+            config["destination-timeout-max-seconds"] is not None,
+            config["destination-timeout-fail-sync"] is not None,
+        ])
+        else None,
+        "FEATURE_FLAG_CLIENT": "OPENFEATURE"
+        if any([
+            config["heartbeat-max-seconds-between-messages"] is not None,
+            config["heartbeat-fail-sync"] is not None,
+            config["destination-timeout-max-seconds"] is not None,
+            config["destination-timeout-fail-sync"] is not None,
+        ])
+        else None,
+        "OPENFEATURE_SDK_FILE_PATH": "/etc/airbyte/flags.yaml"
         if any([
             config["heartbeat-max-seconds-between-messages"] is not None,
             config["heartbeat-fail-sync"] is not None,
