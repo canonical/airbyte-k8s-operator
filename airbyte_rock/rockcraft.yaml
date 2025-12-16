@@ -17,8 +17,6 @@ environment:
   CDK_PYTHON: /usr/bin/python3.10
   CDK_ENTRYPOINT: /usr/lib/python3.10/dist-packages/airbyte_cdk/connector_builder/main.py
   CDK_VERSION: "5.12.0"
-  # JAVA_HOME: /usr/lib/jvm/default-java
-  # PATH: "/usr/lib/jvm/default-java/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 
 parts:
@@ -42,9 +40,8 @@ parts:
       mkdir -p ${CRAFT_PART_INSTALL}/usr/local/lib/python3.10/dist-packages
       cp -r $(which kubectl) ${CRAFT_PART_INSTALL}/usr/local/bin/kubectl
 
-        # Use python3.10 -m pip explicitly to avoid PATH issues
       pip install --upgrade setuptools pip airbyte-cdk==5.12.0 \
-          --target=${CRAFT_PART_INSTALL}/usr/local/lib/python3.10/dist-packages
+          --target=/${CRAFT_PART_INSTALL}/usr/local/lib/python3.10/dist-packages
     stage:
       - usr/local/bin/kubectl
       - usr/local/lib/python3.10/dist-packages
@@ -81,16 +78,6 @@ parts:
       - python3-dev
     override-build: |
       cd ${CRAFT_STAGE}/airbyte-platform
-      # Create a stable JAVA_HOME symlink for runtime: /usr/lib/jvm/default-java
-      ARCH=$(dpkg --print-architecture)
-      #if [ "$ARCH" = "arm64" ]; then
-      #  REAL_JAVA_HOME=/usr/lib/jvm/java-21-openjdk-arm64
-      #else
-      #  REAL_JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
-      #fi
-      #ln -sf "$REAL_JAVA_HOME" /usr/lib/jvm/default-java
-      #export JAVA_HOME=/usr/lib/jvm/default-java
-      #export PATH="$JAVA_HOME/bin:$PATH"
       ./gradlew assemble -x dockerBuildImage --continue --max-workers 1
       ./gradlew --stop
 
