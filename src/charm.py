@@ -384,7 +384,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             env = create_env(self.model.name, self.app.name, container_name, self.config, self._state)
             env = {k: v for k, v in env.items() if v is not None}
 
-            self._push_flags_to_container(container, container_name, flags_yaml_content, env):
+            self._push_flags_to_container(container, container_name, flags_yaml_content, env)
 
             # Read values from k8s secret created by airbyte-bootloader and add
             # them to the pebble plan.
