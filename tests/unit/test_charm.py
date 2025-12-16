@@ -258,6 +258,101 @@ class TestCharm(TestCase):
         plan = harness.get_container_pebble_plan("airbyte-server").to_dict()
         assert plan is not None
 
+    def test_feature_flags_heartbeat_only(self):
+        """The charm generates flags file and sets env vars when heartbeat config is set."""
+        harness = self.harness
+        harness.update_config({"heartbeat-max-seconds-between-messages": 3600})
+
+        simulate_lifecycle(harness)
+
+        # Verify flags file was pushed to containers
+        for container_name in CONTAINER_HEALTH_CHECK_MAP:
+            container = harness.model.unit.get_container(container_name)
+            files = container.list_files("/", pattern="flags")
+            file_list = list(files)
+            self.assertEqual(len(file_list), 1)
+            self.assertEqual(file_list[0].path, "/flags")
+
+            # Verify file content
+            flags_content = container.pull("/flags").read()
+            self.assertIn("heartbeat-max-seconds-between-messages", flags_content)
+            self.assertIn('serve: "3600"', flags_content)
+
+            # Verify environment variables are set
+            plan = harness.get_container_pebble_plan(container_name).to_dict()
+            env = plan["services"][container_name]["environment"]
+            self.assertEqual(env["FEATURE_FLAG_PATH"], "/flags")
+            self.assertEqual(env["FEATURE_FLAG_CLIENT"], "configfile")
+            self.assertIn("FEATURE_FLAG_HASH", env)
+
+    def test_feature_flags_destination_timeout(self):
+        """The charm generates flags file with destination timeout settings."""
+        harness = self.harness
+        harness.update_config(
+            {
+                "destination-timeout-max-seconds": 86400,
+                "destination-timeout-fail-sync": True,
+            }
+        )
+
+        simulate_lifecycle(harness)
+
+        # Verify flags file content
+        container = harness.model.unit.get_container("airbyte-server")
+        flags_content = container.pull("/flags").read()
+        
+        # Should include auto-enabled destination-timeout-enabled flag
+        self.assertIn("destination-timeout-enabled", flags_content)
+        self.assertIn("serve: true", flags_content)
+        self.assertIn("destination-timeout.seconds", flags_content)
+        self.assertIn('serve: "86400"', flags_content)
+        self.assertIn("destination-timeout.failSync", flags_content)
+
+    def test_feature_flags_all_configs(self):
+        """The charm generates flags file with all feature flag configs set."""
+        harness = self.harness
+        harness.update_config(
+            {
+                "heartbeat-max-seconds-between-messages": 1800,
+                "heartbeat-fail-sync": False,
+                "destination-timeout-max-seconds": 43200,
+                "destination-timeout-fail-sync": True,
+            }
+        )
+
+        simulate_lifecycle(harness)
+
+        # Verify flags file content
+        container = harness.model.unit.get_container("airbyte-workers")
+        flags_content = container.pull("/flags").read()
+        
+        self.assertIn("heartbeat-max-seconds-between-messages", flags_content)
+        self.assertIn('serve: "1800"', flags_content)
+        self.assertIn("heartbeat.failSync", flags_content)
+        self.assertIn("serve: false", flags_content)
+        self.assertIn("destination-timeout-enabled", flags_content)
+        self.assertIn("destination-timeout.seconds", flags_content)
+        self.assertIn('serve: "43200"', flags_content)
+        self.assertIn("destination-timeout.failSync", flags_content)
+
+    def test_no_feature_flags_when_unset(self):
+        """The charm does not set flag env vars when no flags are configured."""
+        harness = self.harness
+
+        simulate_lifecycle(harness)
+
+        # Verify no flags file was pushed
+        container = harness.model.unit.get_container("airbyte-server")
+        files = list(container.list_files("/", pattern="flags"))
+        self.assertEqual(len(files), 0)
+
+        # Verify env vars are not set
+        plan = harness.get_container_pebble_plan("airbyte-server").to_dict()
+        env = plan["services"]["airbyte-server"]["environment"]
+        self.assertNotIn("FEATURE_FLAG_PATH", env)
+        self.assertNotIn("FEATURE_FLAG_CLIENT", env)
+        self.assertNotIn("FEATURE_FLAG_HASH", env)
+
 
 @mock.patch("s3_helpers.S3Client.create_bucket_if_not_exists", return_value=None)
 @mock.patch("s3_helpers.S3Client.set_bucket_lifecycle_policy", return_value=None)
