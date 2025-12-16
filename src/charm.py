@@ -354,8 +354,9 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             # Push generated flags.yaml to container if we have content
             if flags_yaml_content:
                 try:
-                    container.push("/etc/airbyte/flags.yaml", flags_yaml_content, make_dirs=True)
-                    logger.info(f"Pushed flags.yaml to {container_name}")
+                    # Airbyte ConfigFileClient expects a directory path (e.g., /flags) containing flags.yml
+                    container.push("/flags/flags.yml", flags_yaml_content, make_dirs=True)
+                    logger.info(f"Pushed flags.yml to {container_name} at /flags/flags.yml")
                 except Exception as e:
                     logger.error(f"Failed to push flags.yaml to {container_name}: {e}")
                     self.unit.status = BlockedStatus(f"failed to push flags.yaml: {str(e)}")
