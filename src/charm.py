@@ -44,13 +44,12 @@ from structured_config import CharmConfig, StorageType
 logger = logging.getLogger(__name__)
 
 
-def get_pebble_layer(application_name, context, flags_configmap_name=None):
+def get_pebble_layer(application_name, context):
     """Create pebble layer based on application.
 
     Args:
         application_name: Name of Airbyte application.
         context: environment to include with the pebble plan.
-        flags_configmap_name: Name of the ConfigMap containing flags.yaml (optional).
 
     Returns:
         pebble plan dict.
@@ -244,7 +243,69 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
                 missing_params.append(key)
         return missing_params
 
-    # Opinionated approach: no ConfigMap management for flags; we push generated file directly
+    def _generate_flags_yaml_content(self):
+        """Generate flags.yaml content from opinionated config if provided.
+
+        Returns:
+            str or None: The flags.yaml content as a string, or None if no flags are configured.
+        """
+        flags = []
+        
+        # heartbeat-max-seconds-between-messages (integer as string)
+        heartbeat_val = self.config["heartbeat-max-seconds-between-messages"]
+        if heartbeat_val is not None:
+            flags.append(f"  - name: heartbeat-max-seconds-between-messages\n    serve: \"{int(heartbeat_val)}\"")
+        
+        # heartbeat.failSync (boolean)
+        heartbeat_fail_sync = self.config["heartbeat-fail-sync"]
+        if heartbeat_fail_sync is not None:
+            flags.append(f"  - name: heartbeat.failSync\n    serve: {str(heartbeat_fail_sync).lower()}")
+        
+        # destination-timeout.seconds (integer as string)
+        dest_timeout = self.config["destination-timeout-max-seconds"]
+        if dest_timeout is not None:
+            # When destination timeout is configured, ensure the feature is enabled
+            flags.append("  - name: destination-timeout-enabled\n    serve: true")
+            flags.append(f"  - name: destination-timeout.seconds\n    serve: \"{int(dest_timeout)}\"")
+        
+        # destination-timeout.failSync (boolean)
+        dest_timeout_fail = self.config["destination-timeout-fail-sync"]
+        if dest_timeout_fail is not None:
+            flags.append(f"  - name: destination-timeout.failSync\n    serve: {str(dest_timeout_fail).lower()}")
+        
+        if flags:
+            return "flags:\n" + "\n".join(flags) + "\n"
+        return None
+
+    def _push_flags_to_container(self, container, container_name, flags_yaml_content, env):
+        """Push generated flags content to container if available.
+
+        Args:
+            container: The container to push flags to.
+            container_name: Name of the container.
+            flags_yaml_content: The flags YAML content to push, or None.
+            env: Environment dictionary to update with flags hash.
+        """
+        if not flags_yaml_content:
+            return
+
+        try:
+            # Airbyte ConfigFileClient reads a file at FEATURE_FLAG_PATH. We set FEATURE_FLAG_PATH=/flags,
+            # so write the YAML directly to the file path '/flags' (no extension).
+            container.push("/flags", flags_yaml_content)
+            logger.info(f"Pushed flags to {container_name} at /flags")
+        except Exception as e:
+            logger.error(f"Failed to push flags file to {container_name}: {e}")
+            self.unit.status = BlockedStatus(f"failed to push flags file: {str(e)}")
+            return
+
+        # Add a hash of flags content to env to force replan+restart when flags change
+        try:
+            flags_hash = hashlib.sha256(flags_yaml_content.encode("utf-8")).hexdigest()
+            env.update({"FEATURE_FLAG_HASH": flags_hash})
+        except Exception as e:
+            logger.warning(f"Failed to compute flags hash for {container_name}: {e}")
+
 
     def _validate(self):
         """Validate that configuration and relations are valid and ready.
@@ -312,35 +373,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             WORKLOAD_LAUNCHER_PORT,
         )
 
-        # Generate flags.yaml content from opinionated config if provided
-        flags = []
-        
-        # heartbeat-max-seconds-between-messages (integer as string)
-        heartbeat_val = self.config["heartbeat-max-seconds-between-messages"]
-        if heartbeat_val is not None:
-            flags.append(f"  - name: heartbeat-max-seconds-between-messages\n    serve: \"{int(heartbeat_val)}\"")
-        
-        # heartbeat.failSync (boolean)
-        heartbeat_fail_sync = self.config["heartbeat-fail-sync"]
-        if heartbeat_fail_sync is not None:
-            flags.append(f"  - name: heartbeat.failSync\n    serve: {str(heartbeat_fail_sync).lower()}")
-        
-        # destination-timeout.seconds (integer as string)
-        dest_timeout = self.config["destination-timeout-max-seconds"]
-        if dest_timeout is not None:
-            # When destination timeout is configured, ensure the feature is enabled
-            flags.append("  - name: destination-timeout-enabled\n    serve: true")
-            flags.append(f"  - name: destination-timeout.seconds\n    serve: \"{int(dest_timeout)}\"")
-        
-        # destination-timeout.failSync (boolean)
-        dest_timeout_fail = self.config["destination-timeout-fail-sync"]
-        if dest_timeout_fail is not None:
-            flags.append("  - name: destination-timeout-enabled\n    serve: true")
-            flags.append(f"  - name: destination-timeout.failSync\n    serve: {str(dest_timeout_fail).lower()}")
-        
-        flags_yaml_content = None
-        if flags:
-            flags_yaml_content = "flags:\n" + "\n".join(flags) + "\n"
+        flags_yaml_content = self._generate_flags_yaml_content()
 
         for container_name in CONTAINER_HEALTH_CHECK_MAP:
             container = self.unit.get_container(container_name)
@@ -351,24 +384,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             env = create_env(self.model.name, self.app.name, container_name, self.config, self._state)
             env = {k: v for k, v in env.items() if v is not None}
 
-            # Push generated flags content to container if we have content
-            if flags_yaml_content:
-                try:
-                    # Airbyte ConfigFileClient reads a file at FEATURE_FLAG_PATH. We set FEATURE_FLAG_PATH=/flags,
-                    # so write the YAML directly to the file path '/flags' (no extension).
-                    container.push("/flags", flags_yaml_content)
-                    logger.info(f"Pushed flags to {container_name} at /flags")
-                except Exception as e:
-                    logger.error(f"Failed to push flags file to {container_name}: {e}")
-                    self.unit.status = BlockedStatus(f"failed to push flags file: {str(e)}")
-                    return
-
-                # Add a hash of flags content to env to force replan+restart when flags change
-                try:
-                    flags_hash = hashlib.sha256(flags_yaml_content.encode("utf-8")).hexdigest()
-                    env.update({"FEATURE_FLAG_HASH": flags_hash})
-                except Exception as e:
-                    logger.warning(f"Failed to compute flags hash for {container_name}: {e}")
+            self._push_flags_to_container(container, container_name, flags_yaml_content, env):
 
             # Read values from k8s secret created by airbyte-bootloader and add
             # them to the pebble plan.
