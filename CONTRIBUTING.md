@@ -23,7 +23,7 @@ pre-configured environments that can be used for linting and formatting code
 when you're preparing contributions to the charm:
 
 ```shell
-tox run -e format        # update your code according to linting rules
+tox run -e fmt        # update your code according to linting rules
 tox run -e lint          # code style
 tox run -e static        # static type checking
 tox run -e unit          # unit tests
@@ -172,7 +172,6 @@ charmcraft pack # the --destructive-mode flag can be used to pack the charm usin
 juju deploy ./airbyte-k8s_ubuntu-22.04-$(dpkg --print-architecture).charm --resource airbyte-image=localhost:32000/airbyte:1.7.0 --constraints='arch=arm64'
 # add the following constraints if your cpu architecture is arm64:  --constraints='arch=arm64'
 
-juju model-config juju-no-proxy="127.0.0.1,localhost,::1,10.0.0.0/8,192.168.0.0/16,10.1.0.0/16"
 ```
 
 #### Relate Charms
@@ -196,9 +195,6 @@ juju relate temporal-k8s:admin temporal-admin-k8s:admin
 # Wait for units to settle and create default namespace
 juju run temporal-admin-k8s/0 tctl args="--ns default namespace register -rd 3"
 
-# Relate to Airbyte ui operator
-juju relate airbyte-k8s airbyte-ui-k8s
-
 # Generate private key
 openssl genrsa -out airbyte.key 2048
 
@@ -209,14 +205,23 @@ openssl req -new -key airbyte.key -out airbyte.csr -subj "/CN=airbyte-k8s"
 openssl x509 -req -days 365 -in airbyte.csr -signkey airbyte.key -out airbyte.crt -extfile <(printf "subjectAltName=DNS:airbyte-k8s")
 
 # Create a k8s secret
-kubectl create secret tls airbyte-tls --cert=airbyte.crt --key=airbyte.key
+kubectl -n airbyte create secret tls airbyte-tls --cert=airbyte.crt --key=airbyte.key
 
 # Deploy ingress controller
 microk8s enable ingress:default-ssl-certificate=airbyte/airbyte-tls
 
 # Deploy nginx operator
 juju deploy nginx-ingress-integrator --channel edge
+juju trust nginx-ingress-integrator --scope=cluster
 juju relate airbyte-ui-k8s nginx-ingress-integrator
+```
+
+#### Refreshing the Charm
+```bash
+# When we change the charm
+charmcraft pack
+juju refresh airbyte-k8s --path ./airbyte-k8s_ubuntu-22.04-$(dpkg --print-architecture).charm --resource airbyte-image=localhost:32000/airbyte:1.7.1
+
 ```
 
 #### Cleanup
@@ -226,7 +231,6 @@ juju relate airbyte-ui-k8s nginx-ingress-integrator
 # Either remove individual applications 
 # (The --force flag can optionally be included if any of the units are in error state)
 juju remove-application airbyte-k8s
-juju remove-application airbyte-ui-k8s
 juju remove-application postgresql-k8s --destroy-storage
 juju remove-application minio
 juju remove-application nginx-ingress-integrator
