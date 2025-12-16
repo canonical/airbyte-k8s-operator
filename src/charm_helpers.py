@@ -57,15 +57,7 @@ def create_env(model_name, app_name, container_name, config, state):
             config["destination-timeout-fail-sync"] is not None,
         ])
         else None,
-        "FEATURE_FLAG_CLIENT": "OPENFEATURE"
-        if any([
-            config["heartbeat-max-seconds-between-messages"] is not None,
-            config["heartbeat-fail-sync"] is not None,
-            config["destination-timeout-max-seconds"] is not None,
-            config["destination-timeout-fail-sync"] is not None,
-        ])
-        else None,
-        "OPENFEATURE_SDK_FILE_PATH": "/etc/airbyte/flags.yaml"
+        "FEATURE_FLAG_CLIENT": "configfile"
         if any([
             config["heartbeat-max-seconds-between-messages"] is not None,
             config["heartbeat-fail-sync"] is not None,

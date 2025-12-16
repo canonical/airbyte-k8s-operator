@@ -3,6 +3,7 @@
 # See LICENSE file for licensing details.
 
 """Charm the application."""
+import hashlib
 
 import base64
 import logging
@@ -359,6 +360,13 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
                     logger.error(f"Failed to push flags.yaml to {container_name}: {e}")
                     self.unit.status = BlockedStatus(f"failed to push flags.yaml: {str(e)}")
                     return
+
+                # Add a hash of flags content to env to force replan+restart when flags change
+                try:
+                    flags_hash = hashlib.sha256(flags_yaml_content.encode("utf-8")).hexdigest()
+                    env.update({"FEATURE_FLAG_HASH": flags_hash})
+                except Exception as e:
+                    logger.warning(f"Failed to compute flags hash for {container_name}: {e}")
 
             # Read values from k8s secret created by airbyte-bootloader and add
             # them to the pebble plan.
