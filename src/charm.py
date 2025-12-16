@@ -3,9 +3,8 @@
 # See LICENSE file for licensing details.
 
 """Charm the application."""
-import hashlib
-
 import base64
+import hashlib
 import logging
 
 import kubernetes.client
@@ -250,29 +249,29 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             str or None: The flags.yaml content as a string, or None if no flags are configured.
         """
         flags = []
-        
+
         # heartbeat-max-seconds-between-messages (integer as string)
         heartbeat_val = self.config["heartbeat-max-seconds-between-messages"]
         if heartbeat_val is not None:
-            flags.append(f"  - name: heartbeat-max-seconds-between-messages\n    serve: \"{int(heartbeat_val)}\"")
-        
+            flags.append(f'  - name: heartbeat-max-seconds-between-messages\n    serve: "{int(heartbeat_val)}"')
+
         # heartbeat.failSync (boolean)
         heartbeat_fail_sync = self.config["heartbeat-fail-sync"]
         if heartbeat_fail_sync is not None:
             flags.append(f"  - name: heartbeat.failSync\n    serve: {str(heartbeat_fail_sync).lower()}")
-        
+
         # destination-timeout.seconds (integer as string)
         dest_timeout = self.config["destination-timeout-max-seconds"]
         if dest_timeout is not None:
             # When destination timeout is configured, ensure the feature is enabled
             flags.append("  - name: destination-timeout-enabled\n    serve: true")
-            flags.append(f"  - name: destination-timeout.seconds\n    serve: \"{int(dest_timeout)}\"")
-        
+            flags.append(f'  - name: destination-timeout.seconds\n    serve: "{int(dest_timeout)}"')
+
         # destination-timeout.failSync (boolean)
         dest_timeout_fail = self.config["destination-timeout-fail-sync"]
         if dest_timeout_fail is not None:
             flags.append(f"  - name: destination-timeout.failSync\n    serve: {str(dest_timeout_fail).lower()}")
-        
+
         if flags:
             return "flags:\n" + "\n".join(flags) + "\n"
         return None
@@ -290,7 +289,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             return
 
         try:
-            # Airbyte ConfigFileClient reads a file at FEATURE_FLAG_PATH. 
+            # Airbyte ConfigFileClient reads a file at FEATURE_FLAG_PATH.
             # We set FEATURE_FLAG_PATH=/flags,
             # so write the YAML directly to the file path '/flags' (no extension).
             container.push("/flags", flags_yaml_content)
@@ -306,7 +305,6 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             env.update({"FEATURE_FLAG_HASH": flags_hash})
         except Exception as e:
             logger.warning(f"Failed to compute flags hash for {container_name}: {e}")
-
 
     def _validate(self):
         """Validate that configuration and relations are valid and ready.

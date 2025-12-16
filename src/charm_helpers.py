@@ -39,12 +39,14 @@ def create_env(model_name, app_name, container_name, config, state):
     if secret_persistence:
         secret_persistence = config["secret-persistence"].value
 
-    use_features_flags = any([
+    use_features_flags = any(
+        [
             config["heartbeat-max-seconds-between-messages"] is not None,
             config["heartbeat-fail-sync"] is not None,
             config["destination-timeout-max-seconds"] is not None,
             config["destination-timeout-fail-sync"] is not None,
-        ])
+        ]
+    )
 
     # Some defaults are extracted from Helm chart:
     # https://github.com/airbytehq/airbyte-platform/tree/v1.5.0/charts/airbyte
