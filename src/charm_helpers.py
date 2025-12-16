@@ -55,7 +55,7 @@ def create_env(model_name, app_name, container_name, config, state):
         "TEMPORAL_HOST": config["temporal-host"],
         "WEBAPP_URL": config["webapp-url"],
         # Flags config - point to the mounted flags.yaml file if any flag is set
-        # Airbyte 1.7 uses OpenFeature by default; ensure both legacy and OpenFeature envs are set
+        # Airbyte 1.7 uses configfile by default
         "FEATURE_FLAG_PATH": "/flags" if use_features_flags else None,
         "FEATURE_FLAG_CLIENT": "configfile" if use_features_flags else None,
         # Secrets config
