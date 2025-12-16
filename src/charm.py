@@ -351,15 +351,16 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             env = create_env(self.model.name, self.app.name, container_name, self.config, self._state)
             env = {k: v for k, v in env.items() if v is not None}
 
-            # Push generated flags.yaml to container if we have content
+            # Push generated flags content to container if we have content
             if flags_yaml_content:
                 try:
-                    # Airbyte ConfigFileClient expects a directory path (e.g., /flags) containing flags.yml
-                    container.push("/flags/flags.yml", flags_yaml_content, make_dirs=True)
-                    logger.info(f"Pushed flags.yml to {container_name} at /flags/flags.yml")
+                    # Airbyte ConfigFileClient reads a file at FEATURE_FLAG_PATH. We set FEATURE_FLAG_PATH=/flags,
+                    # so write the YAML directly to the file path '/flags' (no extension).
+                    container.push("/flags", flags_yaml_content)
+                    logger.info(f"Pushed flags to {container_name} at /flags")
                 except Exception as e:
-                    logger.error(f"Failed to push flags.yaml to {container_name}: {e}")
-                    self.unit.status = BlockedStatus(f"failed to push flags.yaml: {str(e)}")
+                    logger.error(f"Failed to push flags file to {container_name}: {e}")
+                    self.unit.status = BlockedStatus(f"failed to push flags file: {str(e)}")
                     return
 
                 # Add a hash of flags content to env to force replan+restart when flags change
