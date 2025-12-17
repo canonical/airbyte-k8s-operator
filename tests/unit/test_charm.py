@@ -300,7 +300,7 @@ class TestCharm(TestCase):
         # Verify flags file content
         container = harness.model.unit.get_container("airbyte-server")
         flags_content = container.pull("/flags").read()
-        
+
         # Should include auto-enabled destination-timeout-enabled flag
         self.assertIn("destination-timeout-enabled", flags_content)
         self.assertIn("serve: true", flags_content)
@@ -325,7 +325,7 @@ class TestCharm(TestCase):
         # Verify flags file content
         container = harness.model.unit.get_container("airbyte-workers")
         flags_content = container.pull("/flags").read()
-        
+
         self.assertIn("heartbeat-max-seconds-between-messages", flags_content)
         self.assertIn('serve: "1800"', flags_content)
         self.assertIn("heartbeat.failSync", flags_content)

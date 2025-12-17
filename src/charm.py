@@ -39,6 +39,7 @@ from relations.s3 import S3Integrator
 from s3_helpers import S3Client
 from state import State
 from structured_config import CharmConfig, StorageType
+from template_utils import render_template
 
 logger = logging.getLogger(__name__)
 
@@ -243,38 +244,32 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         return missing_params
 
     def _generate_flags_yaml_content(self):
-        """Generate flags.yaml content from opinionated config if provided.
+        """Generate flags.yaml content from opinionated config using Jinja2 template.
 
         Returns:
             str or None: The flags.yaml content as a string, or None if no flags are configured.
         """
-        flags = []
+        # Check if any flags are configured
+        if not any(
+            [
+                self.config["heartbeat-max-seconds-between-messages"] is not None,
+                self.config["heartbeat-fail-sync"] is not None,
+                self.config["destination-timeout-max-seconds"] is not None,
+                self.config["destination-timeout-fail-sync"] is not None,
+            ]
+        ):
+            return None
 
-        # heartbeat-max-seconds-between-messages (integer as string)
-        heartbeat_val = self.config["heartbeat-max-seconds-between-messages"]
-        if heartbeat_val is not None:
-            flags.append(f'  - name: heartbeat-max-seconds-between-messages\n    serve: "{int(heartbeat_val)}"')
+        # Prepare template context
+        context = {
+            "heartbeat_max_seconds_between_messages": self.config["heartbeat-max-seconds-between-messages"],
+            "heartbeat_fail_sync": self.config["heartbeat-fail-sync"],
+            "destination_timeout_max_seconds": self.config["destination-timeout-max-seconds"],
+            "destination_timeout_fail_sync": self.config["destination-timeout-fail-sync"],
+        }
 
-        # heartbeat.failSync (boolean)
-        heartbeat_fail_sync = self.config["heartbeat-fail-sync"]
-        if heartbeat_fail_sync is not None:
-            flags.append(f"  - name: heartbeat.failSync\n    serve: {str(heartbeat_fail_sync).lower()}")
-
-        # destination-timeout.seconds (integer as string)
-        dest_timeout = self.config["destination-timeout-max-seconds"]
-        if dest_timeout is not None:
-            # When destination timeout is configured, ensure the feature is enabled
-            flags.append("  - name: destination-timeout-enabled\n    serve: true")
-            flags.append(f'  - name: destination-timeout.seconds\n    serve: "{int(dest_timeout)}"')
-
-        # destination-timeout.failSync (boolean)
-        dest_timeout_fail = self.config["destination-timeout-fail-sync"]
-        if dest_timeout_fail is not None:
-            flags.append(f"  - name: destination-timeout.failSync\n    serve: {str(dest_timeout_fail).lower()}")
-
-        if flags:
-            return "flags:\n" + "\n".join(flags) + "\n"
-        return None
+        # Render template
+        return render_template("flags.jinja", context)
 
     def _push_flags_to_container(self, container, container_name, flags_yaml_content, env):
         """Push generated flags content to container if available.

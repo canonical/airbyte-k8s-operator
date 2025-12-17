@@ -1,0 +1,21 @@
+flags:
+{% if heartbeat_max_seconds_between_messages is not none %}
+  - name: heartbeat-max-seconds-between-messages
+    serve: "{{ heartbeat_max_seconds_between_messages }}"
+{% endif %}
+{% if heartbeat_fail_sync is not none %}
+  - name: heartbeat.failSync
+    serve: {{ heartbeat_fail_sync | lower }}
+{% endif %}
+{% if destination_timeout_max_seconds is not none or destination_timeout_fail_sync is not none %}
+  - name: destination-timeout-enabled
+    serve: true
+{% endif %}
+{% if destination_timeout_max_seconds is not none %}
+  - name: destination-timeout.seconds
+    serve: "{{ destination_timeout_max_seconds }}"
+{% endif %}
+{% if destination_timeout_fail_sync is not none %}
+  - name: destination-timeout.failSync
+    serve: {{ destination_timeout_fail_sync | lower }}
+{% endif %}
