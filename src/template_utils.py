@@ -5,7 +5,6 @@
 """Template rendering utilities for the Airbyte charm."""
 
 import os
-from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 
@@ -21,9 +20,7 @@ def render_template(template_name: str, context: dict) -> str:
         Rendered template content as a string.
     """
     # Get the absolute path of templates directory
-    charm_dir = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), os.pardir)
-    )
+    charm_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
     templates_path = os.path.join(charm_dir, "templates")
 
     # Create Jinja2 environment and render template

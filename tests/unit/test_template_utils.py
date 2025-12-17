@@ -21,7 +21,7 @@ class TestTemplateUtils(unittest.TestCase):
             "destination_timeout_fail_sync": False,
         }
 
-        output = render_template("flags.yaml.j2", context)
+        output = render_template("flags.jinja", context)
 
         self.assertIn("flags:", output)
         self.assertIn("heartbeat-max-seconds-between-messages", output)
@@ -43,7 +43,7 @@ class TestTemplateUtils(unittest.TestCase):
             "destination_timeout_fail_sync": None,
         }
 
-        output = render_template("flags.yaml.j2", context)
+        output = render_template("flags.jinja", context)
 
         self.assertIn("flags:", output)
         self.assertIn("heartbeat-max-seconds-between-messages", output)
@@ -60,7 +60,7 @@ class TestTemplateUtils(unittest.TestCase):
             "destination_timeout_fail_sync": True,
         }
 
-        output = render_template("flags.yaml.j2", context)
+        output = render_template("flags.jinja", context)
 
         self.assertIn("flags:", output)
         self.assertIn("destination-timeout-enabled", output)
