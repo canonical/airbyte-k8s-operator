@@ -143,6 +143,7 @@ sudo rockcraft pack --destructive-mode --verbose
 **Multipass users (arm64 on Apple Silicon, etc.)**
 
 - Do NOT build from a host-mounted directory inside the VM (e.g., a folder under `/home/ubuntu` that is mounted from the host). umoci will fail with `lchown permission denied` when unpacking the base.
+- Change `rockcraft.yaml` and use `arm64` as platform. Also, set `JAVA_HOME` as `/usr/lib/jvm/java-21-openjdk-arm64`
 - Instead, clone the repository directly inside the VM (or copy it to a native, non-mounted path), and run destructive-mode there. Running under `/root` is the most reliable:
 
 ```bash
