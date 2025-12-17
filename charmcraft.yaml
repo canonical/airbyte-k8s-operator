@@ -426,29 +426,21 @@ config:
     heartbeat-max-seconds-between-messages:
       description: |
         Maximum seconds allowed between heartbeat messages.
-        The charm generates the Airbyte flags.yaml internally using this value.
-        Set a positive integer to enable the flag; unset to use Airbyte defaults.
       type: int
 
     heartbeat-fail-sync:
       description: |
         If set to true, the platform will fail the sync when a heartbeat timeout is detected.
-        Otherwise, it will log a message and the sync will proceed.
-        The charm generates the Airbyte flags.yaml internally using this value.
       type: boolean
 
     destination-timeout-max-seconds:
       description: |
         Maximum seconds the platform waits before deciding that a destination has timed out.
-        The charm generates the Airbyte flags.yaml internally using this value.
-        Set a positive integer to enable destination timeout tracking; unset to use Airbyte defaults.
       type: int
 
     destination-timeout-fail-sync:
       description: |
         If set to true and the platform detects a destination timeout, it will fail the sync.
-        Otherwise, it will log a message and the sync will proceed.
-        The charm generates the Airbyte flags.yaml internally using this value.
       type: boolean
 
 # The containers and resources metadata apply to Kubernetes charms only.

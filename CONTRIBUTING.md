@@ -170,7 +170,7 @@ cd ..
 charmcraft pack # the --destructive-mode flag can be used to pack the charm using the current host.
 
 # Deploy the charm
-juju deploy ./airbyte-k8s_ubuntu-22.04-$(dpkg --print-architecture).charm --resource airbyte-image=localhost:32000/airbyte:1.7.0 --constraints='arch=arm64'
+juju deploy ./airbyte-k8s_ubuntu-22.04-$(dpkg --print-architecture).charm --resource airbyte-image=localhost:32000/airbyte:1.7.0 
 # add the following constraints if your cpu architecture is arm64:  --constraints='arch=arm64'
 
 ```
