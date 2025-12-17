@@ -24,10 +24,10 @@ def render_template(template_name: str, context: dict) -> str:
     charm_dir = os.path.abspath(
         os.path.join(os.path.dirname(__file__), os.pardir)
     )
-    templates_path = charm_dir / "templates"
+    templates_path = os.path.join(charm_dir, "templates")
 
     # Create Jinja2 environment and render template
-    loader = FileSystemLoader(str(templates_path))
+    loader = FileSystemLoader(templates_path)
     env = Environment(loader=loader, autoescape=True)
     template = env.get_template(template_name)
 
