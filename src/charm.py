@@ -294,7 +294,8 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         Args:
             flags_yaml_content: The flags YAML content to hash, or None.
             container_name: Name of the container.
-            env: Environment dictionary to update with flags hash."""
+            env: Environment dictionary to update with flags hash.
+        """
         if not flags_yaml_content:
             return
         
