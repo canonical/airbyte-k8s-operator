@@ -6,7 +6,7 @@
 
 import unittest
 
-from template_utils import render_template
+from utils import render_template
 
 
 class TestTemplateUtils(unittest.TestCase):
