@@ -279,7 +279,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
 
         try:
             # Airbyte ConfigFileClient reads a file at FEATURE_FLAG_PATH.
-            # We set FEATURE_FLAG_PATH=/flags,
+            # We set FEATURE_FLAG_PATH=/flags
             # so write the YAML directly to the file path '/flags' (no extension).
             container.push(FLAGS_FILE_PATH, flags_yaml_content)
             logger.info("Pushed flags to %s at %s", container_name, FLAGS_FILE_PATH)
