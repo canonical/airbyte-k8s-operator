@@ -423,6 +423,26 @@ config:
       default: 1440
       type: int
 
+    heartbeat-max-seconds-between-messages:
+      description: |
+        Maximum seconds allowed between heartbeat messages.
+      type: int
+
+    heartbeat-fail-sync:
+      description: |
+        If set to true, the platform will fail the sync when a heartbeat timeout is detected.
+      type: boolean
+
+    destination-timeout-max-seconds:
+      description: |
+        Maximum seconds the platform waits before deciding that a destination has timed out.
+      type: int
+
+    destination-timeout-fail-sync:
+      description: |
+        If set to true and the platform detects a destination timeout, it will fail the sync.
+      type: boolean
+
 # The containers and resources metadata apply to Kubernetes charms only.
 # See https://juju.is/docs/sdk/metadata-reference for a checklist and guidance.
 

@@ -23,7 +23,7 @@ pre-configured environments that can be used for linting and formatting code
 when you're preparing contributions to the charm:
 
 ```shell
-tox run -e format        # update your code according to linting rules
+tox run -e fmt           # update your code according to linting rules
 tox run -e lint          # code style
 tox run -e static        # static type checking
 tox run -e unit          # unit tests
@@ -57,39 +57,61 @@ PR, please run `tox` to ensure proper formatting and linting is performed.
 This charm is used to deploy Airbyte server in a k8s cluster. For a local
 deployment, follow the following steps:
 
+
+#### Install Rockcraft
+
+```bash
+sudo snap install rockcraft --classic
+sudo snap install lxd --channel 5.21/stable
+lxd init --auto
+
+# Note: Docker must be installed after LXD is initialized due to firewall rules incompatibility.
+sudo snap install docker
+sudo groupadd docker
+sudo usermod -aG docker $USER
+newgrp docker
+
+# Note: disabling and enabling docker snap is required to avoid sudo requirement. 
+# As described in https://github.com/docker-snap/docker-snap.
+sudo snap disable docker
+sudo snap enable docker
+```
+
 #### Install Microk8s
 
 ```bash
-# Install Microk8s from snap
-sudo snap install microk8s --classic --channel=1.25
-
 # Install charmcraft from snap
 sudo snap install charmcraft --classic
 
-# Add the 'ubuntu' user to the Microk8s group
-sudo usermod -a -G microk8s ubuntu
+# Install Microk8s from snap
+sudo snap install microk8s --channel 1.32-strict/stable
 
-# Give the 'ubuntu' user permissions to read the ~/.kube directory
-sudo chown -f -R ubuntu ~/.kube
-
-# Create the 'microk8s' group
-newgrp microk8s
+# Add your user to MicroK8s group and refresh session
+sudo adduser $USER snap_microk8s
+sudo chown -R $USER ~/.kube # -- chown: cannot access '/home/ubuntu/.kube': No such file or directory
+newgrp snap_microk8s
 
 # Enable the necessary Microk8s addons
-microk8s enable hostpath-storage dns
+sudo microk8s enable rbac
+sudo microk8s enable hostpath-storage
+sudo microk8s enable dns
+sudo microk8s enable registry
+sudo microk8s enable ingress
 ```
 
 #### Set up the Juju OLM
 
 ```bash
 # Install the Juju CLI client, juju. Minimum version required is juju>=3.1.
-sudo snap install juju --classic
+sudo snap install juju --channel 3.6/stable
+mkdir -p ~/.local/share
 
 # Install a "juju" controller into your "microk8s" cloud
 juju bootstrap microk8s airbyte-controller
 
 # Create a 'model' on this controller
 juju add-model airbyte
+juju set-model-constraints -m airbyte arch=$(dpkg --print-architecture)
 
 # Enable DEBUG logging
 juju model-config logging-config="<root>=INFO;unit=DEBUG"
@@ -99,17 +121,56 @@ juju status --relations --watch 2s
 juju debug-log
 ```
 
+
+#### Packing the Rock
+
+**Preferred: destructive-mode (no nested containers)**
+
+To reliably build the Airbyte rock, use Rockcraft’s destructive-mode so the build runs on the host instead of inside LXD. This avoids Testcontainers/cgroup issues during Gradle’s jOOQ code generation.
+
+Requirements when using destructive-mode:
+- Host Ubuntu version should match the rock base in `airbyte_rock/rockcraft.yaml` (currently `ubuntu@22.04`). Building on a different series can cause toolchain/package mismatches.
+- Root privileges (sudo) on the build machine.
+- Sufficient resources: at least 4 CPU cores and 16 GB RAM are recommended. Rock builds compile multiple components (server, workers, UI) and run Gradle tasks that are memory/CPU intensive.
+
+Example (native host matching base, e.g., Ubuntu 22.04):
+
+```bash
+cd airbyte_rock
+sudo rockcraft pack --destructive-mode --verbose
+```
+
+**Multipass users (arm64 on Apple Silicon, etc.)**
+
+- Do NOT build from a host-mounted directory inside the VM (e.g., a folder under `/home/ubuntu` that is mounted from the host). umoci will fail with `lchown permission denied` when unpacking the base.
+- Change `rockcraft.yaml` and use `arm64` as platform. Also, set `JAVA_HOME` as `/usr/lib/jvm/java-21-openjdk-arm64`
+- Instead, clone the repository directly inside the VM (or copy it to a native, non-mounted path), and run destructive-mode there. Running under `/root` is the most reliable:
+
+```bash
+# inside the Multipass VM
+git clone https://github.com/canonical/airbyte-k8s-operator.git /root/work/airbyte-k8s-operator
+cd /root/work/airbyte-k8s-operator/airbyte_rock
+sudo rockcraft pack --destructive-mode --verbose
+```
+
+#### Upload Rock to registry
+The rock needs to be copied to the Microk8s registry so that it can be deployed in the Kubernetes cluster:
+
+```bash
+rockcraft.skopeo --insecure-policy copy --dest-tls-verify=false oci-archive:airbyte_1.7.0_$(dpkg --print-architecture).rock docker://localhost:32000/airbyte:1.7.0
+```
+
 #### Deploy Charm
 
 ```bash
+# Go to root directory of the project
+cd ..
+
 # Pack the charm
 charmcraft pack # the --destructive-mode flag can be used to pack the charm using the current host.
 
 # Deploy the charm
-juju deploy ./airbyte-k8s_ubuntu-22.04-amd64.charm --resource airbyte-api-server=airbyte/airbyte-api-server:0.60.0 --resource airbyte-bootloader=airbyte/bootloader:0.60.0 --resource airbyte-connector-builder-server=airbyte/connector-builder-server:0.60.0 --resource airbyte-cron=airbyte/cron:0.60.0 --resource airbyte-pod-sweeper=bitnami/kubectl:1.29.4 --resource airbyte-server=airbyte/server:0.60.0 --resource airbyte-workers=airbyte/worker:0.60.0
-
-# Deploy ui charm (Only if modifying UI charm, otherwise deploy using `juju deploy airbyte-ui-k8s --channel edge`)
-juju deploy ./airbyte-ui-k8s_ubuntu-22.04-amd64.charm --resource airbyte-webapp=airbyte/webapp:0.60.0
+juju deploy ./airbyte-k8s_ubuntu-22.04-$(dpkg --print-architecture).charm --resource airbyte-image=localhost:32000/airbyte:1.7.0 
 ```
 
 #### Relate Charms
@@ -133,9 +194,6 @@ juju relate temporal-k8s:admin temporal-admin-k8s:admin
 # Wait for units to settle and create default namespace
 juju run temporal-admin-k8s/0 tctl args="--ns default namespace register -rd 3"
 
-# Relate to Airbyte ui operator
-juju relate airbyte-k8s airbyte-ui-k8s
-
 # Generate private key
 openssl genrsa -out airbyte.key 2048
 
@@ -146,14 +204,23 @@ openssl req -new -key airbyte.key -out airbyte.csr -subj "/CN=airbyte-k8s"
 openssl x509 -req -days 365 -in airbyte.csr -signkey airbyte.key -out airbyte.crt -extfile <(printf "subjectAltName=DNS:airbyte-k8s")
 
 # Create a k8s secret
-kubectl create secret tls airbyte-tls --cert=airbyte.crt --key=airbyte.key
+kubectl -n airbyte create secret tls airbyte-tls --cert=airbyte.crt --key=airbyte.key
 
 # Deploy ingress controller
 microk8s enable ingress:default-ssl-certificate=airbyte/airbyte-tls
 
 # Deploy nginx operator
 juju deploy nginx-ingress-integrator --channel edge
+juju trust nginx-ingress-integrator --scope=cluster
 juju relate airbyte-ui-k8s nginx-ingress-integrator
+```
+
+#### Refreshing the Charm
+```bash
+# When we change the charm
+charmcraft pack
+juju refresh airbyte-k8s --path ./airbyte-k8s_ubuntu-22.04-$(dpkg --print-architecture).charm --resource airbyte-image=localhost:32000/airbyte:1.7.1
+
 ```
 
 #### Cleanup
@@ -163,7 +230,6 @@ juju relate airbyte-ui-k8s nginx-ingress-integrator
 # Either remove individual applications 
 # (The --force flag can optionally be included if any of the units are in error state)
 juju remove-application airbyte-k8s
-juju remove-application airbyte-ui-k8s
 juju remove-application postgresql-k8s --destroy-storage
 juju remove-application minio
 juju remove-application nginx-ingress-integrator
