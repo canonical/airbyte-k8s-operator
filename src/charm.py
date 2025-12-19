@@ -290,7 +290,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
 
     def _add_flags_hash_to_env(self, flags_yaml_content, container_name, env):
         """Add a hash of flags content to env to force replan+restart when flags change.
-        
+
         Args:
             flags_yaml_content: The flags YAML content to hash, or None.
             container_name: Name of the container.
@@ -298,7 +298,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         """
         if not flags_yaml_content:
             return
-        
+
         try:
             flags_hash = hashlib.sha256(flags_yaml_content.encode("utf-8")).hexdigest()
             env.update({"FEATURE_FLAG_HASH": flags_hash})

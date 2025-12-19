@@ -34,6 +34,9 @@ def render_template(template_name: str, context: dict) -> str:
 def use_feature_flags(config: dict) -> bool:
     """Determine if feature flags should be used based on environment variable.
 
+    Args:
+        config: Configuration dictionary containing feature flag settings.
+
     Returns:
         True if feature flags are enabled, False otherwise.
     """
