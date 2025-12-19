@@ -23,7 +23,7 @@ pre-configured environments that can be used for linting and formatting code
 when you're preparing contributions to the charm:
 
 ```shell
-tox run -e fmt        # update your code according to linting rules
+tox run -e fmt           # update your code according to linting rules
 tox run -e lint          # code style
 tox run -e static        # static type checking
 tox run -e unit          # unit tests
@@ -61,8 +61,8 @@ deployment, follow the following steps:
 #### Install Rockcraft
 
 ```bash
-sudo snap install rockcraft --edge --classic
-sudo snap install lxd
+sudo snap install rockcraft --classic
+sudo snap install lxd --channel 5.21/stable
 lxd init --auto
 
 # Note: Docker must be installed after LXD is initialized due to firewall rules incompatibility.
@@ -81,7 +81,7 @@ sudo snap enable docker
 
 ```bash
 # Install charmcraft from snap
-sudo snap install charmcraft --channel latest/edge --classic
+sudo snap install charmcraft --classic
 
 # Install Microk8s from snap
 sudo snap install microk8s --channel 1.32-strict/stable

@@ -2,7 +2,7 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-"""Template rendering utilities for the Airbyte charm."""
+"""Utilities for the Airbyte charm."""
 
 import os
 
@@ -29,3 +29,19 @@ def render_template(template_name: str, context: dict) -> str:
     template = env.get_template(template_name)
 
     return template.render(**context)
+
+
+def use_feature_flags(config: dict) -> bool:
+    """Determine if feature flags should be used based on environment variable.
+
+    Returns:
+        True if feature flags are enabled, False otherwise.
+    """
+    return not all(
+        [
+            config["heartbeat-max-seconds-between-messages"] is None,
+            config["heartbeat-fail-sync"] is None,
+            config["destination-timeout-max-seconds"] is None,
+            config["destination-timeout-fail-sync"] is None,
+        ]
+    )
