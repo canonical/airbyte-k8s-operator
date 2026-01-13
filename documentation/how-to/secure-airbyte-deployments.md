@@ -82,7 +82,7 @@ Enabling Google OAuth for Charmed Airbyte allows users to authenticate using the
 First, deploy the OAuth2 Proxy charm:
 
 ```bash
-juju deploy oauth2-proxy-k8s --channel stable
+juju deploy oauth2-proxy-k8s --channel 0.1/stable
 ```
 
 ### Obtain OAuth2 credentials
