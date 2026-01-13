@@ -64,7 +64,6 @@ Airbyte depends on two Temporal charms:
 * `temporal-admin-k8s` — provides UI and admin capabilities
 
 Add the relations:
-
 ```bash
 juju relate temporal-k8s:db postgresql-k8s:database
 juju relate temporal-k8s:visibility postgresql-k8s:database

@@ -14,6 +14,7 @@ from literals import (
     WORKLOAD_API_PORT,
 )
 from structured_config import StorageType
+from utils import use_feature_flags
 
 
 def create_env(model_name, app_name, container_name, config, state):
@@ -39,6 +40,8 @@ def create_env(model_name, app_name, container_name, config, state):
     if secret_persistence:
         secret_persistence = config["secret-persistence"].value
 
+    feature_flags_enabled = use_feature_flags(config)
+
     # Some defaults are extracted from Helm chart:
     # https://github.com/airbytehq/airbyte-platform/tree/v1.5.0/charts/airbyte
     env = {
@@ -47,6 +50,10 @@ def create_env(model_name, app_name, container_name, config, state):
         "LOG_LEVEL": config["log-level"].value,
         "TEMPORAL_HOST": config["temporal-host"],
         "WEBAPP_URL": config["webapp-url"],
+        # Flags config - point to the mounted flags.yaml file if any flag is set
+        # Airbyte 1.7 uses configfile by default
+        "FEATURE_FLAG_PATH": "/flags" if feature_flags_enabled else None,
+        "FEATURE_FLAG_CLIENT": "configfile" if feature_flags_enabled else None,
         # Secrets config
         "SECRET_PERSISTENCE": secret_persistence,
         "SECRET_STORE_GCP_PROJECT_ID": config["secret-store-gcp-project-id"],

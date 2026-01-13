@@ -3,8 +3,8 @@
 # See LICENSE file for licensing details.
 
 """Charm the application."""
-
 import base64
+import hashlib
 import logging
 
 import kubernetes.client
@@ -25,6 +25,7 @@ from literals import (
     BUCKET_CONFIGS,
     CONNECTOR_BUILDER_SERVER_API_PORT,
     CONTAINER_HEALTH_CHECK_MAP,
+    FLAGS_FILE_PATH,
     INTERNAL_API_PORT,
     LOGS_BUCKET_CONFIG,
     REQUIRED_S3_PARAMETERS,
@@ -39,6 +40,7 @@ from relations.s3 import S3Integrator
 from s3_helpers import S3Client
 from state import State
 from structured_config import CharmConfig, StorageType
+from utils import render_template, use_feature_flags
 
 logger = logging.getLogger(__name__)
 
@@ -242,6 +244,67 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
                 missing_params.append(key)
         return missing_params
 
+    def _generate_flags_yaml_content(self):
+        """Generate flags.yaml content from opinionated config using Jinja2 template.
+
+        Returns:
+            str or None: The flags.yaml content as a string, or None if no flags are configured.
+        """
+        # Check if any flags are configured
+        if not use_feature_flags(self.config):
+            return None
+
+        # Prepare template context
+        context = {
+            "heartbeat_max_seconds_between_messages": self.config["heartbeat-max-seconds-between-messages"],
+            "heartbeat_fail_sync": self.config["heartbeat-fail-sync"],
+            "destination_timeout_max_seconds": self.config["destination-timeout-max-seconds"],
+            "destination_timeout_fail_sync": self.config["destination-timeout-fail-sync"],
+        }
+
+        # Render template
+        return render_template("flags.jinja", context)
+
+    def _push_flags_to_container(self, container, container_name, flags_yaml_content, env):
+        """Push generated flags content to container if available.
+
+        Args:
+            container: The container to push flags to.
+            container_name: Name of the container.
+            flags_yaml_content: The flags YAML content to push, or None.
+            env: Environment dictionary to update with flags hash.
+        """
+        if not flags_yaml_content:
+            return
+
+        try:
+            # Airbyte ConfigFileClient reads a file at FEATURE_FLAG_PATH.
+            # We set FEATURE_FLAG_PATH=/flags
+            # so write the YAML directly to the file path '/flags' (no extension).
+            container.push(FLAGS_FILE_PATH, flags_yaml_content)
+            logger.info("Pushed flags to %s at %s", container_name, FLAGS_FILE_PATH)
+        except Exception as e:
+            logger.error("Failed to push flags file to %s: %s", container_name, e)
+            self.unit.status = BlockedStatus(f"failed to push flags file: {str(e)}")
+            return
+
+    def _add_flags_hash_to_env(self, flags_yaml_content, container_name, env):
+        """Add a hash of flags content to env to force replan+restart when flags change.
+
+        Args:
+            flags_yaml_content: The flags YAML content to hash, or None.
+            container_name: Name of the container.
+            env: Environment dictionary to update with flags hash.
+        """
+        if not flags_yaml_content:
+            return
+
+        try:
+            flags_hash = hashlib.sha256(flags_yaml_content.encode("utf-8")).hexdigest()
+            env.update({"FEATURE_FLAG_HASH": flags_hash})
+        except Exception as e:
+            logger.warning("Failed to compute flags hash for %s: %s", container_name, e)
+
     def _validate(self):
         """Validate that configuration and relations are valid and ready.
 
@@ -308,6 +371,8 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             WORKLOAD_LAUNCHER_PORT,
         )
 
+        flags_yaml_content = self._generate_flags_yaml_content()
+
         for container_name in CONTAINER_HEALTH_CHECK_MAP:
             container = self.unit.get_container(container_name)
             if not container.can_connect():
@@ -316,6 +381,9 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
 
             env = create_env(self.model.name, self.app.name, container_name, self.config, self._state)
             env = {k: v for k, v in env.items() if v is not None}
+
+            self._push_flags_to_container(container, container_name, flags_yaml_content, env)
+            self._add_flags_hash_to_env(flags_yaml_content, container_name, env)
 
             # Read values from k8s secret created by airbyte-bootloader and add
             # them to the pebble plan.
