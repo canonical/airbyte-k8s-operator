@@ -78,6 +78,37 @@ juju status
 
 All applications (`airbyte-k8s`, `temporal-k8s`, `temporal-admin-k8s`, `postgresql-k8s`, `minio`) should eventually show `active` status. At this point, Airbyte is fully operational.
 
+```bash
+Model                   Controller                         Cloud/Region                 Version  SLA          Timestamp
+prod-data-mesh-airbyte  juju-controller-36-production-ps6  k8s-prod-cs-general/default  3.6.5    unsupported  12:06:57Z
+
+SAAS        Status  Store                              URL
+postgresql  active  juju-controller-36-production-ps6  admin/dbaas-prod-airbyte-db.postgresql
+
+App                                        Version                Status  Scale  Charm                     Channel          Rev  Address        Exposed  Message
+airbyte-k8s                                v1.7.0                 active      1  airbyte-k8s               latest/edge       18  10.x.x.x  no
+airbyte-webhooks-k8s                                              active      1  airbyte-webhooks-charm    latest/edge       12  10.x.x.x  no
+minio                                      res:oci-image@7f2474f  active      1  minio                     ckf-1.10/stable  459  10.x.x.x  no
+temporal-admin-k8s                         1.23.1                 active      1  temporal-admin-k8s        latest/edge       13  10.x.x.x  no
+temporal-k8s                               1.23.1                 active      1  temporal-k8s              latest/edge       45  10.x.x.x  no
+
+Unit                                          Workload  Agent  Address          Ports          Message
+airbyte-k8s/0*                                active    idle   10.x.x.x
+minio/6*                                      active    idle   10.x.x.x       9000-9001/TCP
+temporal-admin-k8s/0*                         active    idle   10.x.x.x
+temporal-k8s/0*                               active    idle   10.x.x.x
+
+Integration provider                                   Requirer                                               Interface          Type     Message
+airbyte-k8s:airbyte-peer                               airbyte-k8s:airbyte-peer                               airbyte            peer
+minio:object-storage                                   airbyte-k8s:object-storage                             object-storage     regular
+postgresql:database                                    airbyte-k8s:db                                         postgresql_client  regular
+postgresql:database                                    temporal-k8s:db                                        postgresql_client  regular
+postgresql:database                                    temporal-k8s:visibility                                postgresql_client  regular
+temporal-admin-k8s:admin                               temporal-k8s:admin                                     temporal           regular
+temporal-admin-k8s:peer                                temporal-admin-k8s:peer                                temporal-admin     peer
+temporal-k8s:peer                                      temporal-k8s:peer                                      temporal           peer
+```
+
 ## Next steps
 
 See [Secure Airbyte deployments](../how-to/secure-airbyte-deployments.md) for information on securing your deployment.
