@@ -21,8 +21,8 @@ jobs:
       with:
         fetch-depth: 0
     - name: Create venv
-      working-directory: "docs"
+      working-directory: "documentation"
       run: make install
     - name: Lint markdown
-      working-directory: "docs"
+      working-directory: "documentation"
       run: make lint-md
