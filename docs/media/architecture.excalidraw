@@ -67,8 +67,8 @@
         "type": 3
       },
       "seed": 846675318,
-      "version": 629,
-      "versionNonce": 1901371981,
+      "version": 630,
+      "versionNonce": 2120707501,
       "isDeleted": false,
       "boundElements": [
         {
@@ -78,13 +78,9 @@
         {
           "id": "oGNp5jWb4lnXwG9jTDBug",
           "type": "arrow"
-        },
-        {
-          "id": "f0YN-0iNDnZk1KaenwSgf",
-          "type": "arrow"
         }
       ],
-      "updated": 1768292156352,
+      "updated": 1768303850442,
       "link": null,
       "locked": false
     },
@@ -534,20 +530,16 @@
         "type": 3
       },
       "seed": 560018230,
-      "version": 976,
-      "versionNonce": 1970746627,
+      "version": 977,
+      "versionNonce": 273764259,
       "isDeleted": false,
       "boundElements": [
         {
           "id": "oGNp5jWb4lnXwG9jTDBug",
           "type": "arrow"
-        },
-        {
-          "id": "f0YN-0iNDnZk1KaenwSgf",
-          "type": "arrow"
         }
       ],
-      "updated": 1768292156352,
+      "updated": 1768303850442,
       "link": null,
       "locked": false
     },
@@ -610,16 +602,16 @@
         "type": 2
       },
       "seed": 1166627370,
-      "version": 454,
-      "versionNonce": 1546274445,
-      "isDeleted": false,
+      "version": 455,
+      "versionNonce": 1317461837,
+      "isDeleted": true,
       "boundElements": [
         {
           "type": "text",
           "id": "qPJII_ZlwY-xj-1Fp42Sf"
         }
       ],
-      "updated": 1768292516906,
+      "updated": 1768303850442,
       "link": null,
       "locked": false,
       "points": [
@@ -677,11 +669,11 @@
       "index": "ap",
       "roundness": null,
       "seed": 1864047286,
-      "version": 70,
-      "versionNonce": 728734883,
-      "isDeleted": false,
+      "version": 71,
+      "versionNonce": 1767065603,
+      "isDeleted": true,
       "boundElements": null,
-      "updated": 1768292156354,
+      "updated": 1768303850442,
       "link": null,
       "locked": false,
       "text": "Auth Check",
@@ -1681,8 +1673,8 @@
       "type": "arrow",
       "x": 1789.8975388663155,
       "y": 476.55240140642445,
-      "width": 258.96139689854203,
-      "height": 45.10936737060547,
+      "width": 258.96139689854226,
+      "height": 8.978822100794275,
       "angle": 0,
       "strokeColor": "#1e1e1e",
       "backgroundColor": "#ffffff",
@@ -1698,8 +1690,8 @@
         "type": 2
       },
       "seed": 346717270,
-      "version": 109,
-      "versionNonce": 1743153645,
+      "version": 134,
+      "versionNonce": 1037555075,
       "isDeleted": false,
       "boundElements": [
         {
@@ -1707,7 +1699,7 @@
           "id": "DMMa5BKeNjz6tC03EfW6E"
         }
       ],
-      "updated": 1768292226997,
+      "updated": 1768303856999,
       "link": null,
       "locked": false,
       "points": [
@@ -1716,12 +1708,12 @@
           0
         ],
         [
-          -113.11721801757812,
-          45.10936737060547
+          -114.15289742606024,
+          1.7165102277483584
         ],
         [
-          -258.96139689854203,
-          20.50752823481656
+          -258.96139689854226,
+          -7.262311873045917
         ]
       ],
       "startBinding": null,
@@ -1729,8 +1721,8 @@
         "elementId": "PbQ_Oq_lSa8nrQFP6WeSk",
         "mode": "orbit",
         "fixedPoint": [
-          0.55125223678741,
-          0.5512522367874104
+          0.729576839460982,
+          0.2704231605390158
         ]
       },
       "startArrowhead": null,
