@@ -1,36 +1,28 @@
-Charmed Airbyte Architecture
-=============================
+# Charmed Airbyte Architecture
 
 The Charmed Airbyte ecosystem consists of a number of different charmed operators related together. The diagram below shows a high-level illustration of the different charms and their communication.
 
-.. image:: ../media/architecture.png
-   :alt: Architecture diagram
-   :align: center
+![Architecture diagram](../media/architecture.png)
 
-Component Descriptions
-----------------------
+## Component Descriptions
 
-Airbyte-k8s
-~~~~~~~~~~~
+### Airbyte-k8s
 
 * Runs the server, scheduler and API.
 * Uses MinIO as object storage.
 * Uses a PostgreSQL database (DBaaS).
 * Integrates with:
-
   * OAuth2 Proxy for authentication
   * MinIO for blobs, logs, state
   * Ingress via the first nginx ingress integrator
 
-OAuth2 Proxy
-~~~~~~~~~~~~
+### OAuth2 Proxy
 
 * Protects the Airbyte behind Google OAuth / GitHub OAuth / SSO.
 * Acts as a reverse proxy for the Airbyte.
 * Exposed through the same nginx ingress integrator as Airbyte.
 
-Nginx Ingress Integrator
-~~~~~~~~~~~~~~~~~~~~~~~~~
+### Nginx Ingress Integrator
 
 One instance for:
 
@@ -44,13 +36,11 @@ This ingress handles:
 * Source-range allowlist
 * Timeout configuration
 
-MinIO
-~~~~~
+### MinIO
 
 Its purpose is to store state, large logs (objects) and job artifacts.
 
-Temporal-k8s
-~~~~~~~~~~~~
+### Temporal-k8s
 
 Orchestration engine powering:
 
@@ -59,8 +49,7 @@ Orchestration engine powering:
 * Scheduling
 * Long-running sync pipelines
 
-Temporal Admin
-~~~~~~~~~~~~~~
+### Temporal Admin
 
 Provides:
 
