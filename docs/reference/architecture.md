@@ -8,50 +8,24 @@ The Charmed Airbyte ecosystem consists of a number of different charmed operator
 
 ### Airbyte-k8s
 
-* Runs the server, scheduler and API.
-* Uses MinIO as object storage.
-* Uses a PostgreSQL database (DBaaS).
-* Integrates with:
-  * OAuth2 Proxy for authentication
-  * MinIO for blobs, logs, state
-  * Ingress via the first nginx ingress integrator
+The Airbyte-k8s charm is the core component that runs the server, scheduler, and API. It uses MinIO as its object storage backend and relies on a PostgreSQL database for persistent data. The charm integrates with OAuth2 Proxy to provide authentication capabilities, stores blobs, logs, and state in MinIO, and exposes its services through a nginx ingress integrator.
 
 ### OAuth2 Proxy
 
-* Protects the Airbyte behind Google OAuth / GitHub OAuth / SSO.
-* Acts as a reverse proxy for the Airbyte.
-* Exposed through the same nginx ingress integrator as Airbyte.
+The OAuth2 Proxy charm protects Airbyte by providing authentication through various OAuth providers such as Google OAuth, GitHub OAuth, or other SSO solutions. It acts as a reverse proxy sitting in front of Airbyte and is exposed through the same nginx ingress integrator that serves Airbyte itself.
 
 ### Nginx Ingress Integrator
 
-One instance for:
-
-* Airbyte
-* OAuth2 Proxy
-
-This ingress handles:
-
-* HTTP routing
-* TLS termination (if TLS secret is configured)
-* Source-range allowlist
-* Timeout configuration
+A single instance of the Nginx Ingress Integrator handles traffic for both Airbyte and OAuth2 Proxy. This ingress controller manages HTTP routing, performs TLS termination when a TLS secret is configured, enforces source-range allowlists for security, and handles timeout configuration for long-running requests.
 
 ### MinIO
 
-Its purpose is to store state, large logs (objects) and job artifacts.
+MinIO serves as the object storage backend for Airbyte, providing a scalable solution for storing state information, large log files, and job artifacts generated during data synchronization operations.
 
 ### Temporal-k8s
 
-Orchestration engine powering:
-
-* Job execution
-* Retries
-* Scheduling
-* Long-running sync pipelines
+Temporal-k8s is the orchestration engine that powers Airbyte's workflow execution. It handles job execution, manages retries for failed operations, coordinates scheduling of synchronization tasks, and orchestrates long-running sync pipelines to ensure reliable data movement.
 
 ### Temporal Admin
 
-Provides:
-
-* Namespace administration
-* Workflow debugging tools
+The Temporal Admin charm provides administrative capabilities for the Temporal workflow engine, including namespace administration and workflow debugging tools to help monitor and troubleshoot synchronization operations.
