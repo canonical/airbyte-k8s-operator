@@ -35,4 +35,5 @@ header:
     - 'trivy.yaml'
     - 'lib/**'
     - '**/*.patch'
+    - 'documentation/**'
   comment: on-failure
