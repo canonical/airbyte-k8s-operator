@@ -79,11 +79,8 @@ juju status
 All applications (`airbyte-k8s`, `temporal-k8s`, `temporal-admin-k8s`, `postgresql-k8s`, `minio`) should eventually show `active` status. At this point, Airbyte is fully operational.
 
 ```bash
-Model                   Controller                         Cloud/Region                 Version  SLA          Timestamp
-prod-data-mesh-airbyte  juju-controller-36-production-ps6  k8s-prod-cs-general/default  3.6.5    unsupported  12:06:57Z
-
-SAAS        Status  Store                              URL
-postgresql  active  juju-controller-36-production-ps6  admin/dbaas-prod-airbyte-db.postgresql
+Model          Controller          Cloud/Region        Version  SLA          Timestamp
+airbyte-model  airbyte-controller  microk8s/localhost  3.6.11   unsupported  14:00:29+03:00
 
 App                                        Version                Status  Scale  Charm                     Channel          Rev  Address        Exposed  Message
 airbyte-k8s                                v1.7.0                 active      1  airbyte-k8s               latest/edge       18  10.x.x.x  no

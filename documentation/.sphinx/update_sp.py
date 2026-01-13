@@ -24,7 +24,7 @@ REQUIREMENTS = os.path.join(DOCS_DIR, "requirements.txt")
 SPHINX_UPDATE_DIR = os.path.join(SPHINX_DIR, "update")
 GITHUB_REPO = "canonical/sphinx-docs-starter-pack"
 GITHUB_API_BASE = f"https://api.github.com/repos/{GITHUB_REPO}"
-GITHUB_API_SPHINX_DIR = f"{GITHUB_API_BASE}/contents/docs/.sphinx"
+GITHUB_API_SPHINX_DIR = f"{GITHUB_API_BASE}/contents/documentation/.sphinx"
 GITHUB_RAW_BASE = f"https://raw.githubusercontent.com/{GITHUB_REPO}/main"
 
 TIMEOUT = 10  # seconds
@@ -69,7 +69,7 @@ def main():
         # Write new version to file to '.sphinx/update'
 
         download_file(
-            GITHUB_RAW_BASE + "/docs/.sphinx/version",
+            GITHUB_RAW_BASE + "/documentation/.sphinx/version",
             os.path.join(SPHINX_UPDATE_DIR, "version"),
         )
 
@@ -110,7 +110,7 @@ def main():
 
             local_reqs = set(file.read().splitlines()) - {""}
             requirements = set(
-                query_api(GITHUB_RAW_BASE + "/docs/requirements.txt").text.splitlines()
+                query_api(GITHUB_RAW_BASE + "/documentation/requirements.txt").text.splitlines()
             )
 
             new_requirements = requirements - local_reqs
