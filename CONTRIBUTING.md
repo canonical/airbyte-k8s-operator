@@ -31,6 +31,17 @@ tox run -e integration   # integration tests
 tox                      # runs 'format', 'lint', 'static', and 'unit' environments
 ```
 
+To preview your documentation changes locally, navigate to the `documentation/` directory and run:
+```bash
+make install
+make run
+```
+This installs the required documentation dependencies, builds the documentation and renders it in your browser.
+
+Before committing your changes, ensure all required checks pass by running the relevant validation targets
+e.g., `make spellcheck`, `make lint-md`.
+
+
 ### Committing
 
 This repo uses CI/CD workflows as outlined by
