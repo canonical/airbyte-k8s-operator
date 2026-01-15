@@ -1,4 +1,4 @@
-# 01 - Get Started
+# Tutorials
 
 This guide describes how to get started with Charmed Airbyte K8s Operator. From setting up MicroK8s in your environment, to deploying Airbyte and creating your first connection.
 
@@ -14,8 +14,13 @@ Before you begin, make sure you have:
 - 2 CPU cores
 - At least 20 GB of available disk space
 
-## Tutorial Steps
+## Get Started
 
-1. [Set up your environment](02-environment-setup.md)
-2. [Deploy supporting charms](03-deploy-supporting-charms.md)
-3. [Deploy Charmed Airbyte](04-deploy-airbyte.md)
+```{toctree}
+:maxdepth: 1
+
+01-get-started
+02-environment-setup
+03-deploy-supporting-charms
+04-deploy-airbyte
+```

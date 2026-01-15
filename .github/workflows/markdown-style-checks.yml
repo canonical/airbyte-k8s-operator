@@ -1,0 +1,28 @@
+name: Markdown style checks
+
+on:
+  workflow_call:
+  push:
+    branches:
+    - main
+    paths:
+    - 'documentation/**'   # Only run on changes to the documentation directory
+  pull_request:
+    branches:
+    - '*'
+    paths:
+    - 'documentation/**'   # Only run on changes to the documentation directory
+
+jobs:
+  markdown-lint:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+    - name: Create venv
+      working-directory: "documentation"
+      run: make install
+    - name: Lint markdown
+      working-directory: "documentation"
+      run: make lint-md
