@@ -56,7 +56,7 @@ async def deploy(ops_test: OpsTest, charm: str, charm_image: str):
         config={"num-history-shards": 4},
     )
     await ops_test.model.deploy(APP_NAME_TEMPORAL_ADMIN, channel="edge")
-    await ops_test.model.deploy("postgresql-k8s", channel="14/stable", trust=True, revision=381)
+    await ops_test.model.deploy("postgresql-k8s", channel="14/candidate", trust=True, revision=717)
     await ops_test.model.deploy("minio", channel="edge")
 
     async with ops_test.fast_forward():

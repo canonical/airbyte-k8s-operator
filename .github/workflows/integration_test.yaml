@@ -21,4 +21,3 @@ jobs:
       microk8s-addons: "dns ingress rbac storage metallb:10.15.119.2-10.15.119.4 registry"
       trivy-severity-config: CRITICAL
       rockcraft-enable-security-nesting: true
-      tmate-debug: true
