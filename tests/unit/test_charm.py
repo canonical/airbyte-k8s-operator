@@ -427,7 +427,7 @@ def make_database_changed_event(rel_name):
         {
             "endpoints": "myhost:5432,anotherhost:2345",
             "username": f"jean-luc@{rel_name}",
-            "password": "inner-light",
+            "password": "inner-light",  # nosec
             "relation": type("Relation", (), {"name": rel_name}),
         },
     )
@@ -471,17 +471,16 @@ def create_plan(container_name, storage_type):
                     **BASE_ENV,
                     "AIRBYTE_API_HOST": "airbyte-k8s:8006/api/public",
                     "AIRBYTE_SERVER_HOST": "airbyte-k8s:8001",
-                    "AWS_ACCESS_KEY_ID": "access",
-                    "AWS_SECRET_ACCESS_KEY": "secret",
+                    "AWS_ACCESS_KEY_ID": "access",  # nosec
+                    "AWS_SECRET_ACCESS_KEY": "secret",  # nosec
                     "CONFIG_API_HOST": "airbyte-k8s:8001",
-                    # "DATAPLANE_CLIENT_ID": "airbyte-k8s",
                     "CONTROL_PLANE_TOKEN_ENDPOINT": "http://airbyte-k8s:8001/api/v1/dataplanes/token",
                     "CONNECTOR_BUILDER_API_HOST": "airbyte-k8s:80",
                     "CONNECTOR_BUILDER_API_URL": "/connector-builder-api",
                     "CONNECTOR_BUILDER_SERVER_API_HOST": "airbyte-k8s:80",
                     "DATABASE_DB": "airbyte-k8s_db",
                     "DATABASE_HOST": "myhost",
-                    "DATABASE_PASSWORD": "inner-light",
+                    "DATABASE_PASSWORD": "inner-light",  # nosec
                     "DATABASE_PORT": "5432",
                     "DATABASE_URL": "jdbc:postgresql://myhost:5432/airbyte-k8s_db",
                     "DATABASE_USER": "jean-luc@db",
@@ -530,7 +529,7 @@ def create_plan(container_name, storage_type):
                     "WORKER_STATE_STORAGE_TYPE": storage_type,
                     "WORKLOAD_API_HOST": "airbyte-k8s:8007",
                     "WORKLOAD_INIT_IMAGE": "airbyte/workload-init-container:1.7.0",
-                    "WORKLOAD_API_BEARER_TOKEN": ".Values.workload-api.bearerToken",
+                    "WORKLOAD_API_BEARER_TOKEN": ".Values.workload-api.bearerToken",  # nosec
                 },
             },
         },
@@ -548,8 +547,8 @@ def create_plan(container_name, storage_type):
         want_plan["services"][container_name]["environment"].update(
             {
                 "MINIO_ENDPOINT": "http://service.namespace.svc.cluster.local:9000",
-                "AWS_ACCESS_KEY_ID": "access",
-                "AWS_SECRET_ACCESS_KEY": "secret",
+                "AWS_ACCESS_KEY_ID": "access",  # nosec
+                "AWS_SECRET_ACCESS_KEY": "secret",  # nosec
                 "STATE_STORAGE_MINIO_ENDPOINT": "http://service.namespace.svc.cluster.local:9000",
                 "STATE_STORAGE_MINIO_ACCESS_KEY": "access",
                 "STATE_STORAGE_MINIO_SECRET_ACCESS_KEY": "secret",
@@ -561,8 +560,8 @@ def create_plan(container_name, storage_type):
     if storage_type == StorageType.s3:
         want_plan["services"][container_name]["environment"].update(
             {
-                "AWS_ACCESS_KEY_ID": "access",
-                "AWS_SECRET_ACCESS_KEY": "secret",
+                "AWS_ACCESS_KEY_ID": "access",  # nosec
+                "AWS_SECRET_ACCESS_KEY": "secret",  # nosec
                 "S3_LOG_BUCKET_REGION": "region",
                 "AWS_DEFAULT_REGION": "region",
             }
