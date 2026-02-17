@@ -22,6 +22,8 @@ links:
 
 parts:
   charm:
+    charm-binary-python-packages:
+      - pydantic-core
     build-packages:
       - pkg-config
       # Pin to prevent pulling incompatible `maturin` version
