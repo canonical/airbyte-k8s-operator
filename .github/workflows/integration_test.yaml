@@ -16,8 +16,8 @@ jobs:
       modules: '["test_charm.py"]'
       juju-channel: 3.6/stable
       self-hosted-runner: true
-      self-hosted-runner-label: "xlarge"
-      builder-runner-label: "xlarge"
+      self-hosted-runner-label: "self-hosted-linux-amd64-noble-xlarge"
+      builder-runner-label: "self-hosted-linux-amd64-noble-xlarge"
       microk8s-addons: "dns ingress rbac storage metallb:10.15.119.2-10.15.119.4 registry"
       trivy-severity-config: CRITICAL
       rockcraft-enable-security-nesting: true

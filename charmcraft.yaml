@@ -20,6 +20,18 @@ links:
   issues: 
     - https://github.com/canonical/airbyte-k8s-operator/issues
 
+parts:
+  charm:
+    charm-binary-python-packages:
+      - pydantic-core
+    build-packages:
+      - pkg-config
+      - libffi-dev
+      - libssl-dev
+      # Pin to prevent pulling incompatible `maturin` version
+      - "rustc-1.85"
+      - "cargo-1.85"
+
 # (Required for 'charm' type)
 bases:
   - build-on:
