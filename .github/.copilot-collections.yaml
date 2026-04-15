@@ -1,0 +1,9 @@
+copilot:
+  # The version of the toolkit to use
+  # (matches a Release Tag in the https://github.com/canonical/copilot-collections repo)
+  version: "v0.8.0"
+
+  # The collections you want to install
+  collections:
+    - charm-python
+    - common-documentation
