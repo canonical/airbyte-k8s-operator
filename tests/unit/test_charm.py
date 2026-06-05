@@ -9,13 +9,15 @@
 # pylint:disable=protected-access,too-many-public-methods
 
 import base64
+import dataclasses
+import json
 import logging
-from unittest import TestCase, mock
+from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
+from ops import testing
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus
-from ops.pebble import CheckStatus
-from ops.testing import Harness
+from ops.pebble import CheckLevel, CheckStartup, CheckStatus, Layer
 
 from charm import AirbyteK8SOperatorCharm
 from src.literals import BASE_ENV, CONTAINER_HEALTH_CHECK_MAP
@@ -28,14 +30,43 @@ mock_incomplete_pebble_plan = {"services": {"airbyte": {"override": "replace"}}}
 MODEL_NAME = "airbyte-model"
 APP_NAME = "airbyte-k8s"
 
-minio_object_storage_data = {
+# The charm persists relation data in the `airbyte-peer` databag via the `State`
+# class, so a "ready" charm is reproduced by pre-populating that databag rather
+# than by replaying the db/minio/s3 relation events.
+DB_CONNECTION = {
+    "dbname": "airbyte-k8s_db",
+    "host": "myhost",
+    "port": "5432",
+    "password": "inner-light",  # nosec
+    "user": "jean-luc@db",
+}
+MINIO_STATE = {
     "access-key": "access",
     "secret-key": "secret",
     "service": "service",
     "port": "9000",
     "namespace": "namespace",
     "secure": False,
-    "endpoint": "endpoint",
+    "endpoint": "http://service.namespace.svc.cluster.local:9000",
+}
+S3_STATE = {
+    "bucket": "bucket_name",
+    "endpoint": "http://endpoint",
+    "region": "region",
+    "access-key": "access",
+    "secret-key": "secret",
+    "uri_style": "path",
+}
+
+# Raw object-storage data as returned by the minio interface, before the charm
+# derives the service endpoint from it.
+MINIO_RAW = {
+    "access-key": "access",
+    "secret-key": "secret",
+    "service": "service",
+    "port": "9000",
+    "namespace": "namespace",
+    "secure": False,
 }
 
 
@@ -64,244 +95,146 @@ class TestCharm(TestCase):
             "dataplane-client-id": base64.b64encode(b"sample-client-id"),
             "dataplane-client-secret": base64.b64encode(b"sample-client-secret"),
         }
-
         self.mock_core_v1_instance.read_namespaced_secret.return_value = fake_secret
 
-        self.harness = Harness(AirbyteK8SOperatorCharm)
-        self.addCleanup(self.harness.cleanup)
-        for container_name in CONTAINER_HEALTH_CHECK_MAP:
-            self.harness.set_can_connect(container_name, True)
-        self.harness.set_leader(True)
-        self.harness.set_model_name("airbyte-model")
-        self.harness.add_network("10.0.0.10", endpoint="airbyte-peer")
-        self.harness.begin()
+        # The S3/MinIO client only performs bucket operations during `_update`;
+        # stubbed out so no object storage is contacted.
+        for target in (
+            "s3_helpers.S3Client.create_bucket_if_not_exists",
+            "s3_helpers.S3Client.set_bucket_lifecycle_policy",
+        ):
+            stub = patch(target, return_value=None)
+            stub.start()
+            self.addCleanup(stub.stop)
+
+        self.ctx = testing.Context(AirbyteK8SOperatorCharm)
 
     def test_initial_plan(self):
-        """The initial pebble plan is empty."""
-        harness = self.harness
+        """The pebble plan is empty before the charm is ready."""
+        state = make_state(peer=False)
+        out = self.ctx.run(self.ctx.on.update_status(), state)
         for container_name in CONTAINER_HEALTH_CHECK_MAP:
-            initial_plan = harness.get_container_pebble_plan(container_name).to_dict()
-            self.assertEqual(initial_plan, {})
+            self.assertEqual(out.get_container(container_name).plan.to_dict(), {})
 
     def test_blocked_by_peer_relation_not_ready(self):
         """The charm is blocked without a peer relation."""
-        harness = self.harness
-
-        simulate_pebble_readiness(harness)
-
-        # The BlockStatus is set with a message.
-        self.assertEqual(harness.model.unit.status, BlockedStatus("peer relation not ready"))
+        state = make_state(peer=False)
+        out = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
+        self.assertEqual(out.unit_status, BlockedStatus("peer relation not ready"))
 
     def test_blocked_by_db(self):
         """The charm is blocked without a db:pgsql relation with a ready master."""
-        harness = self.harness
-
-        # Simulate peer relation readiness.
-        harness.add_relation("airbyte-peer", "airbyte")
-
-        simulate_pebble_readiness(harness)
-
-        # The BlockStatus is set with a message.
-        self.assertEqual(
-            harness.model.unit.status,
-            BlockedStatus("database relation not ready"),
-        )
+        state = make_state()
+        out = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
+        self.assertEqual(out.unit_status, BlockedStatus("database relation not ready"))
 
     def test_blocked_by_minio(self):
         """The charm is blocked without a minio relation."""
-        harness = self.harness
-
-        # Simulate peer relation readiness.
-        harness.add_relation("airbyte-peer", "airbyte")
-
-        simulate_pebble_readiness(harness)
-
-        # Simulate db readiness.
-        event = make_database_changed_event("db")
-        harness.charm.postgresql._on_database_changed(event)
-
-        # The BlockStatus is set with a message.
-        self.assertEqual(
-            harness.model.unit.status,
-            BlockedStatus("minio relation not ready"),
-        )
+        state = make_state(db=True)
+        out = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
+        self.assertEqual(out.unit_status, BlockedStatus("minio relation not ready"))
 
     def test_blocked_by_s3(self):
-        """The charm is blocked without a minio relation."""
-        harness = self.harness
-
-        harness.update_config({"storage-type": "S3"})
-
-        # Simulate peer relation readiness.
-        harness.add_relation("airbyte-peer", "airbyte")
-
-        simulate_pebble_readiness(harness)
-
-        # Simulate db readiness.
-        event = make_database_changed_event("db")
-        harness.charm.postgresql._on_database_changed(event)
-
-        # The BlockStatus is set with a message.
-        self.assertEqual(
-            harness.model.unit.status,
-            BlockedStatus("s3 relation not ready"),
-        )
+        """The charm is blocked without an s3 relation."""
+        state = make_state(config={"storage-type": "S3"}, db=True)
+        out = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
+        self.assertEqual(out.unit_status, BlockedStatus("s3 relation not ready"))
 
     def test_ready_with_minio(self):
         """The pebble plan is correctly generated when the charm is ready."""
-        harness = self.harness
-        harness.update_config({"storage-type": "MINIO"})
+        state = make_state(config={"storage-type": "MINIO"}, db=True, minio=True)
+        out = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
 
-        simulate_lifecycle(harness)
-
-        # The plan is generated after pebble is ready.
         for container_name in CONTAINER_HEALTH_CHECK_MAP:
-            want_plan = create_plan(container_name, "MINIO")
+            got_plan = out.get_container(container_name).plan.to_dict()
+            self.assertEqual(got_plan, create_plan(container_name, "MINIO"))
 
-            got_plan = harness.get_container_pebble_plan(container_name).to_dict()
-            self.assertEqual(got_plan, want_plan)
-
-            # The service was started.
-            service = harness.model.unit.get_container(container_name).get_service(container_name)
-            self.assertTrue(service.is_running())
-
-        self.assertEqual(harness.model.unit.status, MaintenanceStatus("replanning application"))
+        self.assertEqual(out.unit_status, MaintenanceStatus("replanning application"))
 
     def test_ready_with_s3(self):
         """The pebble plan is correctly generated when the charm is ready."""
-        harness = self.harness
-        harness.update_config({"storage-type": "S3"})
+        state = make_state(config={"storage-type": "S3"}, db=True, s3=True)
+        out = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
 
-        simulate_lifecycle(harness)
-
-        # The plan is generated after pebble is ready.
         for container_name in CONTAINER_HEALTH_CHECK_MAP:
-            want_plan = create_plan(container_name, "S3")
+            got_plan = out.get_container(container_name).plan.to_dict()
+            self.assertEqual(got_plan, create_plan(container_name, "S3"))
 
-            got_plan = harness.get_container_pebble_plan(container_name).to_dict()
-            self.assertEqual(got_plan, want_plan)
-
-            # The service was started.
-            service = harness.model.unit.get_container(container_name).get_service(container_name)
-            self.assertTrue(service.is_running())
-
-        self.assertEqual(harness.model.unit.status, MaintenanceStatus("replanning application"))
+        self.assertEqual(out.unit_status, MaintenanceStatus("replanning application"))
 
     def test_update_status_up(self):
         """The charm updates the unit status to active based on UP status."""
-        harness = self.harness
+        state = make_state(db=True, minio=True)
+        mid = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
 
-        simulate_lifecycle(harness)
-        for container_name, settings in CONTAINER_HEALTH_CHECK_MAP.items():
-            container = harness.model.unit.get_container(container_name)
-            if settings:
-                container.get_check = mock.Mock(status="up")
-                container.get_check.return_value.status = CheckStatus.UP
-
-        harness.charm.on.update_status.emit()
-        self.assertEqual(harness.model.unit.status, ActiveStatus())
+        mid = with_checks(mid, CheckStatus.UP)
+        out = self.ctx.run(self.ctx.on.update_status(), mid)
+        self.assertEqual(out.unit_status, ActiveStatus())
 
     def test_update_status_down(self):
         """The charm updates the unit status to maintenance based on DOWN status."""
-        harness = self.harness
+        state = make_state(db=True, minio=True)
+        mid = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
 
-        simulate_lifecycle(harness)
-
-        for container_name, settings in CONTAINER_HEALTH_CHECK_MAP.items():
-            container = harness.model.unit.get_container(container_name)
-            if settings:
-                container.get_check = mock.Mock(status="up")
-                container.get_check.return_value.status = CheckStatus.DOWN
-
-        harness.charm.on.update_status.emit()
-        self.assertEqual(
-            harness.model.unit.status, MaintenanceStatus("Status check: 'airbyte-workload-api-server' DOWN")
-        )
+        mid = with_checks(mid, CheckStatus.DOWN)
+        out = self.ctx.run(self.ctx.on.update_status(), mid)
+        self.assertEqual(out.unit_status, MaintenanceStatus("Status check: 'airbyte-workload-api-server' DOWN"))
 
     def test_incomplete_pebble_plan(self):
         """The charm re-applies the pebble plan if incomplete."""
-        harness = self.harness
-        simulate_lifecycle(harness)
+        state = make_state(db=True, minio=True)
+        mid = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
 
-        for container_name, settings in CONTAINER_HEALTH_CHECK_MAP.items():
-            container = harness.model.unit.get_container(container_name)
-            container.add_layer(container_name, mock_incomplete_pebble_plan, combine=True)
-            if settings:
-                container.get_check = mock.Mock(status="up")
-                container.get_check.return_value.status = CheckStatus.UP
+        containers = set()
+        for container in mid.containers:
+            layers = {**container.layers, "incomplete": Layer(mock_incomplete_pebble_plan)}
+            containers.add(dataclasses.replace(container, layers=layers))
+        mid = with_checks(dataclasses.replace(mid, containers=containers), CheckStatus.UP)
 
-        harness.charm.on.update_status.emit()
+        out = self.ctx.run(self.ctx.on.update_status(), mid)
+        self.assertEqual(out.unit_status, ActiveStatus())
+        plan = out.get_container("airbyte-server").plan.to_dict()
+        self.assertNotEqual(plan, mock_incomplete_pebble_plan)
 
-        self.assertEqual(
-            harness.model.unit.status,
-            ActiveStatus(),
-        )
-        plan = harness.get_container_pebble_plan("airbyte-server").to_dict()
-        assert plan != mock_incomplete_pebble_plan
-
-    @mock.patch("charm.AirbyteK8SOperatorCharm._validate_pebble_plan", return_value=True)
-    @mock.patch("s3_helpers.S3Client.create_bucket_if_not_exists", return_value=None)
-    @mock.patch("s3_helpers.S3Client.set_bucket_lifecycle_policy", return_value=None)
-    def test_missing_pebble_plan(
-        self, set_bucket_lifecycle_policy, create_bucket_if_not_exists, mock_validate_pebble_plan
-    ):
+    def test_missing_pebble_plan(self):
         """The charm re-applies the pebble plan if missing."""
-        harness = self.harness
-        simulate_lifecycle(harness)
+        state = make_state(db=True, minio=True)
+        with patch("charm.AirbyteK8SOperatorCharm._validate_pebble_plan", return_value=False):
+            out = self.ctx.run(self.ctx.on.update_status(), state)
 
-        mock_validate_pebble_plan.return_value = False
-        harness.charm.on.update_status.emit()
-        self.assertEqual(
-            harness.model.unit.status,
-            MaintenanceStatus("replanning application"),
-        )
-        plan = harness.get_container_pebble_plan("airbyte-server").to_dict()
-        assert plan is not None
+        self.assertEqual(out.unit_status, MaintenanceStatus("replanning application"))
+        plan = out.get_container("airbyte-server").plan.to_dict()
+        self.assertIsNotNone(plan)
 
     def test_feature_flags_heartbeat_only(self):
         """The charm generates flags file and sets env vars when heartbeat config is set."""
-        harness = self.harness
-        harness.update_config({"heartbeat-max-seconds-between-messages": 3600})
+        state = make_state(config={"heartbeat-max-seconds-between-messages": 3600}, db=True, minio=True)
+        out = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
 
-        simulate_lifecycle(harness)
-
-        # Verify flags file was pushed to containers
         for container_name in CONTAINER_HEALTH_CHECK_MAP:
-            container = harness.model.unit.get_container(container_name)
-            files = container.list_files("/", pattern="flags")
-            file_list = list(files)
-            self.assertEqual(len(file_list), 1)
-            self.assertEqual(file_list[0].path, "/flags")
+            container = out.get_container(container_name)
+            flags_file = container.get_filesystem(self.ctx) / "flags"
+            self.assertTrue(flags_file.exists())
 
-            # Verify file content
-            flags_content = container.pull("/flags").read()
+            flags_content = flags_file.read_text()
             self.assertIn("heartbeat-max-seconds-between-messages", flags_content)
             self.assertIn('serve: "3600"', flags_content)
 
-            # Verify environment variables are set
-            plan = harness.get_container_pebble_plan(container_name).to_dict()
-            env = plan["services"][container_name]["environment"]
+            env = container.plan.to_dict()["services"][container_name]["environment"]
             self.assertEqual(env["FEATURE_FLAG_PATH"], "/flags")
             self.assertEqual(env["FEATURE_FLAG_CLIENT"], "configfile")
             self.assertIn("FEATURE_FLAG_HASH", env)
 
     def test_feature_flags_destination_timeout(self):
         """The charm generates flags file with destination timeout settings."""
-        harness = self.harness
-        harness.update_config(
-            {
-                "destination-timeout-max-seconds": 86400,
-                "destination-timeout-fail-sync": True,
-            }
+        state = make_state(
+            config={"destination-timeout-max-seconds": 86400, "destination-timeout-fail-sync": True},
+            db=True,
+            minio=True,
         )
+        out = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
 
-        simulate_lifecycle(harness)
-
-        # Verify flags file content
-        container = harness.model.unit.get_container("airbyte-server")
-        flags_content = container.pull("/flags").read()
-
-        # Should include auto-enabled destination-timeout-enabled flag
+        flags_content = (out.get_container("airbyte-server").get_filesystem(self.ctx) / "flags").read_text()
         self.assertIn("destination-timeout-enabled", flags_content)
         self.assertIn("serve: true", flags_content)
         self.assertIn("destination-timeout.seconds", flags_content)
@@ -310,22 +243,19 @@ class TestCharm(TestCase):
 
     def test_feature_flags_all_configs(self):
         """The charm generates flags file with all feature flag configs set."""
-        harness = self.harness
-        harness.update_config(
-            {
+        state = make_state(
+            config={
                 "heartbeat-max-seconds-between-messages": 1800,
                 "heartbeat-fail-sync": False,
                 "destination-timeout-max-seconds": 43200,
                 "destination-timeout-fail-sync": True,
-            }
+            },
+            db=True,
+            minio=True,
         )
+        out = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
 
-        simulate_lifecycle(harness)
-
-        # Verify flags file content
-        container = harness.model.unit.get_container("airbyte-workers")
-        flags_content = container.pull("/flags").read()
-
+        flags_content = (out.get_container("airbyte-workers").get_filesystem(self.ctx) / "flags").read_text()
         self.assertIn("heartbeat-max-seconds-between-messages", flags_content)
         self.assertIn('serve: "1800"', flags_content)
         self.assertIn("heartbeat.failSync", flags_content)
@@ -337,100 +267,163 @@ class TestCharm(TestCase):
 
     def test_no_feature_flags_when_unset(self):
         """The charm does not set flag env vars when no flags are configured."""
-        harness = self.harness
+        state = make_state(db=True, minio=True)
+        out = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
 
-        simulate_lifecycle(harness)
+        container = out.get_container("airbyte-server")
+        self.assertFalse((container.get_filesystem(self.ctx) / "flags").exists())
 
-        # Verify no flags file was pushed
-        container = harness.model.unit.get_container("airbyte-server")
-        files = list(container.list_files("/", pattern="flags"))
-        self.assertEqual(len(files), 0)
-
-        # Verify env vars are not set
-        plan = harness.get_container_pebble_plan("airbyte-server").to_dict()
-        env = plan["services"]["airbyte-server"]["environment"]
+        env = container.plan.to_dict()["services"]["airbyte-server"]["environment"]
         self.assertNotIn("FEATURE_FLAG_PATH", env)
         self.assertNotIn("FEATURE_FLAG_CLIENT", env)
         self.assertNotIn("FEATURE_FLAG_HASH", env)
 
+    def test_database_relation_changed(self):
+        """The database relation handler stores the connection and replans."""
+        db_relation = testing.Relation(
+            "db",
+            remote_app_data={
+                "username": "jean-luc@db",
+                "password": "inner-light",  # nosec
+                "endpoints": "myhost:5432,anotherhost:2345",
+                "database": "airbyte-k8s_db",
+            },
+        )
+        state = add_relations(make_state(minio=True), db_relation)
+        out = self.ctx.run(self.ctx.on.relation_changed(db_relation), state)
 
-@mock.patch("s3_helpers.S3Client.create_bucket_if_not_exists", return_value=None)
-@mock.patch("s3_helpers.S3Client.set_bucket_lifecycle_policy", return_value=None)
-@mock.patch(
-    "relations.minio.MinioRelation._get_object_storage_data",
-    return_value=minio_object_storage_data,
-)
-@mock.patch("relations.minio.MinioRelation._get_interfaces", return_value=None)
-def simulate_lifecycle(
-    harness,
-    _get_interfaces,
-    _get_object_storage_data,
-    create_bucket_if_not_exists,
-    set_bucket_lifecycle_policy,
-):
-    """Simulate a healthy charm life-cycle.
+        self.assertEqual(json.loads(peer_data(out)["database_connection"]), DB_CONNECTION)
+        self.assertEqual(out.unit_status, MaintenanceStatus("replanning application"))
 
-    Args:
-        harness: ops.testing.Harness object used to simulate charm lifecycle.
-        _get_interfaces: Mock of "_get_interfaces" method.
-        _get_object_storage_data: Mock of "_get_object_storage_data" method.
-        create_bucket_if_not_exists: Mock of "create_bucket_if_not_exists" method.
-        set_bucket_lifecycle_policy: Mock of "set_bucket_lifecycle_policy" method.
-    """
-    # Simulate peer relation readiness.
-    harness.add_relation("airbyte-peer", "airbyte")
+    def test_database_relation_broken(self):
+        """The database relation broken handler clears the stored connection."""
+        db_relation = testing.Relation("db")
+        state = add_relations(make_state(db=True, minio=True), db_relation)
+        out = self.ctx.run(self.ctx.on.relation_broken(db_relation), state)
 
-    simulate_pebble_readiness(harness)
+        self.assertEqual(json.loads(peer_data(out)["database_connection"]), None)
 
-    # Simulate db readiness.
-    event = make_database_changed_event("db")
-    harness.charm.postgresql._on_database_changed(event)
+    def test_object_storage_relation_changed(self):
+        """The minio relation handler stores object-storage data and replans."""
+        obj_relation = testing.Relation("object-storage")
+        state = add_relations(make_state(db=True), obj_relation)
+        with patch("relations.minio.MinioRelation._get_interfaces", return_value=None), patch(
+            "relations.minio.MinioRelation._get_object_storage_data", return_value=dict(MINIO_RAW)
+        ):
+            out = self.ctx.run(self.ctx.on.relation_changed(obj_relation), state)
 
-    # Simulate minio relation
-    harness.add_relation("object-storage", "airbyte")
-    harness.charm.minio._on_object_storage_relation_changed(None)
+        self.assertEqual(json.loads(peer_data(out)["minio"]), MINIO_STATE)
+        self.assertEqual(out.unit_status, MaintenanceStatus("replanning application"))
 
-    # Simulate s3 relation
-    relation_id = harness.add_relation("s3-parameters", "airbyte")
-    harness.update_relation_data(
-        relation_id,
-        "airbyte",
-        s3_provider_databag(),
-    )
+    def test_s3_credentials_changed(self):
+        """The s3 relation handler stores s3 parameters and replans."""
+        s3_relation = testing.Relation("s3-parameters", remote_app_data=s3_provider_databag())
+        state = add_relations(make_state(config={"storage-type": "S3"}, db=True), s3_relation)
+        out = self.ctx.run(self.ctx.on.relation_changed(s3_relation), state)
 
-
-def simulate_pebble_readiness(harness):
-    """Simulate pebble readiness on all charm container.
-
-    Args:
-        harness: ops.testing.Harness object used to simulate charm lifecycle.
-    """
-    for container_name in CONTAINER_HEALTH_CHECK_MAP:
-        container = harness.model.unit.get_container(container_name)
-        harness.charm.on[container_name].pebble_ready.emit(container)
+        self.assertEqual(json.loads(peer_data(out)["s3"]), S3_STATE)
+        self.assertEqual(out.unit_status, MaintenanceStatus("replanning application"))
 
 
-def make_database_changed_event(rel_name):
-    """Create and return a mock master changed event.
+def _up_check(status):
+    """Build the "up" CheckInfo mirroring the charm's pebble check definition.
 
-    The event is generated by the relation with the given name.
+    The charm's layer defines the check without a level, startup or threshold, so
+    those must be left unset here to keep the scenario consistent with the plan.
 
     Args:
-        rel_name: Name of the database relation (db or visibility)
+        status: the ops.pebble.CheckStatus to report for the check.
 
     Returns:
-        Event dict.
+        A testing.CheckInfo for the "up" check.
     """
-    return type(
-        "Event",
-        (),
-        {
-            "endpoints": "myhost:5432,anotherhost:2345",
-            "username": f"jean-luc@{rel_name}",
-            "password": "inner-light",  # nosec
-            "relation": type("Relation", (), {"name": rel_name}),
-        },
+    return testing.CheckInfo(
+        "up",
+        level=CheckLevel.UNSET,
+        startup=CheckStartup.UNSET,
+        threshold=None,
+        status=status,
     )
+
+
+def make_containers(check_status=None):
+    """Build the set of charm containers.
+
+    Args:
+        check_status: optional ops.pebble.CheckStatus to attach as the "up" check
+            for containers that define a health check.
+
+    Returns:
+        A set of testing.Container objects, all set to allow connection.
+    """
+    containers = set()
+    for container_name, settings in CONTAINER_HEALTH_CHECK_MAP.items():
+        check_infos = frozenset()
+        if check_status is not None and settings:
+            check_infos = frozenset({_up_check(check_status)})
+        containers.add(testing.Container(container_name, can_connect=True, check_infos=check_infos))
+    return containers
+
+
+def make_state(*, config=None, leader=True, peer=True, db=False, minio=False, s3=False, containers=None):
+    """Build a scenario State for the charm.
+
+    Args:
+        config: optional charm config overrides.
+        leader: whether the unit is the leader.
+        peer: whether the airbyte-peer relation is present.
+        db: whether to mark the database connection as ready in the peer databag.
+        minio: whether to mark the minio data as ready in the peer databag.
+        s3: whether to mark the s3 data as ready in the peer databag.
+        containers: optional explicit set of containers to use.
+
+    Returns:
+        A testing.State object.
+    """
+    relations = []
+    if peer:
+        local_app_data = {}
+        if db:
+            local_app_data["database_connection"] = json.dumps(DB_CONNECTION)
+        if minio:
+            local_app_data["minio"] = json.dumps(MINIO_STATE)
+        if s3:
+            local_app_data["s3"] = json.dumps(S3_STATE)
+        relations.append(testing.PeerRelation("airbyte-peer", local_app_data=local_app_data))
+
+    return testing.State(
+        leader=leader,
+        config=config or {},
+        model=testing.Model(name=MODEL_NAME),
+        relations=relations,
+        containers=containers if containers is not None else make_containers(),
+    )
+
+
+def add_relations(state, *relations):
+    """Return a copy of the state with extra relations added.
+
+    Args:
+        state: the testing.State to copy.
+        relations: relations to add to the state.
+
+    Returns:
+        A new testing.State including the given relations.
+    """
+    return dataclasses.replace(state, relations=set(state.relations) | set(relations))
+
+
+def peer_data(state):
+    """Return the local app databag of the airbyte-peer relation.
+
+    Args:
+        state: the testing.State to read from.
+
+    Returns:
+        The peer relation's local app data mapping.
+    """
+    peer = next(relation for relation in state.relations if relation.endpoint == "airbyte-peer")
+    return peer.local_app_data
 
 
 def s3_provider_databag():
@@ -448,6 +441,37 @@ def s3_provider_databag():
         "region": "region",
         "s3-uri-style": "path",
     }
+
+
+def get_container(state, name):
+    """Return the container with the given name from a state.
+
+    Args:
+        state: the testing.State to look in.
+        name: the container name.
+
+    Returns:
+        The matching testing.Container.
+    """
+    return next(container for container in state.containers if container.name == name)
+
+
+def with_checks(state, status):
+    """Return a copy of the state with the "up" check set on health-checked containers.
+
+    Args:
+        state: the testing.State to copy.
+        status: the ops.pebble.CheckStatus to apply.
+
+    Returns:
+        A new testing.State with updated container check info.
+    """
+    containers = set()
+    for container in state.containers:
+        if CONTAINER_HEALTH_CHECK_MAP[container.name]:
+            container = dataclasses.replace(container, check_infos=frozenset({_up_check(status)}))
+        containers.add(container)
+    return dataclasses.replace(state, containers=containers)
 
 
 def create_plan(container_name, storage_type):

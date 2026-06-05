@@ -412,4 +412,4 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
 
 
 if __name__ == "__main__":  # pragma: nocover
-    ops.main(AirbyteK8SOperatorCharm)  # type: ignore
+    ops.main(AirbyteK8SOperatorCharm)

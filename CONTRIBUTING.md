@@ -3,17 +3,27 @@
 To make contributions to this charm, you'll need a working
 [development setup](https://juju.is/docs/sdk/dev-setup).
 
-First, install the required version of `tox`:
+This charm uses [`uv`](https://docs.astral.sh/uv/) to manage its dependencies
+(declared in `pyproject.toml` and pinned in `uv.lock`) and
+[`tox`](https://tox.wiki/) to drive its test environments. Install `uv`:
 
 ```shell
-pip install -r dev-requirements.txt
+sudo snap install astral-uv --classic
 ```
 
-You can create an environment for development with `tox`:
+Then install `tox` with the `tox-uv` plugin so it can build environments from
+the lock file:
 
 ```shell
-tox devenv -e integration
-source venv/bin/activate
+uv tool install tox --with tox-uv
+```
+
+You can create a local virtual environment with all dependencies for
+development:
+
+```shell
+uv sync --all-groups
+source .venv/bin/activate
 ```
 
 ## Testing
@@ -29,6 +39,19 @@ tox run -e static        # static type checking
 tox run -e unit          # unit tests
 tox run -e integration   # integration tests
 tox                      # runs 'format', 'lint', 'static', and 'unit' environments
+```
+
+Equivalent `make` targets are also provided as a convenience. They build their
+environments directly from `uv.lock` via `uv run`, which is handy in setups
+where the `tox-uv` runner cannot resolve a Python interpreter:
+
+```shell
+make fmt        # format the code (isort, black)
+make lint       # code style and type checks
+make static     # static analysis (bandit)
+make unit       # unit tests with coverage
+make check      # runs 'lint', 'static' and 'unit'
+make pack       # build the charm (charmcraft pack)
 ```
 
 To preview your documentation changes locally, navigate to the `documentation/` directory and run:
@@ -95,7 +118,7 @@ sudo snap enable docker
 sudo snap install charmcraft --classic
 
 # Install Microk8s from snap
-sudo snap install microk8s --channel 1.32-strict/stable
+sudo snap install microk8s --channel 1.36-strict/stable
 
 # Add your user to MicroK8s group and refresh session
 sudo adduser $USER snap_microk8s
