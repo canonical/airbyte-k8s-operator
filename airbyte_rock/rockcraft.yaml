@@ -75,6 +75,16 @@ parts:
       - libpq-dev
       - python3-dev
     override-build: |
+      # jOOQ codegen in `assemble` uses Testcontainers, whose docker-java client 
+      # speaks API 1.32. The docker snap ships Docker >=28 (min API 1.40) and rejects it. 
+      # Lower the daemon's min API version so the old client is accepted.
+      mkdir -p /etc/systemd/system/snap.docker.dockerd.service.d
+      printf '[Service]\nEnvironment=DOCKER_MIN_API_VERSION=1.24\n' \
+        > /etc/systemd/system/snap.docker.dockerd.service.d/min-api-version.conf
+      systemctl daemon-reload
+      systemctl restart snap.docker.dockerd
+      timeout 120 bash -c 'until docker version >/dev/null 2>&1; do sleep 2; done'
+
       cd ${CRAFT_STAGE}/airbyte-platform
       ./gradlew assemble -x dockerBuildImage --continue --max-workers 1
       ./gradlew --stop
