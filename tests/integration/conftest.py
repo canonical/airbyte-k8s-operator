@@ -50,21 +50,12 @@ async def deploy(ops_test: OpsTest, charm: str, charm_image: str):
     resources = {"airbyte-image": charm_image}
 
     await ops_test.model.deploy(charm, resources=resources, application_name=APP_NAME_AIRBYTE_SERVER, trust=True)
-    # The bare `edge` channel resolved to 1.23/edge rev 68 (base 24.04),
-    # whose image resource juju could not fetch ("No revision was found in
-    # the Store"). edge and stable share rev 68 on 24.04, so forcing base
-    # 22.04 selects a different revision (rev 60) to probe instead.
     await ops_test.model.deploy(
         APP_NAME_TEMPORAL_SERVER,
-        channel="1.23/stable",
-        base="ubuntu@22.04",
+        channel="edge",
         config={"num-history-shards": 4},
     )
-    await ops_test.model.deploy(
-        APP_NAME_TEMPORAL_ADMIN,
-        channel="1.23/stable",
-        base="ubuntu@22.04",
-    )
+    await ops_test.model.deploy(APP_NAME_TEMPORAL_ADMIN, channel="edge")
     await ops_test.model.deploy("postgresql-k8s", channel="14/stable", trust=True, revision=381)
     await ops_test.model.deploy("minio", channel="edge")
 
