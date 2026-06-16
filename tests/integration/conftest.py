@@ -50,14 +50,20 @@ async def deploy(ops_test: OpsTest, charm: str, charm_image: str):
     resources = {"airbyte-image": charm_image}
 
     await ops_test.model.deploy(charm, resources=resources, application_name=APP_NAME_AIRBYTE_SERVER, trust=True)
-    await ops_test.model.deploy("postgresql-k8s", channel="14/stable", trust=True, revision=381)
-    await ops_test.model.deploy("minio", channel="edge")
     await ops_test.model.deploy(
         APP_NAME_TEMPORAL_SERVER,
-        channel="edge",
+        channel="1.23/edge",
+        base="ubuntu@24.04",
         config={"num-history-shards": 4},
     )
-    await ops_test.model.deploy(APP_NAME_TEMPORAL_ADMIN, channel="edge")
+    await ops_test.model.deploy(
+        APP_NAME_TEMPORAL_ADMIN,
+        channel="1.23/edge",
+        base="ubuntu@24.04",
+    )
+
+    await ops_test.model.deploy("postgresql-k8s", channel="14/stable", trust=True, revision=381)
+    await ops_test.model.deploy("minio", channel="edge")
 
     async with ops_test.fast_forward():
         await ops_test.model.wait_for_idle(
