@@ -29,7 +29,6 @@ fmt = [
 ]
 integration = [
     { name = "ipdb" },
-    { name = "juju" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-operator" },
@@ -80,7 +79,6 @@ fmt = [
 ]
 integration = [
     { name = "ipdb", specifier = "==0.13.9" },
-    { name = "juju", specifier = "==3.5.2.1" },
     { name = "pytest", specifier = "==7.1.3" },
     { name = "pytest-asyncio", specifier = "==0.21" },
     { name = "pytest-operator", specifier = "==0.35.0" },
