@@ -48,19 +48,19 @@ async def run_sample_workflow(ops_test: OpsTest):
 
 
 async def create_default_namespace(ops_test: OpsTest):
-    """Create default namespace on Temporal server using tctl.
+    """Create the default namespace on the Temporal server.
 
     Args:
         ops_test: PyTest object.
     """
-    # Register default namespace from admin charm.
+    # Register the default namespace from the admin charm.
     action = (
         await ops_test.model.applications[APP_NAME_TEMPORAL_ADMIN]
         .units[0]
-        .run_action("tctl", args="--ns default namespace register -rd 3")
+        .run_action("cli", args="operator namespace --namespace default create")
     )
     result = (await action.wait()).results
-    logger.info(f"tctl result: {result}")
+    logger.info(f"cli result: {result}")
     assert "result" in result and result["result"] == "command succeeded"
 
 
@@ -107,6 +107,11 @@ async def perform_temporal_integrations(ops_test: OpsTest):
     await ops_test.model.integrate(f"{APP_NAME_TEMPORAL_SERVER}:db", "postgresql-k8s:database")
     await ops_test.model.integrate(f"{APP_NAME_TEMPORAL_SERVER}:visibility", "postgresql-k8s:database")
     await ops_test.model.integrate(f"{APP_NAME_TEMPORAL_SERVER}:admin", f"{APP_NAME_TEMPORAL_ADMIN}:admin")
+    # The admin charm's `cli` action resolves the server address via the
+    # temporal-host-info relation; without it the action fails.
+    await ops_test.model.integrate(
+        f"{APP_NAME_TEMPORAL_SERVER}:temporal-host-info", f"{APP_NAME_TEMPORAL_ADMIN}:temporal-host-info"
+    )
     await ops_test.model.wait_for_idle(
         apps=[APP_NAME_TEMPORAL_SERVER, "postgresql-k8s"], status="active", raise_on_blocked=False, timeout=180
     )
