@@ -1,7 +1,7 @@
 [![Charmhub Badge](https://charmhub.io/airbyte-k8s/badge.svg)](https://charmhub.io/airbyte-k8s)
 [![Release Edge](https://github.com/canonical/airbyte-k8s-operator/actions/workflows/publish_charm.yaml/badge.svg)](https://github.com/canonical/airbyte-k8s-operator/actions/workflows/publish_charm.yaml)
 
-**Charmed Airbyte K8s Operator** is an open-source, production-ready data integration platform operator for **Kubernetes**, based on [Airbyte](https://airbyte.io/).
+**Charmed Airbyte K8s Operator** is an open-source, production-ready data integration platform operator for **Kubernetes**, that helps you deploy and manage [Airbyte](https://airbyte.io/).
 
 Airbyte simplifies the process of **extracting and loading data** from various sources into a variety of destinations such as **data warehouses, data lakes, or data meshes**, enabling continuous, scheduled data synchronization to ensure data freshness and reliability.
 
