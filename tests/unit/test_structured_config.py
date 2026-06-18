@@ -9,8 +9,7 @@ import logging
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
-import pytest
-from ops.testing import Harness
+from ops import testing
 
 from charm import AirbyteK8SOperatorCharm
 from src.literals import CONTAINER_HEALTH_CHECK_MAP
@@ -43,17 +42,47 @@ class TestCharmStructuredConfig(TestCase):
             "dataplane-client-id": base64.b64encode(b"sample-client-id"),
             "dataplane-client-secret": base64.b64encode(b"sample-client-secret"),
         }
-
         self.mock_core_v1_instance.read_namespaced_secret.return_value = fake_secret
 
-        self.harness = Harness(AirbyteK8SOperatorCharm)
-        self.addCleanup(self.harness.cleanup)
-        for container_name in CONTAINER_HEALTH_CHECK_MAP:
-            self.harness.set_can_connect(container_name, True)
-        self.harness.set_leader(True)
-        self.harness.set_model_name("airbyte-model")
-        self.harness.add_network("10.0.0.10", endpoint="airbyte-peer")
-        self.harness.begin()
+        self.ctx = testing.Context(AirbyteK8SOperatorCharm)
+        self.containers = {
+            testing.Container(container_name, can_connect=True) for container_name in CONTAINER_HEALTH_CHECK_MAP
+        }
+
+    def check_valid_values(self, field, accepted_values):
+        """Check that the structured config parses each accepted value for a field.
+
+        Args:
+            field: The configuration field to test.
+            accepted_values: List of accepted values for this field.
+        """
+        for value in accepted_values:
+            state = testing.State(
+                leader=True,
+                config={field: value},
+                model=testing.Model(name="airbyte-model"),
+                containers=self.containers,
+            )
+            with self.ctx(self.ctx.on.config_changed(), state) as manager:
+                self.assertEqual(manager.charm.config[field], value)
+
+    def check_invalid_values(self, field, erroneus_values):
+        """Check that the structured config rejects each invalid value for a field.
+
+        Args:
+            field: The configuration field to test.
+            erroneus_values: List of invalid values for this field.
+        """
+        for value in erroneus_values:
+            state = testing.State(
+                leader=True,
+                config={field: value},
+                model=testing.Model(name="airbyte-model"),
+                containers=self.containers,
+            )
+            with self.ctx(self.ctx.on.config_changed(), state) as manager:
+                with self.assertRaises(ValueError):
+                    _ = manager.charm.config[field]
 
     def test_config_parsing_parameters_integer_values(self) -> None:
         """Check that integer fields are parsed correctly."""
@@ -66,55 +95,28 @@ class TestCharmStructuredConfig(TestCase):
         erroneus_values = [-5]
         valid_values = [42, 100, 1]
         for field in integer_fields:
-            check_invalid_values(self.harness, field, erroneus_values)
-            check_valid_values(self.harness, field, valid_values)
+            self.check_invalid_values(field, erroneus_values)
+            self.check_valid_values(field, valid_values)
 
     def test_application_related_values(self) -> None:
         """Test specific parameters for application-related fields."""
         erroneus_values = ["test-value", "foo", "bar"]
 
         # storage-type
-        check_invalid_values(self.harness, "storage-type", erroneus_values)
+        self.check_invalid_values("storage-type", erroneus_values)
         accepted_values = ["MINIO", "S3"]
-        check_valid_values(self.harness, "storage-type", accepted_values)
+        self.check_valid_values("storage-type", accepted_values)
 
     def test_cpu_related_values(self) -> None:
         """Test specific parameters for cpu-related fields."""
         erroneus_values = ["-123", "0", "100f"]
-        check_invalid_values(self.harness, "job-main-container-cpu-limit", erroneus_values)
+        self.check_invalid_values("job-main-container-cpu-limit", erroneus_values)
         accepted_values = ["200m", "4"]
-        check_valid_values(self.harness, "job-main-container-cpu-limit", accepted_values)
+        self.check_valid_values("job-main-container-cpu-limit", accepted_values)
 
     def test_memory_related_values(self) -> None:
         """Test specific parameters for memory-related fields."""
         erroneus_values = ["-123", "0", "100f"]
-        check_invalid_values(self.harness, "job-main-container-memory-limit", erroneus_values)
+        self.check_invalid_values("job-main-container-memory-limit", erroneus_values)
         accepted_values = ["4Gi", "256Mi"]
-        check_valid_values(self.harness, "job-main-container-memory-limit", accepted_values)
-
-
-def check_valid_values(harness, field: str, accepted_values: list) -> None:
-    """Check the correctness of the passed values for a field.
-
-    Args:
-        harness: Harness object.
-        field: The configuration field to test.
-        accepted_values: List of accepted values for this field.
-    """
-    for value in accepted_values:
-        harness.update_config({field: value})
-        assert harness.charm.config[field] == value
-
-
-def check_invalid_values(harness, field: str, erroneus_values: list) -> None:
-    """Check the incorrectness of the passed values for a field.
-
-    Args:
-        harness: Harness object.
-        field: The configuration field to test.
-        erroneus_values: List of invalid values for this field.
-    """
-    for value in erroneus_values:
-        harness.update_config({field: value})
-        with pytest.raises(ValueError):
-            _ = harness.charm.config[field]
+        self.check_valid_values("job-main-container-memory-limit", accepted_values)

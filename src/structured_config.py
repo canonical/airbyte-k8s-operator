@@ -9,10 +9,9 @@
 import logging
 import re
 from enum import Enum
-from typing import Optional
 
 from charms.data_platform_libs.v0.data_models import BaseConfigModel
-from pydantic import validator
+from pydantic import field_validator
 
 logger = logging.getLogger(__name__)
 
@@ -62,54 +61,54 @@ class CharmConfig(BaseConfigModel):
 
     log_level: LogLevelType
     temporal_host: str
-    webapp_url: Optional[str]
-    secret_persistence: Optional[SecretPersistenceType]
-    secret_store_gcp_project_id: Optional[str]
-    secret_store_gcp_credentials: Optional[str]
-    vault_address: Optional[str]
-    vault_prefix: Optional[str]
-    vault_auth_token: Optional[str]
+    webapp_url: str | None = None
+    secret_persistence: SecretPersistenceType | None = None
+    secret_store_gcp_project_id: str | None = None
+    secret_store_gcp_credentials: str | None = None
+    vault_address: str | None = None
+    vault_prefix: str | None = None
+    vault_auth_token: str | None = None
     vault_auth_method: VaultAuthType
-    aws_access_key: Optional[str]
-    aws_secret_access_key: Optional[str]
-    aws_kms_key_arn: Optional[str]
-    aws_secret_manager_secret_tags: Optional[str]
-    sync_job_retries_complete_failures_max_successive: Optional[int]
-    sync_job_retries_complete_failures_max_total: Optional[int]
-    sync_job_retries_complete_failures_backoff_min_interval_s: Optional[int]
-    sync_job_retries_complete_failures_backoff_max_interval_s: Optional[int]
-    sync_job_retries_complete_failures_backoff_base: Optional[int]
-    sync_job_retries_partial_failures_max_successive: Optional[int]
-    sync_job_retries_partial_failures_max_total: Optional[int]
-    sync_job_max_timeout_days: Optional[int]
-    job_main_container_cpu_request: Optional[str]
-    job_main_container_cpu_limit: Optional[str]
-    job_main_container_memory_request: Optional[str]
-    job_main_container_memory_limit: Optional[str]
-    max_fields_per_connections: Optional[int]
-    max_days_of_only_failed_jobs_before_connection_disable: Optional[int]
-    max_failed_jobs_in_a_row_before_connection_disable: Optional[int]
-    max_spec_workers: Optional[int]
-    max_check_workers: Optional[int]
-    max_sync_workers: Optional[int]
-    max_discover_workers: Optional[int]
-    temporal_history_retention_in_days: Optional[int]
-    job_kube_tolerations: Optional[str]
-    job_kube_node_selectors: Optional[str]
-    job_kube_annotations: Optional[str]
-    job_kube_main_container_image_pull_policy: Optional[ImagePullPolicyType]
-    job_kube_main_container_image_pull_secret: Optional[str]
-    job_kube_sidecar_container_image_pull_policy: Optional[ImagePullPolicyType]
-    job_kube_socat_image: Optional[str]
-    job_kube_busybox_image: Optional[str]
-    job_kube_curl_image: Optional[str]
-    job_kube_namespace: Optional[str]
-    spec_job_kube_node_selectors: Optional[str]
-    check_job_kube_node_selectors: Optional[str]
-    discover_job_kube_node_selectors: Optional[str]
-    spec_job_kube_annotations: Optional[str]
-    check_job_kube_annotations: Optional[str]
-    discover_job_kube_annotations: Optional[str]
+    aws_access_key: str | None = None
+    aws_secret_access_key: str | None = None
+    aws_kms_key_arn: str | None = None
+    aws_secret_manager_secret_tags: str | None = None
+    sync_job_retries_complete_failures_max_successive: int | None = None
+    sync_job_retries_complete_failures_max_total: int | None = None
+    sync_job_retries_complete_failures_backoff_min_interval_s: int | None = None
+    sync_job_retries_complete_failures_backoff_max_interval_s: int | None = None
+    sync_job_retries_complete_failures_backoff_base: int | None = None
+    sync_job_retries_partial_failures_max_successive: int | None = None
+    sync_job_retries_partial_failures_max_total: int | None = None
+    sync_job_max_timeout_days: int | None = None
+    job_main_container_cpu_request: str | None = None
+    job_main_container_cpu_limit: str | None = None
+    job_main_container_memory_request: str | None = None
+    job_main_container_memory_limit: str | None = None
+    max_fields_per_connections: int | None = None
+    max_days_of_only_failed_jobs_before_connection_disable: int | None = None
+    max_failed_jobs_in_a_row_before_connection_disable: int | None = None
+    max_spec_workers: int | None = None
+    max_check_workers: int | None = None
+    max_sync_workers: int | None = None
+    max_discover_workers: int | None = None
+    temporal_history_retention_in_days: int | None = None
+    job_kube_tolerations: str | None = None
+    job_kube_node_selectors: str | None = None
+    job_kube_annotations: str | None = None
+    job_kube_main_container_image_pull_policy: ImagePullPolicyType | None = None
+    job_kube_main_container_image_pull_secret: str | None = None
+    job_kube_sidecar_container_image_pull_policy: ImagePullPolicyType | None = None
+    job_kube_socat_image: str | None = None
+    job_kube_busybox_image: str | None = None
+    job_kube_curl_image: str | None = None
+    job_kube_namespace: str | None = None
+    spec_job_kube_node_selectors: str | None = None
+    check_job_kube_node_selectors: str | None = None
+    discover_job_kube_node_selectors: str | None = None
+    spec_job_kube_annotations: str | None = None
+    check_job_kube_annotations: str | None = None
+    discover_job_kube_annotations: str | None = None
     storage_type: StorageType
     storage_bucket_logs: str
     logs_ttl: int
@@ -119,12 +118,12 @@ class CharmConfig(BaseConfigModel):
     pod_running_ttl_minutes: int
     pod_successful_ttl_minutes: int
     pod_unsuccessful_ttl_minutes: int
-    heartbeat_max_seconds_between_messages: Optional[int]
-    heartbeat_fail_sync: Optional[bool]
-    destination_timeout_max_seconds: Optional[int]
-    destination_timeout_fail_sync: Optional[bool]
+    heartbeat_max_seconds_between_messages: int | None = None
+    heartbeat_fail_sync: bool | None = None
+    destination_timeout_max_seconds: int | None = None
+    destination_timeout_fail_sync: bool | None = None
 
-    @validator("*", pre=True)
+    @field_validator("*", mode="before")
     @classmethod
     def blank_string(cls, value):
         """Check for empty strings.
@@ -139,9 +138,9 @@ class CharmConfig(BaseConfigModel):
             return None
         return value
 
-    @validator("pod_running_ttl_minutes", "pod_successful_ttl_minutes", "pod_unsuccessful_ttl_minutes")
+    @field_validator("pod_running_ttl_minutes", "pod_successful_ttl_minutes", "pod_unsuccessful_ttl_minutes")
     @classmethod
-    def greater_than_zero(cls, value: str) -> Optional[int]:
+    def greater_than_zero(cls, value: str) -> int | None:
         """Check validity of `*-ttl-minutes` fields.
 
         Args:
@@ -158,9 +157,9 @@ class CharmConfig(BaseConfigModel):
             return int_value
         raise ValueError("Value out of range.")
 
-    @validator("logs_ttl")
+    @field_validator("logs_ttl")
     @classmethod
-    def zero_or_greater(cls, value: str) -> Optional[int]:
+    def zero_or_greater(cls, value: str) -> int | None:
         """Check validity of `logs-ttl` fields.
 
         Args:
@@ -177,9 +176,9 @@ class CharmConfig(BaseConfigModel):
             return int_value
         raise ValueError("Value out of range.")
 
-    @validator("job_main_container_cpu_request", "job_main_container_cpu_limit")
+    @field_validator("job_main_container_cpu_request", "job_main_container_cpu_limit")
     @classmethod
-    def cpu_validator(cls, value: str) -> Optional[str]:
+    def cpu_validator(cls, value: str) -> str | None:
         """Check validity of `*-cpu-request/limit` fields.
 
         Args:
@@ -201,9 +200,9 @@ class CharmConfig(BaseConfigModel):
             return value
         raise ValueError("Invalid CPU request/limit value.")
 
-    @validator("job_main_container_memory_request", "job_main_container_memory_limit")
+    @field_validator("job_main_container_memory_request", "job_main_container_memory_limit")
     @classmethod
-    def memory_validator(cls, value: str) -> Optional[str]:
+    def memory_validator(cls, value: str) -> str | None:
         """Check validity of `*-memory-request/limit` fields.
 
         Args:

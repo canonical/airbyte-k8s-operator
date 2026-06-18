@@ -52,13 +52,13 @@ async def deploy(ops_test: OpsTest, charm: str, charm_image: str):
     await ops_test.model.deploy(charm, resources=resources, application_name=APP_NAME_AIRBYTE_SERVER, trust=True)
     await ops_test.model.deploy(
         APP_NAME_TEMPORAL_SERVER,
-        channel="1.23/edge",
+        channel="1.23/stable",
         base="ubuntu@24.04",
         config={"num-history-shards": 4},
     )
     await ops_test.model.deploy(
         APP_NAME_TEMPORAL_ADMIN,
-        channel="1.23/edge",
+        channel="1.23/stable",
         base="ubuntu@24.04",
     )
 

@@ -25,3 +25,4 @@ jobs:
       trivy-severity-config: CRITICAL
       rockcraft-enable-security-nesting: true
       tmate-debug: false
+      with-uv: true
