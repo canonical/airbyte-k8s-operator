@@ -20,7 +20,7 @@ from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus
 from ops.pebble import CheckLevel, CheckStartup, CheckStatus, Layer
 
 from charm import AirbyteK8SOperatorCharm
-from src.literals import BASE_ENV, CONTAINER_HEALTH_CHECK_MAP
+from src.literals import BASE_ENV, CONTAINER_HEALTH_CHECK_MAP, INTERNAL_API_PORT
 from src.structured_config import StorageType
 
 logging.basicConfig(level=logging.DEBUG)
@@ -323,6 +323,45 @@ class TestCharm(TestCase):
 
         self.assertEqual(json.loads(peer_data(out)["s3"]), S3_STATE)
         self.assertEqual(out.unit_status, MaintenanceStatus("replanning application"))
+
+    def test_ingress_advertises_port(self):
+        """The charm advertises its UI port to a related ingress provider."""
+        ingress = testing.Relation("ingress", remote_app_name="traefik")
+        state = add_relations(make_state(db=True, minio=True), ingress)
+        out = self.ctx.run(self.ctx.on.relation_changed(ingress), state)
+
+        published = json.dumps(dict(out.get_relation(ingress.id).local_app_data))
+        self.assertIn(str(INTERNAL_API_PORT), published)
+
+    def test_ingress_url_available(self):
+        """The charm reads the workload URL from the ingress relation data."""
+        ingress = testing.Relation(
+            "ingress",
+            remote_app_name="traefik",
+            remote_app_data={"ingress": json.dumps({"url": "http://airbyte.example.com/"})},
+        )
+        state = add_relations(make_state(db=True, minio=True), ingress)
+        with self.ctx(self.ctx.on.relation_changed(ingress), state) as manager:
+            manager.run()
+            self.assertEqual(manager.charm.ingress.url, "http://airbyte.example.com/")
+
+    def test_ingress_revoked(self):
+        """The charm handles the ingress relation being removed without error."""
+        ingress = testing.Relation(
+            "ingress",
+            remote_app_name="traefik",
+            remote_app_data={"ingress": json.dumps({"url": "http://airbyte.example.com/"})},
+        )
+        state = add_relations(make_state(db=True, minio=True), ingress)
+        out = self.ctx.run(self.ctx.on.relation_broken(ingress), state)
+        self.assertNotIsInstance(out.unit_status, BlockedStatus)
+
+    def test_no_ingress_relation_does_not_error(self):
+        """Without an ingress relation the charm reconciles with no ingress URL and no error."""
+        state = make_state(db=True, minio=True)
+        with self.ctx(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state) as manager:
+            manager.run()
+            self.assertIsNone(manager.charm.ingress.url)
 
 
 def _up_check(status):

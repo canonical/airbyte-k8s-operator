@@ -8,7 +8,7 @@ The Charmed Airbyte ecosystem consists of a number of different charmed operator
 
 ### Airbyte-k8s
 
-The Airbyte-k8s charm is the core component that runs the server, scheduler, and API. It uses MinIO as its object storage backend and relies on a PostgreSQL database for persistent data. The charm integrates with OAuth2 Proxy to provide authentication capabilities, stores blobs, logs, and state in MinIO, and exposes its services through a nginx ingress integrator.
+The Airbyte-k8s charm is the core component that runs the server, scheduler, and API. It uses MinIO as its object storage backend and relies on a PostgreSQL database for persistent data. The charm integrates with OAuth2 Proxy to provide authentication capabilities, stores blobs, logs, and state in MinIO, and exposes its services through the standard `ingress` interface, which can be served by any compatible ingress provider (such as the Nginx Ingress Integrator or Traefik).
 
 ### OAuth2 Proxy
 
