@@ -39,7 +39,6 @@ from relations.minio import MinioRelation
 from relations.postgresql import PostgresqlRelation
 from relations.s3 import S3Integrator
 from s3_helpers import S3Client
-from state import State
 from structured_config import CharmConfig, StorageType
 from utils import render_template, use_feature_flags
 
@@ -106,7 +105,6 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
     """Airbyte Server charm.
 
     Attrs:
-        _state: used to store data that is persisted across invocations.
         config_type: the charm structured config
     """
 
@@ -121,8 +119,6 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         super().__init__(*args)
         kubernetes.config.load_incluster_config()
         self._k8s_client = kubernetes.client.CoreV1Api()
-
-        self._state = State(self.app, lambda: self.model.get_relation("airbyte-peer"))
 
         self.framework.observe(self.on.config_changed, self._on_config_changed)
         self.framework.observe(self.on.airbyte_peer_relation_changed, self._on_peer_relation_changed)
@@ -157,7 +153,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         Args:
             event: The event triggered.
         """
-        self._update(event)
+        self.reconcile(event)
 
     @log_event_handler(logger)
     def _on_ingress_ready(self, event):
@@ -184,7 +180,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         Args:
             event: The event triggered when the relation changed.
         """
-        self._update(event)
+        self.reconcile(event)
 
     @log_event_handler(logger)
     def _on_update_status(self, event):
@@ -219,7 +215,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
                 return
 
         if not all_valid_plans:
-            self._update(event)
+            self.reconcile(event)
             return
 
         self.unit.set_workload_version(f"v{AIRBYTE_VERSION}")
@@ -251,7 +247,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             event: The event triggered when the relation changed.
         """
         self.unit.status = WaitingStatus("configuring application")
-        self._update(event)
+        self.reconcile(event)
 
     def _check_missing_params(self, params, required_params):
         """Validate that all required properties were extracted.
@@ -333,46 +329,58 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
     def _validate(self):
         """Validate that configuration and relations are valid and ready.
 
+        Returns:
+            Tuple of (db_connection, minio_connection, s3_connection) derived live from the model.
+
         Raises:
             ValueError: in case of invalid configuration.
         """
         # Validate peer relation
-        if not self._state.is_ready():
+        if not self.model.get_relation("airbyte-peer"):
             raise ValueError("peer relation not ready")
 
         # Validate db relation
-        if self._state.database_connection is None:
+        db_connection = self.postgresql.get_data()
+        if db_connection is None:
             raise ValueError("database relation not ready")
 
+        minio_connection = self.minio.get_data()
+        s3_connection = self.s3_relation.get_data()
+
         # Validate minio relation
-        if self.config["storage-type"] == StorageType.minio and self._state.minio is None:
+        if self.config["storage-type"] == StorageType.minio and minio_connection is None:
             raise ValueError("minio relation not ready")
 
         # Validate S3 relation
-        if self.config["storage-type"] == StorageType.s3 and self._state.s3 is None:
+        if self.config["storage-type"] == StorageType.s3 and s3_connection is None:
             raise ValueError("s3 relation not ready")
 
-        # Validate S3 relation.
-        if self._state.s3:
-            missing_params = self._check_missing_params(self._state.s3, REQUIRED_S3_PARAMETERS)
+        if s3_connection:
+            missing_params = self._check_missing_params(s3_connection, REQUIRED_S3_PARAMETERS)
             if len(missing_params) > 0:
                 raise ValueError(f"s3:missing parameters {missing_params!r}")
 
-    def _update(self, event):  # noqa: C901
-        """Update configuration and replan its execution.
+        return db_connection, minio_connection, s3_connection
+
+    def reconcile(self, event):  # noqa: C901
+        """Reconcile the charm to its desired state.
+
+        Single entry point for every observer: derives the desired state from
+        the current model (config + relations) and converges the workload
+        toward it. Holds no persisted state of its own.
 
         Args:
-            event: The event triggered when the relation changed.
+            event: The event that triggered reconciliation.
         """
         try:
-            self._validate()
+            db_connection, minio_connection, s3_connection = self._validate()
         except ValueError as err:
             self.unit.status = BlockedStatus(str(err))
             return
 
-        s3_parameters = self._state.s3
+        s3_parameters = s3_connection
         if self.config["storage-type"] == StorageType.minio:
-            s3_parameters = self._state.minio
+            s3_parameters = minio_connection
 
         try:
             s3_client = S3Client(s3_parameters)
@@ -404,10 +412,17 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         for container_name in CONTAINER_HEALTH_CHECK_MAP:
             container = self.unit.get_container(container_name)
             if not container.can_connect():
-                event.defer()
-                return
+                continue
 
-            env = create_env(self.model.name, self.app.name, container_name, self.config, self._state)
+            env = create_env(
+                self.model.name,
+                self.app.name,
+                container_name,
+                self.config,
+                db_connection=db_connection,
+                minio_connection=minio_connection,
+                s3_connection=s3_connection,
+            )
             env = {k: v for k, v in env.items() if v is not None}
 
             self._push_flags_to_container(container, container_name, flags_yaml_content, env)

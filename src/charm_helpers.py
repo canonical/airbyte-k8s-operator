@@ -17,7 +17,7 @@ from structured_config import StorageType
 from utils import use_feature_flags
 
 
-def create_env(model_name, app_name, container_name, config, state):
+def create_env(model_name, app_name, container_name, config, *, db_connection, minio_connection, s3_connection):
     """Create set of environment variables for application.
 
     Args:
@@ -25,16 +25,16 @@ def create_env(model_name, app_name, container_name, config, state):
         app_name: Name of the application.
         container_name: Name of Airbyte container.
         config: Charm config.
-        state: Charm state.
+        db_connection: Database connection details derived from the db relation.
+        minio_connection: Object-storage details derived from the minio relation, or None.
+        s3_connection: S3 details derived from the s3 relation, or None.
 
     Returns:
         environment variables dict.
     """
-    db_conn = state.database_connection
-
-    host = db_conn["host"]
-    port = db_conn["port"]
-    db_name = db_conn["dbname"]
+    host = db_connection["host"]
+    port = db_connection["port"]
+    db_name = db_connection["dbname"]
     db_url = f"jdbc:postgresql://{host}:{port}/{db_name}"
     secret_persistence = config["secret-persistence"]
     if secret_persistence:
@@ -129,8 +129,8 @@ def create_env(model_name, app_name, container_name, config, state):
         "STORAGE_BUCKET_ACTIVITY_PAYLOAD": config["storage-bucket-activity-payload"],
         # Database config
         "DATABASE_URL": db_url,
-        "DATABASE_USER": db_conn["user"],
-        "DATABASE_PASSWORD": db_conn["password"],
+        "DATABASE_USER": db_connection["user"],
+        "DATABASE_PASSWORD": db_connection["password"],
         "DATABASE_DB": db_name,
         "DATABASE_HOST": host,
         "DATABASE_PORT": port,
@@ -159,33 +159,33 @@ def create_env(model_name, app_name, container_name, config, state):
             }
         )
 
-    if config["storage-type"].value == StorageType.minio and state.minio:
+    if config["storage-type"].value == StorageType.minio and minio_connection:
         minio_endpoint = construct_svc_endpoint(
-            state.minio["service"],
-            state.minio["namespace"],
-            state.minio["port"],
-            state.minio["secure"],
+            minio_connection["service"],
+            minio_connection["namespace"],
+            minio_connection["port"],
+            minio_connection["secure"],
         )
         env.update(
             {
                 "MINIO_ENDPOINT": minio_endpoint,
-                "AWS_ACCESS_KEY_ID": state.minio["access-key"],
-                "AWS_SECRET_ACCESS_KEY": state.minio["secret-key"],
+                "AWS_ACCESS_KEY_ID": minio_connection["access-key"],
+                "AWS_SECRET_ACCESS_KEY": minio_connection["secret-key"],
                 "STATE_STORAGE_MINIO_ENDPOINT": minio_endpoint,
-                "STATE_STORAGE_MINIO_ACCESS_KEY": state.minio["access-key"],
-                "STATE_STORAGE_MINIO_SECRET_ACCESS_KEY": state.minio["secret-key"],
+                "STATE_STORAGE_MINIO_ACCESS_KEY": minio_connection["access-key"],
+                "STATE_STORAGE_MINIO_SECRET_ACCESS_KEY": minio_connection["secret-key"],
                 "STATE_STORAGE_MINIO_BUCKET_NAME": config["storage-bucket-state"],
                 "S3_PATH_STYLE_ACCESS": "true",
             }
         )
 
-    if config["storage-type"].value == StorageType.s3 and state.s3:
+    if config["storage-type"].value == StorageType.s3 and s3_connection:
         env.update(
             {
-                "AWS_ACCESS_KEY_ID": state.s3["access-key"],
-                "AWS_SECRET_ACCESS_KEY": state.s3["secret-key"],
-                "S3_LOG_BUCKET_REGION": state.s3["region"],
-                "AWS_DEFAULT_REGION": state.s3["region"],
+                "AWS_ACCESS_KEY_ID": s3_connection["access-key"],
+                "AWS_SECRET_ACCESS_KEY": s3_connection["secret-key"],
+                "S3_LOG_BUCKET_REGION": s3_connection["region"],
+                "AWS_DEFAULT_REGION": s3_connection["region"],
             }
         )
 

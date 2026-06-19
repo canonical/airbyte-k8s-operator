@@ -30,33 +30,9 @@ mock_incomplete_pebble_plan = {"services": {"airbyte": {"override": "replace"}}}
 MODEL_NAME = "airbyte-model"
 APP_NAME = "airbyte-k8s"
 
-# The charm persists relation data in the `airbyte-peer` databag via the `State`
-# class, so a "ready" charm is reproduced by pre-populating that databag rather
-# than by replaying the db/minio/s3 relation events.
-DB_CONNECTION = {
-    "dbname": "airbyte-k8s_db",
-    "host": "myhost",
-    "port": "5432",
-    "password": "inner-light",  # nosec
-    "user": "jean-luc@db",
-}
-MINIO_STATE = {
-    "access-key": "access",
-    "secret-key": "secret",
-    "service": "service",
-    "port": "9000",
-    "namespace": "namespace",
-    "secure": False,
-    "endpoint": "http://service.namespace.svc.cluster.local:9000",
-}
-S3_STATE = {
-    "bucket": "bucket_name",
-    "endpoint": "http://endpoint",
-    "region": "region",
-    "access-key": "access",
-    "secret-key": "secret",
-    "uri_style": "path",
-}
+# The charm derives db/minio/s3 state live from their relations on each
+# reconcile (no persisted state), so a "ready" charm is reproduced by providing
+# those relations with data rather than by pre-populating a peer databag.
 
 # Raw object-storage data as returned by the minio interface, before the charm
 # derives the service endpoint from it.
@@ -97,13 +73,25 @@ class TestCharm(TestCase):
         }
         self.mock_core_v1_instance.read_namespaced_secret.return_value = fake_secret
 
-        # The S3/MinIO client only performs bucket operations during `_update`;
+        # The S3/MinIO client only performs bucket operations during reconcile;
         # stubbed out so no object storage is contacted.
         for target in (
             "s3_helpers.S3Client.create_bucket_if_not_exists",
             "s3_helpers.S3Client.set_bucket_lifecycle_policy",
         ):
             stub = patch(target, return_value=None)
+            stub.start()
+            self.addCleanup(stub.stop)
+
+        # The minio relation reads object-storage data via the serialized-data
+        # interface, which is impractical to populate in scenario; stub the
+        # extraction so that, whenever the object-storage relation is present,
+        # the charm derives MINIO_RAW from it.
+        for target, value in (
+            ("relations.minio.MinioRelation._get_interfaces", None),
+            ("relations.minio.MinioRelation._get_object_storage_data", dict(MINIO_RAW)),
+        ):
+            stub = patch(target, return_value=value)
             stub.start()
             self.addCleanup(stub.stop)
 
@@ -279,50 +267,43 @@ class TestCharm(TestCase):
         self.assertNotIn("FEATURE_FLAG_HASH", env)
 
     def test_database_relation_changed(self):
-        """The database relation handler stores the connection and replans."""
-        db_relation = testing.Relation(
-            "db",
-            remote_app_data={
-                "username": "jean-luc@db",
-                "password": "inner-light",  # nosec
-                "endpoints": "myhost:5432,anotherhost:2345",
-                "database": "airbyte-k8s_db",
-            },
-        )
-        state = add_relations(make_state(minio=True), db_relation)
-        out = self.ctx.run(self.ctx.on.relation_changed(db_relation), state)
+        """The db relation event reconciles, deriving the connection live into the plan."""
+        db_rel = db_relation()
+        state = add_relations(make_state(minio=True), db_rel)
+        out = self.ctx.run(self.ctx.on.relation_changed(db_rel), state)
 
-        self.assertEqual(json.loads(peer_data(out)["database_connection"]), DB_CONNECTION)
         self.assertEqual(out.unit_status, MaintenanceStatus("replanning application"))
+        env = out.get_container("airbyte-server").plan.to_dict()["services"]["airbyte-server"]["environment"]
+        self.assertEqual(env["DATABASE_HOST"], "myhost")
+        self.assertEqual(env["DATABASE_PASSWORD"], "inner-light")
 
     def test_database_relation_broken(self):
-        """The database relation broken handler clears the stored connection."""
-        db_relation = testing.Relation("db")
-        state = add_relations(make_state(db=True, minio=True), db_relation)
-        out = self.ctx.run(self.ctx.on.relation_broken(db_relation), state)
+        """The db relation-broken handler reconciles; with no db data the charm blocks."""
+        db_rel = testing.Relation("db")
+        state = add_relations(make_state(minio=True), db_rel)
+        out = self.ctx.run(self.ctx.on.relation_broken(db_rel), state)
 
-        self.assertEqual(json.loads(peer_data(out)["database_connection"]), None)
+        self.assertEqual(out.unit_status, BlockedStatus("database relation not ready"))
 
     def test_object_storage_relation_changed(self):
-        """The minio relation handler stores object-storage data and replans."""
+        """The minio relation event reconciles, deriving object-storage live."""
         obj_relation = testing.Relation("object-storage")
         state = add_relations(make_state(db=True), obj_relation)
-        with patch("relations.minio.MinioRelation._get_interfaces", return_value=None), patch(
-            "relations.minio.MinioRelation._get_object_storage_data", return_value=dict(MINIO_RAW)
-        ):
-            out = self.ctx.run(self.ctx.on.relation_changed(obj_relation), state)
+        out = self.ctx.run(self.ctx.on.relation_changed(obj_relation), state)
 
-        self.assertEqual(json.loads(peer_data(out)["minio"]), MINIO_STATE)
         self.assertEqual(out.unit_status, MaintenanceStatus("replanning application"))
+        env = out.get_container("airbyte-server").plan.to_dict()["services"]["airbyte-server"]["environment"]
+        self.assertEqual(env["MINIO_ENDPOINT"], "http://service.namespace.svc.cluster.local:9000")
 
     def test_s3_credentials_changed(self):
-        """The s3 relation handler stores s3 parameters and replans."""
+        """The s3 relation event reconciles, deriving s3 parameters live."""
         s3_relation = testing.Relation("s3-parameters", remote_app_data=s3_provider_databag())
         state = add_relations(make_state(config={"storage-type": "S3"}, db=True), s3_relation)
         out = self.ctx.run(self.ctx.on.relation_changed(s3_relation), state)
 
-        self.assertEqual(json.loads(peer_data(out)["s3"]), S3_STATE)
         self.assertEqual(out.unit_status, MaintenanceStatus("replanning application"))
+        env = out.get_container("airbyte-server").plan.to_dict()["services"]["airbyte-server"]["environment"]
+        self.assertEqual(env["AWS_DEFAULT_REGION"], "region")
 
     def test_ingress_advertises_port(self):
         """The charm advertises its UI port to a related ingress provider."""
@@ -404,16 +385,36 @@ def make_containers(check_status=None):
     return containers
 
 
+def db_relation():
+    """Build a db relation carrying the postgresql provider data.
+
+    Returns:
+        A testing.Relation for the db endpoint with remote app data.
+    """
+    return testing.Relation(
+        "db",
+        remote_app_data={
+            "username": "jean-luc@db",
+            "password": "inner-light",  # nosec
+            "endpoints": "myhost:5432,anotherhost:2345",
+            "database": "airbyte-k8s_db",
+        },
+    )
+
+
 def make_state(*, config=None, leader=True, peer=True, db=False, minio=False, s3=False, containers=None):
     """Build a scenario State for the charm.
+
+    The charm derives its state live from relations, so readiness is reproduced
+    by adding the relevant relations (with data) rather than a peer databag.
 
     Args:
         config: optional charm config overrides.
         leader: whether the unit is the leader.
         peer: whether the airbyte-peer relation is present.
-        db: whether to mark the database connection as ready in the peer databag.
-        minio: whether to mark the minio data as ready in the peer databag.
-        s3: whether to mark the s3 data as ready in the peer databag.
+        db: whether to add a ready db relation.
+        minio: whether to add an object-storage (minio) relation.
+        s3: whether to add a ready s3-parameters relation.
         containers: optional explicit set of containers to use.
 
     Returns:
@@ -421,14 +422,13 @@ def make_state(*, config=None, leader=True, peer=True, db=False, minio=False, s3
     """
     relations = []
     if peer:
-        local_app_data = {}
-        if db:
-            local_app_data["database_connection"] = json.dumps(DB_CONNECTION)
-        if minio:
-            local_app_data["minio"] = json.dumps(MINIO_STATE)
-        if s3:
-            local_app_data["s3"] = json.dumps(S3_STATE)
-        relations.append(testing.PeerRelation("airbyte-peer", local_app_data=local_app_data))
+        relations.append(testing.PeerRelation("airbyte-peer"))
+    if db:
+        relations.append(db_relation())
+    if minio:
+        relations.append(testing.Relation("object-storage"))
+    if s3:
+        relations.append(testing.Relation("s3-parameters", remote_app_data=s3_provider_databag()))
 
     return testing.State(
         leader=leader,
@@ -450,19 +450,6 @@ def add_relations(state, *relations):
         A new testing.State including the given relations.
     """
     return dataclasses.replace(state, relations=set(state.relations) | set(relations))
-
-
-def peer_data(state):
-    """Return the local app databag of the airbyte-peer relation.
-
-    Args:
-        state: the testing.State to read from.
-
-    Returns:
-        The peer relation's local app data mapping.
-    """
-    peer = next(relation for relation in state.relations if relation.endpoint == "airbyte-peer")
-    return peer.local_app_data
 
 
 def s3_provider_databag():
