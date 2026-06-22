@@ -83,5 +83,3 @@ BASE_ENV = {
     "DATAPLANE_CLIENT_SECRET_SECRET_NAME": "airbyte-auth-secrets",
     "DATAPLANE_CLIENT_SECRET_SECRET_KEY": "dataplane-client-secret",
 }
-
-FLAGS_FILE_PATH = "/flags"

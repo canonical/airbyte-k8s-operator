@@ -241,7 +241,11 @@ config:
 
     ##### Connections config #####
     max-fields-per-connections:
-      description: Maximum number of fields able to be selected for a single connection.
+      description: |
+        Maximum number of fields able to be selected for a single connection.
+        Kept configurable because some sources (e.g. the Salesforce and HRC
+        backup connections) expose very large field counts that exceed the
+        platform default.
       default: 20000
       type: int
 
@@ -438,26 +442,6 @@ config:
       description: Number of minutes until an unsuccessful job pod is removed.
       default: 1440
       type: int
-
-    heartbeat-max-seconds-between-messages:
-      description: |
-        Maximum seconds allowed between heartbeat messages.
-      type: int
-
-    heartbeat-fail-sync:
-      description: |
-        If set to true, the platform will fail the sync when a heartbeat timeout is detected.
-      type: boolean
-
-    destination-timeout-max-seconds:
-      description: |
-        Maximum seconds the platform waits before deciding that a destination has timed out.
-      type: int
-
-    destination-timeout-fail-sync:
-      description: |
-        If set to true and the platform detects a destination timeout, it will fail the sync.
-      type: boolean
 
 # The containers and resources metadata apply to Kubernetes charms only.
 # See https://juju.is/docs/sdk/metadata-reference for a checklist and guidance.

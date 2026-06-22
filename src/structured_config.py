@@ -118,10 +118,6 @@ class CharmConfig(BaseConfigModel):
     pod_running_ttl_minutes: int
     pod_successful_ttl_minutes: int
     pod_unsuccessful_ttl_minutes: int
-    heartbeat_max_seconds_between_messages: int | None = None
-    heartbeat_fail_sync: bool | None = None
-    destination_timeout_max_seconds: int | None = None
-    destination_timeout_fail_sync: bool | None = None
 
     @field_validator("*", mode="before")
     @classmethod
