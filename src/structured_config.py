@@ -64,15 +64,14 @@ class CharmConfig(BaseConfigModel):
     webapp_url: str | None = None
     secret_persistence: SecretPersistenceType | None = None
     secret_store_gcp_project_id: str | None = None
-    secret_store_gcp_credentials: str | None = None
     vault_address: str | None = None
     vault_prefix: str | None = None
-    vault_auth_token: str | None = None
     vault_auth_method: VaultAuthType
-    aws_access_key: str | None = None
-    aws_secret_access_key: str | None = None
     aws_kms_key_arn: str | None = None
     aws_secret_manager_secret_tags: str | None = None
+    aws_credentials_secret_id: str | None = None
+    gcp_credentials_secret_id: str | None = None
+    vault_token_secret_id: str | None = None
     sync_job_retries_complete_failures_max_successive: int | None = None
     sync_job_retries_complete_failures_max_total: int | None = None
     sync_job_retries_complete_failures_backoff_min_interval_s: int | None = None

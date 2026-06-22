@@ -16,7 +16,9 @@ from literals import (
 from structured_config import StorageType
 
 
-def create_env(model_name, app_name, container_name, config, *, db_connection, minio_connection, s3_connection):
+def create_env(
+    model_name, app_name, container_name, config, *, db_connection, minio_connection, s3_connection, credentials
+):
     """Create set of environment variables for application.
 
     Args:
@@ -27,6 +29,7 @@ def create_env(model_name, app_name, container_name, config, *, db_connection, m
         db_connection: Database connection details derived from the db relation.
         minio_connection: Object-storage details derived from the minio relation, or None.
         s3_connection: S3 details derived from the s3 relation, or None.
+        credentials: Credentials resolved from Juju secrets (empty if none configured).
 
     Returns:
         environment variables dict.
@@ -50,13 +53,13 @@ def create_env(model_name, app_name, container_name, config, *, db_connection, m
         # Secrets config
         "SECRET_PERSISTENCE": secret_persistence,
         "SECRET_STORE_GCP_PROJECT_ID": config["secret-store-gcp-project-id"],
-        "SECRET_STORE_GCP_CREDENTIALS": config["secret-store-gcp-credentials"],
+        "SECRET_STORE_GCP_CREDENTIALS": credentials.get("secret-store-gcp-credentials"),
         "VAULT_ADDRESS": config["vault-address"],
         "VAULT_PREFIX": config["vault-prefix"],
-        "VAULT_AUTH_TOKEN": config["vault-auth-token"],
+        "VAULT_AUTH_TOKEN": credentials.get("vault-auth-token"),
         "VAULT_AUTH_METHOD": config["vault-auth-method"].value,
-        "AWS_ACCESS_KEY": config["aws-access-key"],
-        "AWS_SECRET_ACCESS_KEY": config["aws-secret-access-key"],
+        "AWS_ACCESS_KEY": credentials.get("aws-access-key"),
+        "AWS_SECRET_ACCESS_KEY": credentials.get("aws-secret-access-key"),
         "AWS_KMS_KEY_ARN": config["aws-kms-key-arn"],
         "AWS_SECRET_MANAGER_SECRET_TAGS": config["aws-secret-manager-secret-tags"],
         # Jobs config

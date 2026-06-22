@@ -83,3 +83,8 @@ BASE_ENV = {
     "DATAPLANE_CLIENT_SECRET_SECRET_NAME": "airbyte-auth-secrets",
     "DATAPLANE_CLIENT_SECRET_SECRET_KEY": "dataplane-client-secret",
 }
+
+# Labels for the user-provided Juju secrets that back credential config options.
+AWS_CREDENTIALS_SECRET_LABEL = "aws-credentials"  # nosec
+GCP_CREDENTIALS_SECRET_LABEL = "gcp-credentials"  # nosec
+VAULT_TOKEN_SECRET_LABEL = "vault-token"  # nosec

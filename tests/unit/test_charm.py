@@ -272,6 +272,36 @@ class TestCharm(TestCase):
             manager.run()
             self.assertIsNone(manager.charm.ingress.url)
 
+    def test_vault_token_from_secret(self):
+        """A Vault token provided via a Juju secret is resolved into the plan env."""
+        secret = testing.Secret({"vault-auth-token": "hvs.example"})  # nosec
+        state = make_state(db=True, minio=True, config={"vault-token-secret-id": secret.id})
+        state = dataclasses.replace(state, secrets={secret})
+        out = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
+
+        env = out.get_container("airbyte-server").plan.to_dict()["services"]["airbyte-server"]["environment"]
+        self.assertEqual(env["VAULT_AUTH_TOKEN"], "hvs.example")
+
+    def test_aws_credentials_from_secret(self):
+        """AWS credentials provided via a Juju secret are resolved into the plan env."""
+        secret = testing.Secret({"aws-access-key": "AKIAEXAMPLE", "aws-secret-access-key": "s3cr3t"})
+        state = make_state(db=True, minio=True, config={"aws-credentials-secret-id": secret.id})
+        state = dataclasses.replace(state, secrets={secret})
+        out = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
+
+        env = out.get_container("airbyte-server").plan.to_dict()["services"]["airbyte-server"]["environment"]
+        self.assertEqual(env["AWS_ACCESS_KEY"], "AKIAEXAMPLE")
+
+    def test_credentials_secret_missing_key_blocks(self):
+        """A credential secret missing a required key blocks the charm."""
+        secret = testing.Secret({"aws-access-key": "AKIAEXAMPLE"})  # missing aws-secret-access-key
+        state = make_state(db=True, minio=True, config={"aws-credentials-secret-id": secret.id})
+        state = dataclasses.replace(state, secrets={secret})
+        out = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
+
+        self.assertIsInstance(out.unit_status, BlockedStatus)
+        self.assertIn("missing keys", out.unit_status.message)
+
 
 def _up_check(status):
     """Build the "up" CheckInfo mirroring the charm's pebble check definition.

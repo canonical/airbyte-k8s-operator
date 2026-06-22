@@ -22,12 +22,15 @@ from literals import (
     AIRBYTE_API_PORT,
     AIRBYTE_AUTH_K8S_SECRET_NAME,
     AIRBYTE_VERSION,
+    AWS_CREDENTIALS_SECRET_LABEL,
     BUCKET_CONFIGS,
     CONNECTOR_BUILDER_SERVER_API_PORT,
     CONTAINER_HEALTH_CHECK_MAP,
+    GCP_CREDENTIALS_SECRET_LABEL,
     INTERNAL_API_PORT,
     LOGS_BUCKET_CONFIG,
     REQUIRED_S3_PARAMETERS,
+    VAULT_TOKEN_SECRET_LABEL,
     WORKLOAD_API_PORT,
     WORKLOAD_LAUNCHER_PORT,
 )
@@ -120,6 +123,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         self.framework.observe(self.on.config_changed, self._on_config_changed)
         self.framework.observe(self.on.airbyte_peer_relation_changed, self._on_peer_relation_changed)
         self.framework.observe(self.on.update_status, self._on_update_status)
+        self.framework.observe(self.on.secret_changed, self._on_secret_changed)
 
         # Handle postgresql relation.
         self.db = DatabaseRequires(self, relation_name="db", database_name="airbyte-k8s_db", extra_user_roles="admin")
@@ -176,6 +180,15 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
 
         Args:
             event: The event triggered when the relation changed.
+        """
+        self.reconcile(event)
+
+    @log_event_handler(logger)
+    def _on_secret_changed(self, event):
+        """Handle secret-changed events by reconciling.
+
+        Args:
+            event: The secret-changed event.
         """
         self.reconcile(event)
 
@@ -266,7 +279,8 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         """Validate that configuration and relations are valid and ready.
 
         Returns:
-            Tuple of (db_connection, minio_connection, s3_connection) derived live from the model.
+            Tuple of (db_connection, minio_connection, s3_connection, credentials)
+            derived live from the model.
 
         Raises:
             ValueError: in case of invalid configuration.
@@ -296,7 +310,68 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             if len(missing_params) > 0:
                 raise ValueError(f"s3:missing parameters {missing_params!r}")
 
-        return db_connection, minio_connection, s3_connection
+        credentials = self._resolve_credentials()
+
+        return db_connection, minio_connection, s3_connection, credentials
+
+    def _resolve_credentials(self):
+        """Resolve secret-backed credentials from Juju secrets.
+
+        Returns:
+            A dict of resolved credential values; empty when no credential
+            secret is configured.
+        """
+        credentials = {}
+
+        aws_secret_id = self.config["aws-credentials-secret-id"]
+        if aws_secret_id:
+            content = self._get_secret_content(
+                aws_secret_id, AWS_CREDENTIALS_SECRET_LABEL, ["aws-access-key", "aws-secret-access-key"]
+            )
+            credentials["aws-access-key"] = content["aws-access-key"]
+            credentials["aws-secret-access-key"] = content["aws-secret-access-key"]
+
+        gcp_secret_id = self.config["gcp-credentials-secret-id"]
+        if gcp_secret_id:
+            content = self._get_secret_content(
+                gcp_secret_id, GCP_CREDENTIALS_SECRET_LABEL, ["secret-store-gcp-credentials"]
+            )
+            credentials["secret-store-gcp-credentials"] = content["secret-store-gcp-credentials"]
+
+        vault_secret_id = self.config["vault-token-secret-id"]
+        if vault_secret_id:
+            content = self._get_secret_content(vault_secret_id, VAULT_TOKEN_SECRET_LABEL, ["vault-auth-token"])
+            credentials["vault-auth-token"] = content["vault-auth-token"]
+
+        return credentials
+
+    def _get_secret_content(self, secret_id, label, required_keys):
+        """Fetch and validate the content of a Juju secret.
+
+        Args:
+            secret_id: the Juju secret ID provided via config.
+            label: the label to associate with the secret.
+            required_keys: keys the secret content must contain.
+
+        Returns:
+            The secret content mapping.
+
+        Raises:
+            ValueError: if the secret is missing, inaccessible, or is missing
+                any of the required keys.
+        """
+        try:
+            content = self.model.get_secret(id=secret_id, label=label).get_content(refresh=True)
+        except ops.SecretNotFoundError as err:
+            raise ValueError(f"secret {secret_id!r} not found") from err
+        except ops.ModelError as err:
+            raise ValueError(f"secret {secret_id!r} not accessible") from err
+
+        missing_keys = [key for key in required_keys if not content.get(key)]
+        if missing_keys:
+            raise ValueError(f"secret {secret_id!r} missing keys: {missing_keys!r}")
+
+        return content
 
     def reconcile(self, event):  # noqa: C901
         """Reconcile the charm to its desired state.
@@ -309,7 +384,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             event: The event that triggered reconciliation.
         """
         try:
-            db_connection, minio_connection, s3_connection = self._validate()
+            db_connection, minio_connection, s3_connection, credentials = self._validate()
         except ValueError as err:
             self.unit.status = BlockedStatus(str(err))
             return
@@ -356,6 +431,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
                 db_connection=db_connection,
                 minio_connection=minio_connection,
                 s3_connection=s3_connection,
+                credentials=credentials,
             )
             env = {k: v for k, v in env.items() if v is not None}
 
