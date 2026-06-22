@@ -2,6 +2,7 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
+import json
 import logging
 
 import pytest
@@ -11,8 +12,7 @@ from pytest_operator.plugin import OpsTest
 
 logger = logging.getLogger(__name__)
 
-INGRESS_INTEGRATOR_NAME = "nginx-ingress-integrator"
-INGRESS_HOSTNAME = "airbyte.test"
+TRAEFIK_NAME = "traefik-k8s"
 
 
 @pytest.mark.abort_on_fail
@@ -33,17 +33,17 @@ class TestDeployment:
         await run_test_sync_job(ops_test)
 
     async def test_ingress(self, ops_test: OpsTest):
-        """Airbyte exposes itself over the standard ingress interface.
+        """Airbyte exposes itself over the standard ingress interface via Traefik.
 
-        Deploys an ingress provider, integrates over the `ingress` relation, and
-        verifies the provider creates a route from the relation data the charm publishes.
+        FE uses Traefik for customer deployments, so this verifies
+        the charm's ingress relation works with it: integrate over `ingress`, then
+        confirm Traefik publishes a proxied URL for the Airbyte app.
         """
-        await ops_test.model.deploy(INGRESS_INTEGRATOR_NAME, channel="latest/stable", trust=True)
-        await ops_test.model.applications[INGRESS_INTEGRATOR_NAME].set_config({"service-hostname": INGRESS_HOSTNAME})
-        await ops_test.model.integrate(f"{APP_NAME_AIRBYTE_SERVER}:ingress", f"{INGRESS_INTEGRATOR_NAME}:ingress")
-        await ops_test.model.wait_for_idle(
-            apps=[INGRESS_INTEGRATOR_NAME], status="active", raise_on_blocked=False, timeout=600
-        )
+        await ops_test.model.deploy(TRAEFIK_NAME, channel="latest/stable", trust=True)
+        await ops_test.model.integrate(f"{APP_NAME_AIRBYTE_SERVER}:ingress", f"{TRAEFIK_NAME}:ingress")
+        await ops_test.model.wait_for_idle(apps=[TRAEFIK_NAME], status="active", raise_on_blocked=False, timeout=600)
 
-        unit = ops_test.model.applications[INGRESS_INTEGRATOR_NAME].units[0]
-        assert "Ingress IP" in unit.workload_status_message
+        action = await ops_test.model.applications[TRAEFIK_NAME].units[0].run_action("show-proxied-endpoints")
+        result = await action.wait()
+        proxied_endpoints = json.loads(result.results["proxied-endpoints"])
+        assert APP_NAME_AIRBYTE_SERVER in proxied_endpoints
