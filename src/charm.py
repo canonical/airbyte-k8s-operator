@@ -163,7 +163,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         Args:
             event: The event triggered when the ingress URL becomes available.
         """
-        self._update(event)
+        self.reconcile(event)
 
     @log_event_handler(logger)
     def _on_ingress_revoked(self, event):
@@ -172,7 +172,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         Args:
             event: The event triggered when the ingress relation is removed.
         """
-        self._update(event)
+        self.reconcile(event)
 
     @log_event_handler(logger)
     def _on_peer_relation_changed(self, event):
