@@ -41,7 +41,9 @@ class TestDeployment:
         """
         await ops_test.model.deploy(TRAEFIK_NAME, channel="latest/stable", trust=True)
         await ops_test.model.integrate(f"{APP_NAME_AIRBYTE_SERVER}:ingress", f"{TRAEFIK_NAME}:ingress")
-        await ops_test.model.wait_for_idle(apps=[TRAEFIK_NAME], status="active", raise_on_blocked=False, timeout=600)
+        await ops_test.model.wait_for_idle(
+            apps=[APP_NAME_AIRBYTE_SERVER, TRAEFIK_NAME], status="active", raise_on_blocked=False, timeout=600
+        )
 
         action = await ops_test.model.applications[TRAEFIK_NAME].units[0].run_action("show-proxied-endpoints")
         result = await action.wait()

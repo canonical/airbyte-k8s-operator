@@ -49,7 +49,7 @@ For self-signed certificates you can do the following:
    here, but any compatible ingress provider (e.g. Traefik) works the same way:
 
    ```bash
-   juju relate airbyte-k8s nginx-ingress-integrator
+   juju integrate airbyte-k8s nginx-ingress-integrator
    ```
 
 **Note:** If you have a production-grade certificate, skip to step 3.
