@@ -44,10 +44,12 @@ For self-signed certificates you can do the following:
    juju config airbyte-k8s external-hostname=<YOUR_HOSTNAME>
    ```
 
-5. Finally, relate Airbyte with the Nginx Ingress Integrator to create your ingress resource:
+5. Finally, integrate Airbyte with the ingress provider over the standard `ingress`
+   interface to create your ingress resource. The Nginx Ingress Integrator is used
+   here, but any compatible ingress provider (e.g. Traefik) works the same way:
 
    ```bash
-   juju relate airbyte-k8s nginx-ingress-integrator
+   juju integrate airbyte-k8s nginx-ingress-integrator
    ```
 
 **Note:** If you have a production-grade certificate, skip to step 3.

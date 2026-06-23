@@ -13,6 +13,7 @@ from botocore.exceptions import ClientError
 from charms.data_platform_libs.v0.data_models import TypedCharmBase
 from charms.data_platform_libs.v0.database_requires import DatabaseRequires
 from charms.data_platform_libs.v0.s3 import S3Requirer
+from charms.traefik_k8s.v2.ingress import IngressPerAppRequirer
 from kubernetes.client.exceptions import ApiException
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingStatus
 from ops.pebble import CheckStatus
@@ -140,6 +141,12 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         # Handle UI relation
         self.airbyte_ui = AirbyteServerProvider(self)
 
+        # Airbyte server serves from the root of its backend, so strip_prefix=True
+        # makes the ingress provider strip the per-app path prefix before forwarding.
+        self.ingress = IngressPerAppRequirer(self, port=INTERNAL_API_PORT, strip_prefix=True)
+        self.framework.observe(self.ingress.on.ready, self._on_ingress_ready)
+        self.framework.observe(self.ingress.on.revoked, self._on_ingress_revoked)
+
         for container_name in CONTAINER_HEALTH_CHECK_MAP:
             self.framework.observe(self.on[container_name].pebble_ready, self._on_pebble_ready)
 
@@ -149,6 +156,24 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
 
         Args:
             event: The event triggered.
+        """
+        self._update(event)
+
+    @log_event_handler(logger)
+    def _on_ingress_ready(self, event):
+        """Handle the ingress-ready event.
+
+        Args:
+            event: The event triggered when the ingress URL becomes available.
+        """
+        self._update(event)
+
+    @log_event_handler(logger)
+    def _on_ingress_revoked(self, event):
+        """Handle the ingress-revoked event.
+
+        Args:
+            event: The event triggered when the ingress relation is removed.
         """
         self._update(event)
 
@@ -370,6 +395,9 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             WORKLOAD_API_PORT,
             WORKLOAD_LAUNCHER_PORT,
         )
+
+        if not self.ingress.url:
+            logger.info("Ingress relation not configured; Airbyte is not exposed via ingress")
 
         flags_yaml_content = self._generate_flags_yaml_content()
 

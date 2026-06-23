@@ -18,7 +18,7 @@ It is intended for **data engineers and platform teams** who want to automate an
 - Automated deployment and scaling on Kubernetes
 - Seamless integration with PostgreSQL, Temporal, and object storage via Juju relations
 - Simple Airbyte UI access for connector configuration and monitoring
-- Ingress and authentication integration via Nginx and OAuth2 Proxy charms
+- Ingress via the standard `ingress` interface (compatible with any ingress provider, such as Nginx Ingress Integrator or Traefik) and authentication via the OAuth2 Proxy charm
 - Observability through Juju relation-based configuration
 
 ## In this documentation
