@@ -75,23 +75,23 @@ parts:
       - libpq-dev
       - python3-dev
     override-build: |
-      # jOOQ codegen in `assemble` uses Testcontainers, whose docker-java client 
-      # speaks API 1.32. The docker snap ships Docker >=28 (min API 1.40) and rejects it. 
+      # jOOQ codegen in `assemble` uses Testcontainers, whose docker-java client
+      # speaks API 1.32. The docker snap ships Docker >=28 (min API 1.40) and rejects it.
       # Lower the daemon's min API version so the old client is accepted.
       mkdir -p /etc/systemd/system/snap.docker.dockerd.service.d
       printf '[Service]\nEnvironment=DOCKER_MIN_API_VERSION=1.24\n' \
         > /etc/systemd/system/snap.docker.dockerd.service.d/min-api-version.conf
+
+      # Route the daemon's Docker Hub pulls through Canonical's internal pull-through
+      # cache so Testcontainers' pulls (postgres:15-alpine, ryuk) don't hit Docker Hub's
+      # anonymous rate limit on the shared runners' egress IPs.
+      mkdir -p /var/snap/docker/current/config
+      echo '{"registry-mirrors": ["https://github-runner-dockerhub-cache.canonical.com:5000"]}' \
+        > /var/snap/docker/current/config/daemon.json
+
       systemctl daemon-reload
       systemctl restart snap.docker.dockerd
       timeout 120 bash -c 'until docker version >/dev/null 2>&1; do sleep 2; done'
-
-      # jOOQ's Testcontainers pulls postgres:15-alpine, tripping 
-      # Docker Hub's anonymous pull-rate limit on shared runners; 
-      # resolve to using the AWS ECR Public mirror.
-      export TESTCONTAINERS_HUB_IMAGE_NAME_PREFIX=public.ecr.aws/docker/library/
-      # Ryuk isn't a library/ image (can't use the mirror); the build is
-      # ephemeral, so it's disabled.
-      export TESTCONTAINERS_RYUK_DISABLED=true
 
       cd ${CRAFT_STAGE}/airbyte-platform
       ./gradlew assemble -x dockerBuildImage --continue --max-workers 1
