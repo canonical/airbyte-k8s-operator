@@ -292,6 +292,16 @@ class TestCharm(TestCase):
         env = out.get_container("airbyte-server").plan.to_dict()["services"]["airbyte-server"]["environment"]
         self.assertEqual(env["AWS_ACCESS_KEY"], "AKIAEXAMPLE")
 
+    def test_gcp_credentials_from_secret(self):
+        """GCP credentials provided via a Juju secret are resolved into the plan env."""
+        secret = testing.Secret({"secret-store-gcp-credentials": '{"type": "service_account"}'})
+        state = make_state(db=True, minio=True, config={"gcp-credentials-secret-id": secret.id})
+        state = dataclasses.replace(state, secrets={secret})
+        out = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
+
+        env = out.get_container("airbyte-server").plan.to_dict()["services"]["airbyte-server"]["environment"]
+        self.assertEqual(env["SECRET_STORE_GCP_CREDENTIALS"], '{"type": "service_account"}')
+
     def test_credentials_secret_missing_key_blocks(self):
         """A credential secret missing a required key blocks the charm."""
         secret = testing.Secret({"aws-access-key": "AKIAEXAMPLE"})  # missing aws-secret-access-key
