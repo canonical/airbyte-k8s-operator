@@ -44,7 +44,7 @@ class MinioRelation(framework.Object):
         Args:
             event: The event triggered when the relation changed.
         """
-        self.charm.reconcile(event)
+        self.charm.reconcile()
 
     @log_event_handler(logger)
     def _on_object_storage_relation_broken(self, event) -> None:
@@ -53,7 +53,7 @@ class MinioRelation(framework.Object):
         Args:
             event: The event triggered when the relation changed.
         """
-        self.charm.reconcile(event)
+        self.charm.reconcile()
 
     def get_data(self):
         """Return live object-storage data from the relation, or None.

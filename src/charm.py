@@ -22,15 +22,12 @@ from literals import (
     AIRBYTE_API_PORT,
     AIRBYTE_AUTH_K8S_SECRET_NAME,
     AIRBYTE_VERSION,
-    AWS_CREDENTIALS_SECRET_LABEL,
     BUCKET_CONFIGS,
     CONNECTOR_BUILDER_SERVER_API_PORT,
     CONTAINER_HEALTH_CHECK_MAP,
-    GCP_CREDENTIALS_SECRET_LABEL,
     INTERNAL_API_PORT,
     LOGS_BUCKET_CONFIG,
     REQUIRED_S3_PARAMETERS,
-    VAULT_TOKEN_SECRET_LABEL,
     WORKLOAD_API_PORT,
     WORKLOAD_LAUNCHER_PORT,
 )
@@ -154,7 +151,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         Args:
             event: The event triggered.
         """
-        self.reconcile(event)
+        self.reconcile()
 
     @log_event_handler(logger)
     def _on_ingress_ready(self, event):
@@ -163,7 +160,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         Args:
             event: The event triggered when the ingress URL becomes available.
         """
-        self.reconcile(event)
+        self.reconcile()
 
     @log_event_handler(logger)
     def _on_ingress_revoked(self, event):
@@ -172,7 +169,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         Args:
             event: The event triggered when the ingress relation is removed.
         """
-        self.reconcile(event)
+        self.reconcile()
 
     @log_event_handler(logger)
     def _on_peer_relation_changed(self, event):
@@ -181,7 +178,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         Args:
             event: The event triggered when the relation changed.
         """
-        self.reconcile(event)
+        self.reconcile()
 
     @log_event_handler(logger)
     def _on_secret_changed(self, event):
@@ -190,7 +187,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         Args:
             event: The secret-changed event.
         """
-        self.reconcile(event)
+        self.reconcile()
 
     @log_event_handler(logger)
     def _on_update_status(self, event):
@@ -225,7 +222,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
                 return
 
         if not all_valid_plans:
-            self.reconcile(event)
+            self.reconcile()
             return
 
         self.unit.set_workload_version(f"v{AIRBYTE_VERSION}")
@@ -257,7 +254,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             event: The event triggered when the relation changed.
         """
         self.unit.status = WaitingStatus("configuring application")
-        self.reconcile(event)
+        self.reconcile()
 
     def _check_missing_params(self, params, required_params):
         """Validate that all required properties were extracted.
@@ -325,32 +322,27 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
 
         aws_secret_id = self.config["aws-credentials-secret-id"]
         if aws_secret_id:
-            content = self._get_secret_content(
-                aws_secret_id, AWS_CREDENTIALS_SECRET_LABEL, ["aws-access-key", "aws-secret-access-key"]
-            )
+            content = self._get_secret_content(aws_secret_id, ["aws-access-key", "aws-secret-access-key"])
             credentials["aws-access-key"] = content["aws-access-key"]
             credentials["aws-secret-access-key"] = content["aws-secret-access-key"]
 
         gcp_secret_id = self.config["gcp-credentials-secret-id"]
         if gcp_secret_id:
-            content = self._get_secret_content(
-                gcp_secret_id, GCP_CREDENTIALS_SECRET_LABEL, ["secret-store-gcp-credentials"]
-            )
+            content = self._get_secret_content(gcp_secret_id, ["secret-store-gcp-credentials"])
             credentials["secret-store-gcp-credentials"] = content["secret-store-gcp-credentials"]
 
         vault_secret_id = self.config["vault-token-secret-id"]
         if vault_secret_id:
-            content = self._get_secret_content(vault_secret_id, VAULT_TOKEN_SECRET_LABEL, ["vault-auth-token"])
+            content = self._get_secret_content(vault_secret_id, ["vault-auth-token"])
             credentials["vault-auth-token"] = content["vault-auth-token"]
 
         return credentials
 
-    def _get_secret_content(self, secret_id, label, required_keys):
+    def _get_secret_content(self, secret_id, required_keys):
         """Fetch and validate the content of a Juju secret.
 
         Args:
             secret_id: the Juju secret ID provided via config.
-            label: the label to associate with the secret.
             required_keys: keys the secret content must contain.
 
         Returns:
@@ -361,7 +353,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
                 any of the required keys.
         """
         try:
-            content = self.model.get_secret(id=secret_id, label=label).get_content(refresh=True)
+            content = self.model.get_secret(id=secret_id).get_content(refresh=True)
         except ops.SecretNotFoundError as err:
             raise ValueError(f"secret {secret_id!r} not found") from err
         except ops.ModelError as err:
@@ -376,15 +368,12 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
 
         return content
 
-    def reconcile(self, event):  # noqa: C901
+    def reconcile(self):  # noqa: C901
         """Reconcile the charm to its desired state.
 
         Single entry point for every observer: derives the desired state from
         the current model (config + relations) and converges the workload
         toward it. Holds no persisted state of its own.
-
-        Args:
-            event: The event that triggered reconciliation.
         """
         try:
             db_connection, minio_connection, s3_connection, credentials = self._validate()
@@ -424,8 +413,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         for container_name in CONTAINER_HEALTH_CHECK_MAP:
             container = self.unit.get_container(container_name)
             if not container.can_connect():
-                event.defer()
-                return
+                continue
 
             env = create_env(
                 self.model.name,

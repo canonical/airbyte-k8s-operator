@@ -38,7 +38,7 @@ class S3Integrator(framework.Object):
         Args:
             event: The event triggered when the relation changed.
         """
-        self.charm.reconcile(event)
+        self.charm.reconcile()
 
     @log_event_handler(logger)
     def _on_s3_credentials_gone(self, event: CredentialsGoneEvent) -> None:
@@ -47,7 +47,7 @@ class S3Integrator(framework.Object):
         Args:
             event: The event triggered when the relation was broken.
         """
-        self.charm.reconcile(event)
+        self.charm.reconcile()
 
     def get_data(self):
         """Return live S3 data from the relation, or None.
