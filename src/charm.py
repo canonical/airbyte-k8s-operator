@@ -368,6 +368,31 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
 
         return content
 
+    def _get_auth_secret_env(self):
+        """Return the dataplane env vars from the bootloader-created K8s secret.
+
+        Returns:
+            A mapping with DATAPLANE_CLIENT_ID/DATAPLANE_CLIENT_SECRET when the
+            airbyte-auth-secrets secret exists and is populated, or an empty dict
+            if it has not been created yet (the bootloader creates it on startup).
+        """
+        try:
+            secret = self._k8s_client.read_namespaced_secret(AIRBYTE_AUTH_K8S_SECRET_NAME, self.model.name)
+        except ApiException as err:
+            if err.status == 404:
+                logger.info("Secret %r not yet created in namespace %r", AIRBYTE_AUTH_K8S_SECRET_NAME, self.model.name)
+            else:
+                logger.error("Error reading secret %r: %s", AIRBYTE_AUTH_K8S_SECRET_NAME, str(err))
+            return {}
+
+        decoded = {k: base64.b64decode(v).decode("utf-8") for k, v in (secret.data or {}).items()}
+        env = {}
+        if decoded.get("dataplane-client-id"):
+            env["DATAPLANE_CLIENT_ID"] = decoded["dataplane-client-id"]
+        if decoded.get("dataplane-client-secret"):
+            env["DATAPLANE_CLIENT_SECRET"] = decoded["dataplane-client-secret"]
+        return env
+
     def reconcile(self):  # noqa: C901
         """Reconcile the charm to its desired state.
 
@@ -410,9 +435,17 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         if not self.ingress.url:
             logger.info("Ingress relation not configured; Airbyte is not exposed via ingress")
 
+        # Runtime services crash without DATAPLANE_CLIENT_ID/SECRET, so until the secret exists
+        # configure only the bootloader and leave the rest unconfigured; update-status then
+        # re-reconciles once it appears.
+        dataplane_env = self._get_auth_secret_env()
+
         for container_name in CONTAINER_HEALTH_CHECK_MAP:
             container = self.unit.get_container(container_name)
             if not container.can_connect():
+                continue
+
+            if not dataplane_env and container_name != "airbyte-bootloader":
                 continue
 
             env = create_env(
@@ -426,29 +459,15 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
                 credentials=credentials,
             )
             env = {k: v for k, v in env.items() if v is not None}
-
-            # Read values from k8s secret created by airbyte-bootloader and add
-            # them to the pebble plan.
-            try:
-                secret = self._k8s_client.read_namespaced_secret(AIRBYTE_AUTH_K8S_SECRET_NAME, self.model.name)
-                decoded_data = {k: base64.b64decode(v).decode("utf-8") for k, v in secret.data.items()}
-
-                if decoded_data.get("dataplane-client-id"):
-                    env.update({"DATAPLANE_CLIENT_ID": decoded_data["dataplane-client-id"]})
-                if decoded_data.get("dataplane-client-secret"):
-                    env.update({"DATAPLANE_CLIENT_SECRET": decoded_data["dataplane-client-secret"]})
-
-            except ApiException as e:
-                if e.status == 404:
-                    logging.info(
-                        "Secret '%s' not found in namespace '%s'.", AIRBYTE_AUTH_K8S_SECRET_NAME, self.model.name
-                    )
-                else:
-                    logging.error("Error: %s", str(e))
+            env.update(dataplane_env)
 
             pebble_layer = get_pebble_layer(container_name, env)
             container.add_layer(container_name, pebble_layer, combine=True)
             container.replan()
+
+        if not dataplane_env:
+            self.unit.status = WaitingStatus("waiting for airbyte-auth-secrets")
+            return
 
         self.unit.status = MaintenanceStatus("replanning application")
 

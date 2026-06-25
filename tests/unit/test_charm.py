@@ -15,8 +15,9 @@ import logging
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
+from kubernetes.client.exceptions import ApiException
 from ops import testing
-from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus
+from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingStatus
 from ops.pebble import CheckLevel, CheckStartup, CheckStatus, Layer
 
 from charm import AirbyteK8SOperatorCharm
@@ -311,6 +312,30 @@ class TestCharm(TestCase):
 
         self.assertIsInstance(out.unit_status, BlockedStatus)
         self.assertIn("missing keys", out.unit_status.message)
+
+    def test_dataplane_env_from_auth_secret(self):
+        """DATAPLANE_CLIENT_ID/SECRET from the bootloader's K8s secret reach the plan env."""
+        state = make_state(db=True, minio=True)
+        out = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
+
+        env = out.get_container("airbyte-server").plan.to_dict()["services"]["airbyte-server"]["environment"]
+        self.assertEqual(env["DATAPLANE_CLIENT_ID"], "sample-client-id")
+        self.assertEqual(env["DATAPLANE_CLIENT_SECRET"], "sample-client-secret")
+
+    def test_auth_secret_missing_leaves_runtime_unconfigured(self):
+        """Runtime containers wait (unconfigured) until the auth secret exists.
+
+        Guards the startup race: a runtime container must not get a plan missing
+        DATAPLANE_CLIENT_ID; it should wait so update-status reconfigures it once
+        the bootloader creates the secret.
+        """
+        self.mock_core_v1_instance.read_namespaced_secret.side_effect = ApiException(status=404)
+        state = make_state(db=True, minio=True)
+        out = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
+
+        self.assertIsInstance(out.unit_status, WaitingStatus)
+        plan = out.get_container("airbyte-server").plan.to_dict()
+        self.assertNotIn("airbyte-server", plan.get("services", {}))
 
 
 def _up_check(status):
