@@ -365,7 +365,10 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         except ops.SecretNotFoundError as err:
             raise ValueError(f"secret {secret_id!r} not found") from err
         except ops.ModelError as err:
-            raise ValueError(f"secret {secret_id!r} not accessible") from err
+            raise ValueError(
+                f"secret {secret_id!r} not found or not granted to this app; "
+                f"check the secret ID and run `juju grant-secret`"
+            ) from err
 
         missing_keys = [key for key in required_keys if not content.get(key)]
         if missing_keys:
@@ -421,7 +424,8 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         for container_name in CONTAINER_HEALTH_CHECK_MAP:
             container = self.unit.get_container(container_name)
             if not container.can_connect():
-                continue
+                event.defer()
+                return
 
             env = create_env(
                 self.model.name,
