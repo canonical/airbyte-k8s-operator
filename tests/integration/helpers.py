@@ -156,6 +156,40 @@ def get_airbyte_workspace_id(api_url):
     return response.json().get("data")[0]["workspaceId"]
 
 
+def post_with_retry(url, payload, *, attempts=6, timeout=120, delay=30):
+    """POST to the Airbyte API, retrying to absorb workload-plane warm-up.
+
+    Args:
+        url: Target API URL.
+        payload: JSON request body.
+        attempts: Maximum number of attempts.
+        timeout: Per-request timeout in seconds.
+        delay: Seconds to sleep between attempts.
+
+    Returns:
+        The first response with HTTP 200.
+
+    Raises:
+        AssertionError: If no attempt returns HTTP 200.
+    """
+    last_response = None
+    for attempt in range(1, attempts + 1):
+        try:
+            response = requests.post(url, json=payload, headers=POST_HEADERS, timeout=timeout)
+        except requests.exceptions.RequestException as exc:
+            logger.info("POST %s failed: %s (attempt %d/%d)", url, exc, attempt, attempts)
+        else:
+            if response.status_code == 200:
+                return response
+            last_response = response
+            logger.info("POST %s -> %d (attempt %d/%d)", url, response.status_code, attempt, attempts)
+        time.sleep(delay)
+    raise AssertionError(
+        f"POST {url} did not return 200 after {attempts} attempts; "
+        f"last status: {getattr(last_response, 'status_code', 'no response')}"
+    )
+
+
 def create_airbyte_source(api_url, workspace_id):
     """Create Airbyte sample source.
 
@@ -174,10 +208,9 @@ def create_airbyte_source(api_url, workspace_id):
     }
 
     logger.info("creating Airbyte source")
-    response = requests.post(url, json=payload, headers=POST_HEADERS, timeout=300)
+    response = post_with_retry(url, payload)
     logger.info(response.json())
 
-    assert response.status_code == 200
     return response.json().get("sourceId")
 
 
@@ -211,10 +244,9 @@ def create_airbyte_destination(api_url, model_name, workspace_id, db_password):
     }
 
     logger.info("creating Airbyte destination")
-    response = requests.post(url, json=payload, headers=POST_HEADERS, timeout=300)
+    response = post_with_retry(url, payload)
     logger.info(response.json())
 
-    assert response.status_code == 200
     return response.json().get("destinationId")
 
 
@@ -240,10 +272,9 @@ def create_airbyte_connection(api_url, source_id, destination_id):
     }
 
     logger.info("creating Airbyte connection")
-    response = requests.post(url, json=payload, headers=POST_HEADERS, timeout=300)
+    response = post_with_retry(url, payload)
     logger.info(response.json())
 
-    assert response.status_code == 200
     return response.json().get("connectionId")
 
 

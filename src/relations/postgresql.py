@@ -7,8 +7,8 @@ import logging
 
 from charms.data_platform_libs.v0.database_requires import DatabaseEvent
 from ops import framework
-from ops.model import WaitingStatus
 
+from connections import DatabaseConnection
 from literals import DB_NAME
 from log import log_event_handler
 
@@ -38,25 +38,7 @@ class PostgresqlRelation(framework.Object):
         Args:
             event: The event triggered when the relation changed.
         """
-        if not self.charm.unit.is_leader():
-            return
-
-        if not self.charm._state.is_ready():
-            event.defer()
-            return
-
-        self.charm.unit.status = WaitingStatus(f"handling {event.relation.name} change")
-        host, port = event.endpoints.split(",", 1)[0].split(":")
-
-        self.charm._state.database_connection = {
-            "dbname": DB_NAME,
-            "host": host,
-            "port": port,
-            "password": event.password,
-            "user": event.username,
-        }
-
-        self.charm._update(event)
+        self.charm.reconcile()
 
     @log_event_handler(logger)
     def _on_database_relation_broken(self, event: DatabaseEvent) -> None:
@@ -65,12 +47,27 @@ class PostgresqlRelation(framework.Object):
         Args:
             event: The event triggered when the relation changed.
         """
-        if not self.charm.unit.is_leader():
-            return
+        self.charm.reconcile()
 
-        if not self.charm._state.is_ready():
-            event.defer()
-            return
+    def get_data(self) -> DatabaseConnection | None:
+        """Return the live database connection details, or None.
 
-        self.charm._state.database_connection = None
-        self.charm._update(event)
+        Returns:
+            A DatabaseConnection derived from the db relation, or None if the
+            relation is absent or not yet ready.
+        """
+        relation = self.model.get_relation("db")
+        if relation is None:
+            return None
+        data = self.charm.db.fetch_relation_data().get(relation.id, {})
+        endpoints = data.get("endpoints")
+        if not endpoints:
+            return None
+        host, port = endpoints.split(",", 1)[0].split(":")
+        return DatabaseConnection(
+            dbname=DB_NAME,
+            host=host,
+            port=port,
+            user=data.get("username"),
+            password=data.get("password"),
+        )

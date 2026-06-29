@@ -15,6 +15,7 @@ from serialized_data_interface import (
 )
 
 from charm_helpers import construct_svc_endpoint
+from connections import ObjectStorageConnection
 from log import log_event_handler
 
 logger = logging.getLogger(__name__)
@@ -44,32 +45,7 @@ class MinioRelation(framework.Object):
         Args:
             event: The event triggered when the relation changed.
         """
-        if not self.charm.unit.is_leader():
-            return
-
-        if not self.charm._state.is_ready():
-            event.defer()
-            return
-
-        try:
-            interfaces = self._get_interfaces()
-            storage_data = self._get_object_storage_data(interfaces)
-            endpoint = construct_svc_endpoint(
-                storage_data["service"],
-                storage_data["namespace"],
-                storage_data["port"],
-                storage_data["secure"],
-            )
-
-            self.charm._state.minio = {
-                **storage_data,
-                "endpoint": endpoint,
-            }
-            self.charm._update(event)
-        except ErrorWithStatus as err:
-            self.charm.unit.status = err.status
-            logger.error(f"Event {event} stopped early with message: {str(err)}")
-            return
+        self.charm.reconcile()
 
     @log_event_handler(logger)
     def _on_object_storage_relation_broken(self, event) -> None:
@@ -78,15 +54,39 @@ class MinioRelation(framework.Object):
         Args:
             event: The event triggered when the relation changed.
         """
-        if not self.charm.unit.is_leader():
-            return
+        self.charm.reconcile()
 
-        if not self.charm._state.is_ready():
-            event.defer()
-            return
+    def get_data(self) -> ObjectStorageConnection | None:
+        """Return live object-storage data from the relation, or None.
 
-        self.charm._state.minio = None
-        self.charm._update(event)
+        Returns:
+            An ObjectStorageConnection (with endpoint), or None if the relation
+            is absent or its data is not yet available.
+        """
+        if not self.model.get_relation("object-storage"):
+            return None
+        try:
+            interfaces = self._get_interfaces()
+            storage_data = self._get_object_storage_data(interfaces)
+        except ErrorWithStatus as err:
+            logger.info("object-storage relation not ready: %s", str(err))
+            return None
+
+        endpoint = construct_svc_endpoint(
+            storage_data["service"],
+            storage_data["namespace"],
+            storage_data["port"],
+            storage_data["secure"],
+        )
+        return ObjectStorageConnection(
+            service=storage_data["service"],
+            namespace=storage_data["namespace"],
+            port=storage_data["port"],
+            secure=storage_data["secure"],
+            access_key=storage_data["access-key"],
+            secret_key=storage_data["secret-key"],
+            endpoint=endpoint,
+        )
 
     def _get_interfaces(self):
         """Retrieve interface object.

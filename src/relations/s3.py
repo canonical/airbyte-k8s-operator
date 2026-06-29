@@ -12,6 +12,7 @@ from charms.data_platform_libs.v0.s3 import (
 )
 from ops import framework
 
+from connections import S3Connection
 from log import log_event_handler
 
 logger = logging.getLogger(__name__)
@@ -38,23 +39,7 @@ class S3Integrator(framework.Object):
         Args:
             event: The event triggered when the relation changed.
         """
-        if not self.charm.unit.is_leader():
-            return
-
-        s3_parameters, missing_parameters = self._retrieve_s3_parameters()
-        if missing_parameters:
-            return
-
-        endpoint = _construct_endpoint(s3_parameters)
-        self.charm._state.s3 = {
-            "bucket": s3_parameters.get("bucket"),
-            "endpoint": endpoint,
-            "region": s3_parameters.get("region"),
-            "access-key": s3_parameters.get("access-key"),
-            "secret-key": s3_parameters.get("secret-key"),
-            "uri_style": s3_parameters.get("s3-uri-style"),
-        }
-        self.charm._update(event)
+        self.charm.reconcile()
 
     @log_event_handler(logger)
     def _on_s3_credentials_gone(self, event: CredentialsGoneEvent) -> None:
@@ -63,11 +48,28 @@ class S3Integrator(framework.Object):
         Args:
             event: The event triggered when the relation was broken.
         """
-        if not self.charm.unit.is_leader():
-            return
+        self.charm.reconcile()
 
-        self.charm._state.s3 = None
-        self.charm._update(event)
+    def get_data(self) -> S3Connection | None:
+        """Return live S3 data from the relation, or None.
+
+        Returns:
+            An S3Connection, or None if the relation is absent or its required
+            parameters are not yet available.
+        """
+        if not self.model.get_relation("s3-parameters"):
+            return None
+        s3_parameters, missing_parameters = self._retrieve_s3_parameters()
+        if missing_parameters:
+            return None
+        return S3Connection(
+            bucket=s3_parameters.get("bucket"),
+            endpoint=_construct_endpoint(s3_parameters),
+            region=s3_parameters.get("region"),
+            access_key=s3_parameters.get("access-key"),
+            secret_key=s3_parameters.get("secret-key"),
+            uri_style=s3_parameters.get("s3-uri-style"),
+        )
 
     def _retrieve_s3_parameters(self):
         """Retrieve S3 parameters from the S3 integrator relation.

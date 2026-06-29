@@ -4,7 +4,6 @@
 
 """Charm the application."""
 import base64
-import hashlib
 import logging
 
 import kubernetes.client
@@ -19,6 +18,7 @@ from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingSta
 from ops.pebble import CheckStatus
 
 from charm_helpers import create_env
+from connections import ReconcileData
 from literals import (
     AIRBYTE_API_PORT,
     AIRBYTE_AUTH_K8S_SECRET_NAME,
@@ -26,10 +26,8 @@ from literals import (
     BUCKET_CONFIGS,
     CONNECTOR_BUILDER_SERVER_API_PORT,
     CONTAINER_HEALTH_CHECK_MAP,
-    FLAGS_FILE_PATH,
     INTERNAL_API_PORT,
     LOGS_BUCKET_CONFIG,
-    REQUIRED_S3_PARAMETERS,
     WORKLOAD_API_PORT,
     WORKLOAD_LAUNCHER_PORT,
 )
@@ -39,9 +37,7 @@ from relations.minio import MinioRelation
 from relations.postgresql import PostgresqlRelation
 from relations.s3 import S3Integrator
 from s3_helpers import S3Client
-from state import State
 from structured_config import CharmConfig, StorageType
-from utils import render_template, use_feature_flags
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +102,6 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
     """Airbyte Server charm.
 
     Attrs:
-        _state: used to store data that is persisted across invocations.
         config_type: the charm structured config
     """
 
@@ -122,11 +117,10 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         kubernetes.config.load_incluster_config()
         self._k8s_client = kubernetes.client.CoreV1Api()
 
-        self._state = State(self.app, lambda: self.model.get_relation("airbyte-peer"))
-
         self.framework.observe(self.on.config_changed, self._on_config_changed)
         self.framework.observe(self.on.airbyte_peer_relation_changed, self._on_peer_relation_changed)
         self.framework.observe(self.on.update_status, self._on_update_status)
+        self.framework.observe(self.on.secret_changed, self._on_secret_changed)
 
         # Handle postgresql relation.
         self.db = DatabaseRequires(self, relation_name="db", database_name="airbyte-k8s_db", extra_user_roles="admin")
@@ -157,7 +151,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         Args:
             event: The event triggered.
         """
-        self._update(event)
+        self.reconcile()
 
     @log_event_handler(logger)
     def _on_ingress_ready(self, event):
@@ -166,7 +160,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         Args:
             event: The event triggered when the ingress URL becomes available.
         """
-        self._update(event)
+        self.reconcile()
 
     @log_event_handler(logger)
     def _on_ingress_revoked(self, event):
@@ -175,7 +169,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         Args:
             event: The event triggered when the ingress relation is removed.
         """
-        self._update(event)
+        self.reconcile()
 
     @log_event_handler(logger)
     def _on_peer_relation_changed(self, event):
@@ -184,7 +178,16 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         Args:
             event: The event triggered when the relation changed.
         """
-        self._update(event)
+        self.reconcile()
+
+    @log_event_handler(logger)
+    def _on_secret_changed(self, event):
+        """Handle secret-changed events by reconciling.
+
+        Args:
+            event: The secret-changed event.
+        """
+        self.reconcile()
 
     @log_event_handler(logger)
     def _on_update_status(self, event):
@@ -219,7 +222,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
                 return
 
         if not all_valid_plans:
-            self._update(event)
+            self.reconcile()
             return
 
         self.unit.set_workload_version(f"v{AIRBYTE_VERSION}")
@@ -251,128 +254,163 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             event: The event triggered when the relation changed.
         """
         self.unit.status = WaitingStatus("configuring application")
-        self._update(event)
+        self.reconcile()
 
-    def _check_missing_params(self, params, required_params):
-        """Validate that all required properties were extracted.
-
-        Args:
-            params: dictionary of parameters extracted from relation.
-            required_params: list of required parameters.
-
-        Returns:
-            list: List of required parameters that are not set in state.
-        """
-        missing_params = []
-        for key in required_params:
-            if params.get(key) is None:
-                missing_params.append(key)
-        return missing_params
-
-    def _generate_flags_yaml_content(self):
-        """Generate flags.yaml content from opinionated config using Jinja2 template.
-
-        Returns:
-            str or None: The flags.yaml content as a string, or None if no flags are configured.
-        """
-        # Check if any flags are configured
-        if not use_feature_flags(self.config):
-            return None
-
-        # Prepare template context
-        context = {
-            "heartbeat_max_seconds_between_messages": self.config["heartbeat-max-seconds-between-messages"],
-            "heartbeat_fail_sync": self.config["heartbeat-fail-sync"],
-            "destination_timeout_max_seconds": self.config["destination-timeout-max-seconds"],
-            "destination_timeout_fail_sync": self.config["destination-timeout-fail-sync"],
-        }
-
-        # Render template
-        return render_template("flags.jinja", context)
-
-    def _push_flags_to_container(self, container, container_name, flags_yaml_content, env):
-        """Push generated flags content to container if available.
-
-        Args:
-            container: The container to push flags to.
-            container_name: Name of the container.
-            flags_yaml_content: The flags YAML content to push, or None.
-            env: Environment dictionary to update with flags hash.
-        """
-        if not flags_yaml_content:
-            return
-
-        try:
-            # Airbyte ConfigFileClient reads a file at FEATURE_FLAG_PATH.
-            # We set FEATURE_FLAG_PATH=/flags
-            # so write the YAML directly to the file path '/flags' (no extension).
-            container.push(FLAGS_FILE_PATH, flags_yaml_content)
-            logger.info("Pushed flags to %s at %s", container_name, FLAGS_FILE_PATH)
-        except Exception as e:
-            logger.error("Failed to push flags file to %s: %s", container_name, e)
-            self.unit.status = BlockedStatus(f"failed to push flags file: {str(e)}")
-            return
-
-    def _add_flags_hash_to_env(self, flags_yaml_content, container_name, env):
-        """Add a hash of flags content to env to force replan+restart when flags change.
-
-        Args:
-            flags_yaml_content: The flags YAML content to hash, or None.
-            container_name: Name of the container.
-            env: Environment dictionary to update with flags hash.
-        """
-        if not flags_yaml_content:
-            return
-
-        try:
-            flags_hash = hashlib.sha256(flags_yaml_content.encode("utf-8")).hexdigest()
-            env.update({"FEATURE_FLAG_HASH": flags_hash})
-        except Exception as e:
-            logger.warning("Failed to compute flags hash for %s: %s", container_name, e)
-
-    def _validate(self):
+    def _validate(self) -> ReconcileData:
         """Validate that configuration and relations are valid and ready.
+
+        Returns:
+            A ReconcileData with the live-derived connection details.
 
         Raises:
             ValueError: in case of invalid configuration.
         """
         # Validate peer relation
-        if not self._state.is_ready():
+        if not self.model.get_relation("airbyte-peer"):
             raise ValueError("peer relation not ready")
 
         # Validate db relation
-        if self._state.database_connection is None:
+        db_connection = self.postgresql.get_data()
+        if db_connection is None:
             raise ValueError("database relation not ready")
 
+        minio_connection = self.minio.get_data()
+        s3_connection = self.s3_relation.get_data()
+
         # Validate minio relation
-        if self.config["storage-type"] == StorageType.minio and self._state.minio is None:
+        if self.config["storage-type"] == StorageType.minio and minio_connection is None:
             raise ValueError("minio relation not ready")
 
         # Validate S3 relation
-        if self.config["storage-type"] == StorageType.s3 and self._state.s3 is None:
+        if self.config["storage-type"] == StorageType.s3 and s3_connection is None:
             raise ValueError("s3 relation not ready")
 
-        # Validate S3 relation.
-        if self._state.s3:
-            missing_params = self._check_missing_params(self._state.s3, REQUIRED_S3_PARAMETERS)
-            if len(missing_params) > 0:
+        if s3_connection:
+            missing_params = [
+                name
+                for name, value in (
+                    ("region", s3_connection.region),
+                    ("endpoint", s3_connection.endpoint),
+                    ("access-key", s3_connection.access_key),
+                    ("secret-key", s3_connection.secret_key),
+                )
+                if value is None
+            ]
+            if missing_params:
                 raise ValueError(f"s3:missing parameters {missing_params!r}")
 
-    def _update(self, event):  # noqa: C901
-        """Update configuration and replan its execution.
+        credentials = self._resolve_credentials()
+
+        return ReconcileData(
+            db=db_connection,
+            minio=minio_connection,
+            s3=s3_connection,
+            credentials=credentials,
+        )
+
+    def _resolve_credentials(self):
+        """Resolve secret-backed credentials from Juju secrets.
+
+        Returns:
+            A dict of resolved credential values; empty when no credential
+            secret is configured.
+        """
+        credentials = {}
+
+        aws_secret_id = self.config["aws-credentials-secret-id"]
+        if aws_secret_id:
+            content = self._get_secret_content(aws_secret_id, ["aws-access-key", "aws-secret-access-key"])
+            credentials["aws-access-key"] = content["aws-access-key"]
+            credentials["aws-secret-access-key"] = content["aws-secret-access-key"]
+
+        gcp_secret_id = self.config["gcp-credentials-secret-id"]
+        if gcp_secret_id:
+            content = self._get_secret_content(gcp_secret_id, ["secret-store-gcp-credentials"])
+            credentials["secret-store-gcp-credentials"] = content["secret-store-gcp-credentials"]
+
+        vault_secret_id = self.config["vault-token-secret-id"]
+        if vault_secret_id:
+            content = self._get_secret_content(vault_secret_id, ["vault-auth-token"])
+            credentials["vault-auth-token"] = content["vault-auth-token"]
+
+        return credentials
+
+    def _get_secret_content(self, secret_id, required_keys):
+        """Fetch and validate the content of a Juju secret.
 
         Args:
-            event: The event triggered when the relation changed.
+            secret_id: the Juju secret ID provided via config.
+            required_keys: keys the secret content must contain.
+
+        Returns:
+            The secret content mapping.
+
+        Raises:
+            ValueError: if the secret is missing, inaccessible, or is missing
+                any of the required keys.
         """
         try:
-            self._validate()
+            content = self.model.get_secret(id=secret_id).get_content(refresh=True)
+        except ops.SecretNotFoundError as err:
+            raise ValueError(f"secret {secret_id!r} not found") from err
+        except ops.ModelError as err:
+            raise ValueError(
+                f"secret {secret_id!r} not found or not granted to this app; "
+                f"check the secret ID and run `juju grant-secret`"
+            ) from err
+
+        missing_keys = [key for key in required_keys if not content.get(key)]
+        if missing_keys:
+            raise ValueError(f"secret {secret_id!r} missing keys: {missing_keys!r}")
+
+        return content
+
+    def _get_auth_secret_env(self):
+        """Return the dataplane env vars from the bootloader-created K8s secret.
+
+        Returns:
+            A mapping with DATAPLANE_CLIENT_ID/DATAPLANE_CLIENT_SECRET when the
+            airbyte-auth-secrets secret exists and is populated, or an empty dict
+            if it has not been created yet (the bootloader creates it on startup).
+        """
+        try:
+            secret = self._k8s_client.read_namespaced_secret(AIRBYTE_AUTH_K8S_SECRET_NAME, self.model.name)
+        except ApiException as err:
+            if err.status == 404:
+                logger.info("Secret %r not yet created in namespace %r", AIRBYTE_AUTH_K8S_SECRET_NAME, self.model.name)
+            else:
+                logger.error("Error reading secret %r: %s", AIRBYTE_AUTH_K8S_SECRET_NAME, str(err))
+            return {}
+
+        decoded = {k: base64.b64decode(v).decode("utf-8") for k, v in (secret.data or {}).items()}
+        env = {}
+        if decoded.get("dataplane-client-id"):
+            env["DATAPLANE_CLIENT_ID"] = decoded["dataplane-client-id"]
+        if decoded.get("dataplane-client-secret"):
+            env["DATAPLANE_CLIENT_SECRET"] = decoded["dataplane-client-secret"]
+        return env
+
+    def reconcile(self):  # noqa: C901
+        """Reconcile the charm to its desired state.
+
+        Single entry point for every observer: derives the desired state from
+        the current model (config + relations) and converges the workload
+        toward it. Holds no persisted state of its own.
+        """
+        try:
+            data = self._validate()
         except ValueError as err:
             self.unit.status = BlockedStatus(str(err))
             return
 
-        s3_parameters = self._state.s3
+        db_connection = data.db
+        minio_connection = data.minio
+        s3_connection = data.s3
+        credentials = data.credentials
+
+        s3_parameters = s3_connection
         if self.config["storage-type"] == StorageType.minio:
-            s3_parameters = self._state.minio
+            s3_parameters = minio_connection
 
         try:
             s3_client = S3Client(s3_parameters)
@@ -399,42 +437,39 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         if not self.ingress.url:
             logger.info("Ingress relation not configured; Airbyte is not exposed via ingress")
 
-        flags_yaml_content = self._generate_flags_yaml_content()
+        # Runtime services crash without DATAPLANE_CLIENT_ID/SECRET, so until the secret exists
+        # configure only the bootloader and leave the rest unconfigured; update-status then
+        # re-reconciles once it appears.
+        dataplane_env = self._get_auth_secret_env()
 
         for container_name in CONTAINER_HEALTH_CHECK_MAP:
             container = self.unit.get_container(container_name)
             if not container.can_connect():
-                event.defer()
-                return
+                continue
 
-            env = create_env(self.model.name, self.app.name, container_name, self.config, self._state)
+            if not dataplane_env and container_name != "airbyte-bootloader":
+                continue
+
+            env = create_env(
+                self.model.name,
+                self.app.name,
+                container_name,
+                self.config,
+                db_connection=db_connection,
+                minio_connection=minio_connection,
+                s3_connection=s3_connection,
+                credentials=credentials,
+            )
             env = {k: v for k, v in env.items() if v is not None}
-
-            self._push_flags_to_container(container, container_name, flags_yaml_content, env)
-            self._add_flags_hash_to_env(flags_yaml_content, container_name, env)
-
-            # Read values from k8s secret created by airbyte-bootloader and add
-            # them to the pebble plan.
-            try:
-                secret = self._k8s_client.read_namespaced_secret(AIRBYTE_AUTH_K8S_SECRET_NAME, self.model.name)
-                decoded_data = {k: base64.b64decode(v).decode("utf-8") for k, v in secret.data.items()}
-
-                if decoded_data.get("dataplane-client-id"):
-                    env.update({"DATAPLANE_CLIENT_ID": decoded_data["dataplane-client-id"]})
-                if decoded_data.get("dataplane-client-secret"):
-                    env.update({"DATAPLANE_CLIENT_SECRET": decoded_data["dataplane-client-secret"]})
-
-            except ApiException as e:
-                if e.status == 404:
-                    logging.info(
-                        "Secret '%s' not found in namespace '%s'.", AIRBYTE_AUTH_K8S_SECRET_NAME, self.model.name
-                    )
-                else:
-                    logging.error("Error: %s", str(e))
+            env.update(dataplane_env)
 
             pebble_layer = get_pebble_layer(container_name, env)
             container.add_layer(container_name, pebble_layer, combine=True)
             container.replan()
+
+        if not dataplane_env:
+            self.unit.status = WaitingStatus("waiting for airbyte-auth-secrets")
+            return
 
         self.unit.status = MaintenanceStatus("replanning application")
 

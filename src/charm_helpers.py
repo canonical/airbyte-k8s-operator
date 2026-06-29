@@ -6,6 +6,7 @@
 import os
 from urllib.parse import urlparse
 
+from connections import DatabaseConnection, ObjectStorageConnection, S3Connection
 from literals import (
     AIRBYTE_API_PORT,
     BASE_ENV,
@@ -14,10 +15,19 @@ from literals import (
     WORKLOAD_API_PORT,
 )
 from structured_config import StorageType
-from utils import use_feature_flags
 
 
-def create_env(model_name, app_name, container_name, config, state):
+def create_env(
+    model_name,
+    app_name,
+    container_name,
+    config,
+    *,
+    db_connection: DatabaseConnection,
+    minio_connection: ObjectStorageConnection | None,
+    s3_connection: S3Connection | None,
+    credentials: dict,
+):
     """Create set of environment variables for application.
 
     Args:
@@ -25,22 +35,21 @@ def create_env(model_name, app_name, container_name, config, state):
         app_name: Name of the application.
         container_name: Name of Airbyte container.
         config: Charm config.
-        state: Charm state.
+        db_connection: Database connection details derived from the db relation.
+        minio_connection: Object-storage details derived from the minio relation, or None.
+        s3_connection: S3 details derived from the s3 relation, or None.
+        credentials: Credentials resolved from Juju secrets (empty if none configured).
 
     Returns:
         environment variables dict.
     """
-    db_conn = state.database_connection
-
-    host = db_conn["host"]
-    port = db_conn["port"]
-    db_name = db_conn["dbname"]
+    host = db_connection.host
+    port = db_connection.port
+    db_name = db_connection.dbname
     db_url = f"jdbc:postgresql://{host}:{port}/{db_name}"
     secret_persistence = config["secret-persistence"]
     if secret_persistence:
         secret_persistence = config["secret-persistence"].value
-
-    feature_flags_enabled = use_feature_flags(config)
 
     # Some defaults are extracted from Helm chart:
     # https://github.com/airbytehq/airbyte-platform/tree/v1.5.0/charts/airbyte
@@ -50,20 +59,16 @@ def create_env(model_name, app_name, container_name, config, state):
         "LOG_LEVEL": config["log-level"].value,
         "TEMPORAL_HOST": config["temporal-host"],
         "WEBAPP_URL": config["webapp-url"],
-        # Flags config - point to the mounted flags.yaml file if any flag is set
-        # Airbyte 1.7 uses configfile by default
-        "FEATURE_FLAG_PATH": "/flags" if feature_flags_enabled else None,
-        "FEATURE_FLAG_CLIENT": "configfile" if feature_flags_enabled else None,
         # Secrets config
         "SECRET_PERSISTENCE": secret_persistence,
         "SECRET_STORE_GCP_PROJECT_ID": config["secret-store-gcp-project-id"],
-        "SECRET_STORE_GCP_CREDENTIALS": config["secret-store-gcp-credentials"],
+        "SECRET_STORE_GCP_CREDENTIALS": credentials.get("secret-store-gcp-credentials"),
         "VAULT_ADDRESS": config["vault-address"],
         "VAULT_PREFIX": config["vault-prefix"],
-        "VAULT_AUTH_TOKEN": config["vault-auth-token"],
+        "VAULT_AUTH_TOKEN": credentials.get("vault-auth-token"),
         "VAULT_AUTH_METHOD": config["vault-auth-method"].value,
-        "AWS_ACCESS_KEY": config["aws-access-key"],
-        "AWS_SECRET_ACCESS_KEY": config["aws-secret-access-key"],
+        "AWS_ACCESS_KEY": credentials.get("aws-access-key"),
+        "AWS_SECRET_ACCESS_KEY": credentials.get("aws-secret-access-key"),
         "AWS_KMS_KEY_ARN": config["aws-kms-key-arn"],
         "AWS_SECRET_MANAGER_SECRET_TAGS": config["aws-secret-manager-secret-tags"],
         # Jobs config
@@ -129,8 +134,8 @@ def create_env(model_name, app_name, container_name, config, state):
         "STORAGE_BUCKET_ACTIVITY_PAYLOAD": config["storage-bucket-activity-payload"],
         # Database config
         "DATABASE_URL": db_url,
-        "DATABASE_USER": db_conn["user"],
-        "DATABASE_PASSWORD": db_conn["password"],
+        "DATABASE_USER": db_connection.user,
+        "DATABASE_PASSWORD": db_connection.password,
         "DATABASE_DB": db_name,
         "DATABASE_HOST": host,
         "DATABASE_PORT": port,
@@ -159,33 +164,28 @@ def create_env(model_name, app_name, container_name, config, state):
             }
         )
 
-    if config["storage-type"].value == StorageType.minio and state.minio:
-        minio_endpoint = construct_svc_endpoint(
-            state.minio["service"],
-            state.minio["namespace"],
-            state.minio["port"],
-            state.minio["secure"],
-        )
+    if config["storage-type"].value == StorageType.minio and minio_connection:
+        minio_endpoint = minio_connection.endpoint
         env.update(
             {
                 "MINIO_ENDPOINT": minio_endpoint,
-                "AWS_ACCESS_KEY_ID": state.minio["access-key"],
-                "AWS_SECRET_ACCESS_KEY": state.minio["secret-key"],
+                "AWS_ACCESS_KEY_ID": minio_connection.access_key,
+                "AWS_SECRET_ACCESS_KEY": minio_connection.secret_key,
                 "STATE_STORAGE_MINIO_ENDPOINT": minio_endpoint,
-                "STATE_STORAGE_MINIO_ACCESS_KEY": state.minio["access-key"],
-                "STATE_STORAGE_MINIO_SECRET_ACCESS_KEY": state.minio["secret-key"],
+                "STATE_STORAGE_MINIO_ACCESS_KEY": minio_connection.access_key,
+                "STATE_STORAGE_MINIO_SECRET_ACCESS_KEY": minio_connection.secret_key,
                 "STATE_STORAGE_MINIO_BUCKET_NAME": config["storage-bucket-state"],
                 "S3_PATH_STYLE_ACCESS": "true",
             }
         )
 
-    if config["storage-type"].value == StorageType.s3 and state.s3:
+    if config["storage-type"].value == StorageType.s3 and s3_connection:
         env.update(
             {
-                "AWS_ACCESS_KEY_ID": state.s3["access-key"],
-                "AWS_SECRET_ACCESS_KEY": state.s3["secret-key"],
-                "S3_LOG_BUCKET_REGION": state.s3["region"],
-                "AWS_DEFAULT_REGION": state.s3["region"],
+                "AWS_ACCESS_KEY_ID": s3_connection.access_key,
+                "AWS_SECRET_ACCESS_KEY": s3_connection.secret_key,
+                "S3_LOG_BUCKET_REGION": s3_connection.region,
+                "AWS_DEFAULT_REGION": s3_connection.region,
             }
         )
 

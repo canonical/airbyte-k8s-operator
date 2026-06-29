@@ -13,6 +13,7 @@ from pytest_operator.plugin import OpsTest
 logger = logging.getLogger(__name__)
 
 TRAEFIK_NAME = "traefik-k8s"
+AWS_CREDENTIALS_SECRET_NAME = "airbyte-aws-credentials"  # nosec
 
 
 @pytest.mark.abort_on_fail
@@ -49,3 +50,27 @@ class TestDeployment:
         result = await action.wait()
         proxied_endpoints = json.loads(result.results["proxied-endpoints"])
         assert APP_NAME_AIRBYTE_SERVER in proxied_endpoints
+
+    async def test_optional_credentials_secret(self, ops_test: OpsTest):
+        """Credential secrets are optional, and a configured one resolves without blocking.
+
+        The AWS/GCP/Vault credential secrets are not required for Airbyte to be
+        active, so the charm is already active with none configured. Opting in to
+        one (created, granted, and referenced by config) must keep the charm
+        active, exercising the real Juju secret grant + resolution path.
+        """
+        app = ops_test.model.applications[APP_NAME_AIRBYTE_SERVER]
+
+        # Secrets are optional: the charm is active without any configured.
+        assert app.units[0].workload_status == "active"
+
+        # Opt in to a credential secret and grant the charm access to it.
+        secret_uri = await ops_test.model.add_secret(
+            AWS_CREDENTIALS_SECRET_NAME,
+            ["aws-access-key=AKIAEXAMPLE", "aws-secret-access-key=s3cr3t"],  # nosec
+        )
+        await ops_test.model.grant_secret(AWS_CREDENTIALS_SECRET_NAME, APP_NAME_AIRBYTE_SERVER)
+        await app.set_config({"aws-credentials-secret-id": secret_uri})
+
+        # Resolving the granted secret must keep the charm active, not block it.
+        await ops_test.model.wait_for_idle(apps=[APP_NAME_AIRBYTE_SERVER], status="active", timeout=600)

@@ -139,11 +139,12 @@ config:
       description: Defines the GCP Project to store secrets in. Alpha support.
       type: string
 
-    secret-store-gcp-credentials:
+    gcp-credentials-secret-id:
       description: |
-        Defines the JSON credentials used to read/write Airbyte Configuration to Google Secret Manager.
-        
-        These credentials must have Secret Manager Read/Write access. Alpha support.
+        Juju secret ID for the GCP credentials used to read/write Airbyte
+        configuration to Google Secret Manager. The secret must contain a
+        `secret-store-gcp-credentials` key holding the JSON credentials (with
+        Secret Manager read/write access). Alpha support.
       type: string
 
     vault-address:
@@ -154,8 +155,10 @@ config:
       description: Defines the vault path prefix. Empty by default. Alpha Support.
       type: string
 
-    vault-auth-token:
-      description: The token used for vault authentication. Alpha Support.
+    vault-token-secret-id:
+      description: |
+        Juju secret ID for the Vault authentication token. The secret must
+        contain a `vault-auth-token` key. Alpha Support.
       type: string
 
     vault-auth-method:
@@ -163,12 +166,10 @@ config:
       default: "token"
       type: string
 
-    aws-access-key:
-      description: Defines the aws_access_key_id from the AWS credentials to use for AWS Secret Manager.
-      type: string
-
-    aws-secret-access-key:
-      description: Defines aws_secret_access_key to use for the AWS Secret Manager.
+    aws-credentials-secret-id:
+      description: |
+        Juju secret ID for the AWS credentials used for AWS Secret Manager. The
+        secret must contain `aws-access-key` and `aws-secret-access-key` keys.
       type: string
 
     aws-kms-key-arn:
@@ -241,7 +242,11 @@ config:
 
     ##### Connections config #####
     max-fields-per-connections:
-      description: Maximum number of fields able to be selected for a single connection.
+      description: |
+        Maximum number of fields able to be selected for a single connection.
+        Kept configurable because some sources (e.g. the Salesforce and HRC
+        backup connections) expose very large field counts that exceed the
+        platform default.
       default: 20000
       type: int
 
@@ -438,26 +443,6 @@ config:
       description: Number of minutes until an unsuccessful job pod is removed.
       default: 1440
       type: int
-
-    heartbeat-max-seconds-between-messages:
-      description: |
-        Maximum seconds allowed between heartbeat messages.
-      type: int
-
-    heartbeat-fail-sync:
-      description: |
-        If set to true, the platform will fail the sync when a heartbeat timeout is detected.
-      type: boolean
-
-    destination-timeout-max-seconds:
-      description: |
-        Maximum seconds the platform waits before deciding that a destination has timed out.
-      type: int
-
-    destination-timeout-fail-sync:
-      description: |
-        If set to true and the platform detects a destination timeout, it will fail the sync.
-      type: boolean
 
 # The containers and resources metadata apply to Kubernetes charms only.
 # See https://juju.is/docs/sdk/metadata-reference for a checklist and guidance.
