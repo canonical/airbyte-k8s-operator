@@ -6,6 +6,7 @@
 import os
 from urllib.parse import urlparse
 
+from connections import DatabaseConnection, ObjectStorageConnection, S3Connection
 from literals import (
     AIRBYTE_API_PORT,
     BASE_ENV,
@@ -17,7 +18,15 @@ from structured_config import StorageType
 
 
 def create_env(
-    model_name, app_name, container_name, config, *, db_connection, minio_connection, s3_connection, credentials
+    model_name,
+    app_name,
+    container_name,
+    config,
+    *,
+    db_connection: DatabaseConnection,
+    minio_connection: ObjectStorageConnection | None,
+    s3_connection: S3Connection | None,
+    credentials: dict,
 ):
     """Create set of environment variables for application.
 
@@ -34,9 +43,9 @@ def create_env(
     Returns:
         environment variables dict.
     """
-    host = db_connection["host"]
-    port = db_connection["port"]
-    db_name = db_connection["dbname"]
+    host = db_connection.host
+    port = db_connection.port
+    db_name = db_connection.dbname
     db_url = f"jdbc:postgresql://{host}:{port}/{db_name}"
     secret_persistence = config["secret-persistence"]
     if secret_persistence:
@@ -125,8 +134,8 @@ def create_env(
         "STORAGE_BUCKET_ACTIVITY_PAYLOAD": config["storage-bucket-activity-payload"],
         # Database config
         "DATABASE_URL": db_url,
-        "DATABASE_USER": db_connection["user"],
-        "DATABASE_PASSWORD": db_connection["password"],
+        "DATABASE_USER": db_connection.user,
+        "DATABASE_PASSWORD": db_connection.password,
         "DATABASE_DB": db_name,
         "DATABASE_HOST": host,
         "DATABASE_PORT": port,
@@ -156,20 +165,15 @@ def create_env(
         )
 
     if config["storage-type"].value == StorageType.minio and minio_connection:
-        minio_endpoint = construct_svc_endpoint(
-            minio_connection["service"],
-            minio_connection["namespace"],
-            minio_connection["port"],
-            minio_connection["secure"],
-        )
+        minio_endpoint = minio_connection.endpoint
         env.update(
             {
                 "MINIO_ENDPOINT": minio_endpoint,
-                "AWS_ACCESS_KEY_ID": minio_connection["access-key"],
-                "AWS_SECRET_ACCESS_KEY": minio_connection["secret-key"],
+                "AWS_ACCESS_KEY_ID": minio_connection.access_key,
+                "AWS_SECRET_ACCESS_KEY": minio_connection.secret_key,
                 "STATE_STORAGE_MINIO_ENDPOINT": minio_endpoint,
-                "STATE_STORAGE_MINIO_ACCESS_KEY": minio_connection["access-key"],
-                "STATE_STORAGE_MINIO_SECRET_ACCESS_KEY": minio_connection["secret-key"],
+                "STATE_STORAGE_MINIO_ACCESS_KEY": minio_connection.access_key,
+                "STATE_STORAGE_MINIO_SECRET_ACCESS_KEY": minio_connection.secret_key,
                 "STATE_STORAGE_MINIO_BUCKET_NAME": config["storage-bucket-state"],
                 "S3_PATH_STYLE_ACCESS": "true",
             }
@@ -178,10 +182,10 @@ def create_env(
     if config["storage-type"].value == StorageType.s3 and s3_connection:
         env.update(
             {
-                "AWS_ACCESS_KEY_ID": s3_connection["access-key"],
-                "AWS_SECRET_ACCESS_KEY": s3_connection["secret-key"],
-                "S3_LOG_BUCKET_REGION": s3_connection["region"],
-                "AWS_DEFAULT_REGION": s3_connection["region"],
+                "AWS_ACCESS_KEY_ID": s3_connection.access_key,
+                "AWS_SECRET_ACCESS_KEY": s3_connection.secret_key,
+                "S3_LOG_BUCKET_REGION": s3_connection.region,
+                "AWS_DEFAULT_REGION": s3_connection.region,
             }
         )
 

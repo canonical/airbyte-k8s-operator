@@ -36,7 +36,6 @@ CONTAINER_HEALTH_CHECK_MAP = {
     "airbyte-workers": {"port": 9000, "health_endpoint": "/"},
 }
 
-REQUIRED_S3_PARAMETERS = ["region", "endpoint", "access-key", "secret-key"]
 BUCKET_CONFIGS = [
     "storage-bucket-logs",
     "storage-bucket-state",

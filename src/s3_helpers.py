@@ -8,33 +8,35 @@ import logging
 import boto3
 from botocore.exceptions import ClientError
 
+from connections import ObjectStorageConnection, S3Connection
+
 logger = logging.getLogger(__name__)
 
 
 class S3Client:
     """Client for S3 operations."""
 
-    def __init__(self, s3_parameters):
+    def __init__(self, s3_parameters: ObjectStorageConnection | S3Connection):
         """Initialize an S3 connection using the provided parameters.
 
         Args:
-            s3_parameters: S3 connection parameters.
+            s3_parameters: object-storage or S3 connection details.
 
         Raises:
             ValueError: If a session fails to be created.
         """
         self.s3_parameters = s3_parameters
-        endpoint = s3_parameters.get("endpoint")
+        region = getattr(s3_parameters, "region", None)  # Region can be optional for MinIO
         session = boto3.session.Session(
-            aws_access_key_id=s3_parameters.get("access-key"),
-            aws_secret_access_key=s3_parameters.get("secret-key"),
-            region_name=s3_parameters.get("region"),  # Region can be optional for MinIO
+            aws_access_key_id=s3_parameters.access_key,
+            aws_secret_access_key=s3_parameters.secret_key,
+            region_name=region,
         )
         try:
-            self.s3_resource = session.resource("s3", endpoint_url=endpoint)
-            self.s3_client = session.client("s3", endpoint_url=endpoint)
+            self.s3_resource = session.resource("s3", endpoint_url=s3_parameters.endpoint)
+            self.s3_client = session.client("s3", endpoint_url=s3_parameters.endpoint)
         except Exception as e:
-            logger.exception("Failed to create a session in region=%s.", s3_parameters.get("region"))
+            logger.exception("Failed to create a session in region=%s.", region)
             raise ValueError("Failed to create a session") from e
 
     def create_bucket_if_not_exists(self, bucket_name):
@@ -47,7 +49,7 @@ class S3Client:
             e (ValueError): if a session could not be created.
             error (ClientError): if the bucket could not be created.
         """
-        region = self.s3_parameters.get("region")
+        region = getattr(self.s3_parameters, "region", None)
         s3_bucket = self.s3_resource.Bucket(bucket_name)
         try:
             s3_bucket.meta.client.head_bucket(Bucket=bucket_name)

@@ -18,6 +18,7 @@ from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingSta
 from ops.pebble import CheckStatus
 
 from charm_helpers import create_env
+from connections import ReconcileData
 from literals import (
     AIRBYTE_API_PORT,
     AIRBYTE_AUTH_K8S_SECRET_NAME,
@@ -27,7 +28,6 @@ from literals import (
     CONTAINER_HEALTH_CHECK_MAP,
     INTERNAL_API_PORT,
     LOGS_BUCKET_CONFIG,
-    REQUIRED_S3_PARAMETERS,
     WORKLOAD_API_PORT,
     WORKLOAD_LAUNCHER_PORT,
 )
@@ -256,28 +256,11 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         self.unit.status = WaitingStatus("configuring application")
         self.reconcile()
 
-    def _check_missing_params(self, params, required_params):
-        """Validate that all required properties were extracted.
-
-        Args:
-            params: dictionary of parameters extracted from relation.
-            required_params: list of required parameters.
-
-        Returns:
-            list: List of required parameters that are not set in state.
-        """
-        missing_params = []
-        for key in required_params:
-            if params.get(key) is None:
-                missing_params.append(key)
-        return missing_params
-
-    def _validate(self):
+    def _validate(self) -> ReconcileData:
         """Validate that configuration and relations are valid and ready.
 
         Returns:
-            Tuple of (db_connection, minio_connection, s3_connection, credentials)
-            derived live from the model.
+            A ReconcileData with the live-derived connection details.
 
         Raises:
             ValueError: in case of invalid configuration.
@@ -303,13 +286,27 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             raise ValueError("s3 relation not ready")
 
         if s3_connection:
-            missing_params = self._check_missing_params(s3_connection, REQUIRED_S3_PARAMETERS)
-            if len(missing_params) > 0:
+            missing_params = [
+                name
+                for name, value in (
+                    ("region", s3_connection.region),
+                    ("endpoint", s3_connection.endpoint),
+                    ("access-key", s3_connection.access_key),
+                    ("secret-key", s3_connection.secret_key),
+                )
+                if value is None
+            ]
+            if missing_params:
                 raise ValueError(f"s3:missing parameters {missing_params!r}")
 
         credentials = self._resolve_credentials()
 
-        return db_connection, minio_connection, s3_connection, credentials
+        return ReconcileData(
+            db=db_connection,
+            minio=minio_connection,
+            s3=s3_connection,
+            credentials=credentials,
+        )
 
     def _resolve_credentials(self):
         """Resolve secret-backed credentials from Juju secrets.
@@ -401,10 +398,15 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         toward it. Holds no persisted state of its own.
         """
         try:
-            db_connection, minio_connection, s3_connection, credentials = self._validate()
+            data = self._validate()
         except ValueError as err:
             self.unit.status = BlockedStatus(str(err))
             return
+
+        db_connection = data.db
+        minio_connection = data.minio
+        s3_connection = data.s3
+        credentials = data.credentials
 
         s3_parameters = s3_connection
         if self.config["storage-type"] == StorageType.minio:

@@ -15,6 +15,7 @@ from serialized_data_interface import (
 )
 
 from charm_helpers import construct_svc_endpoint
+from connections import ObjectStorageConnection
 from log import log_event_handler
 
 logger = logging.getLogger(__name__)
@@ -55,12 +56,12 @@ class MinioRelation(framework.Object):
         """
         self.charm.reconcile()
 
-    def get_data(self):
+    def get_data(self) -> ObjectStorageConnection | None:
         """Return live object-storage data from the relation, or None.
 
         Returns:
-            object-storage connection data dict (with endpoint), or None if the
-            relation is absent or its data is not yet available.
+            An ObjectStorageConnection (with endpoint), or None if the relation
+            is absent or its data is not yet available.
         """
         if not self.model.get_relation("object-storage"):
             return None
@@ -77,7 +78,15 @@ class MinioRelation(framework.Object):
             storage_data["port"],
             storage_data["secure"],
         )
-        return {**storage_data, "endpoint": endpoint}
+        return ObjectStorageConnection(
+            service=storage_data["service"],
+            namespace=storage_data["namespace"],
+            port=storage_data["port"],
+            secure=storage_data["secure"],
+            access_key=storage_data["access-key"],
+            secret_key=storage_data["secret-key"],
+            endpoint=endpoint,
+        )
 
     def _get_interfaces(self):
         """Retrieve interface object.

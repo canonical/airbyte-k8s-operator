@@ -8,6 +8,7 @@ import logging
 from charms.data_platform_libs.v0.database_requires import DatabaseEvent
 from ops import framework
 
+from connections import DatabaseConnection
 from literals import DB_NAME
 from log import log_event_handler
 
@@ -48,12 +49,12 @@ class PostgresqlRelation(framework.Object):
         """
         self.charm.reconcile()
 
-    def get_data(self):
+    def get_data(self) -> DatabaseConnection | None:
         """Return the live database connection details, or None.
 
         Returns:
-            A dict with database connection details derived from the db
-            relation, or None if the relation is absent or not yet ready.
+            A DatabaseConnection derived from the db relation, or None if the
+            relation is absent or not yet ready.
         """
         relation = self.model.get_relation("db")
         if relation is None:
@@ -63,10 +64,10 @@ class PostgresqlRelation(framework.Object):
         if not endpoints:
             return None
         host, port = endpoints.split(",", 1)[0].split(":")
-        return {
-            "dbname": DB_NAME,
-            "host": host,
-            "port": port,
-            "password": data.get("password"),
-            "user": data.get("username"),
-        }
+        return DatabaseConnection(
+            dbname=DB_NAME,
+            host=host,
+            port=port,
+            user=data.get("username"),
+            password=data.get("password"),
+        )
