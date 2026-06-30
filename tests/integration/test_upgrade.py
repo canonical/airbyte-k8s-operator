@@ -13,7 +13,7 @@ import pytest
 
 logger = logging.getLogger(__name__)
 
-BASELINE_CHANNEL = "latest/stable"
+BASELINE_CHANNEL = "latest/edge"
 
 
 @pytest.fixture(scope="module")
