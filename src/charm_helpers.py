@@ -27,6 +27,7 @@ def create_env(
     minio_connection: ObjectStorageConnection | None,
     s3_connection: S3Connection | None,
     credentials: dict,
+    otel_collector_endpoint: str | None = None,
 ):
     """Create set of environment variables for application.
 
@@ -39,6 +40,7 @@ def create_env(
         minio_connection: Object-storage details derived from the minio relation, or None.
         s3_connection: S3 details derived from the s3 relation, or None.
         credentials: Credentials resolved from Juju secrets (empty if none configured).
+        otel_collector_endpoint: OTLP endpoint discovered from the tracing relation, or None.
 
     Returns:
         environment variables dict.
@@ -154,6 +156,18 @@ def create_env(
         "WORKLOAD_API_BEARER_TOKEN": ".Values.workload-api.bearerToken",  # nosec
         "CONTROL_PLANE_TOKEN_ENDPOINT": f"http://{app_name}:{INTERNAL_API_PORT}/api/v1/dataplanes/token",
     }
+
+    # Metrics: when an OTLP collector endpoint is available (discovered via the
+    # tracing relation), enable Micrometer OTLP export so the workload pushes
+    # metrics to the collector (which forwards them to COS). Disabled otherwise.
+    if otel_collector_endpoint:
+        env.update(
+            {
+                "MICROMETER_METRICS_ENABLED": "true",
+                "MICROMETER_METRICS_OTLP_ENABLED": "true",
+                "OTEL_COLLECTOR_ENDPOINT": otel_collector_endpoint,
+            }
+        )
 
     # https://github.com/airbytehq/airbyte/issues/29506#issuecomment-1775148609
     if container_name in ["airbyte-workload-launcher", "airbyte-workers", "airbyte-cron"]:

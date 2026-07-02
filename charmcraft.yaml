@@ -95,11 +95,24 @@ requires:
     limit: 1
     optional: true
 
+  logging:
+    interface: loki_push_api
+    optional: true
+
+  tracing:
+    interface: tracing
+    limit: 1
+    optional: true
+
 provides:
   airbyte-server:
     interface: airbyte-server
     optional: true
     limit: 1
+
+  grafana-dashboard:
+    interface: grafana_dashboard
+    optional: true
 
 # (Optional) Configuration options for the charm
 # This config section defines charm config options, and populates the Configure
