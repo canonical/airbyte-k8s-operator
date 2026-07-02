@@ -4,83 +4,138 @@
 """Charm integration test config."""
 
 import logging
+import os
+import subprocess  # nosec B404
+import sys
 from pathlib import Path
+from typing import Dict
 
+import jubilant
 import pytest
-import pytest_asyncio
-from helpers import (
-    APP_NAME_AIRBYTE_SERVER,
-    APP_NAME_TEMPORAL_ADMIN,
-    APP_NAME_TEMPORAL_SERVER,
-    create_default_namespace,
-    perform_airbyte_integrations,
-    perform_temporal_integrations,
-    run_sample_workflow,
-)
 from pytest import FixtureRequest
-from pytest_operator.plugin import OpsTest
 
 logger = logging.getLogger(__name__)
 
-
-@pytest.fixture(scope="module", name="charm_image")
-def charm_image_fixture(request: FixtureRequest) -> str:
-    """The OCI image for charm."""
-    charm_image = request.config.getoption("--airbyte-image")
-    assert charm_image, "--airbyte-image argument is required which should contain the name of the OCI image."
-    return charm_image
+LXD_CONTROLLER = "localhost-localhost"
+K8S_CLOUD = "canonical-k8s"
 
 
-@pytest_asyncio.fixture(scope="module", name="charm")
-async def charm_fixture(request: FixtureRequest, ops_test: OpsTest) -> str | Path:
-    """Fetch the path to charm."""
-    charms = request.config.getoption("--charm-file")
-    if not charms:
-        charm = await ops_test.build_charm(".")
-        assert charm, "Charm not built"
-        return charm
-    return charms[0]
+@pytest.fixture(scope="session", autouse=True)
+def setup_canonical_k8s(request: FixtureRequest):
+    """Register Canonical Kubernetes as a Juju cloud before any tests run.
+
+    Args:
+        request: pytest request, used to read the --kube-config option.
+
+    Raises:
+        RuntimeError: If the canonical-k8s cloud cannot be registered.
+    """
+    logger.info("Bootstrapping the Juju controller and Canonical Kubernetes cloud.")
+
+    # Host the controller on LXD; canonical-k8s is added to it as a K8s cloud below.
+    subprocess.run(["/snap/bin/juju", "bootstrap", "localhost", LXD_CONTROLLER], check=False)  # nosec B603
+
+    # The kubeconfig path is supplied by operator-workflows via --kube-config;
+    # default to the conventional location.
+    kubeconfig = os.path.expanduser(request.config.getoption("--kube-config") or "~/.kube/config")
+
+    # Register the canonical-k8s cluster as a cloud on the LXD controller.
+    # `juju add-k8s` reads the cluster + credential from $KUBECONFIG.
+    result = subprocess.run(
+        ["/snap/bin/juju", "add-k8s", K8S_CLOUD, "--client", "--controller", LXD_CONTROLLER],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={**os.environ, "KUBECONFIG": kubeconfig},
+    )  # nosec B603
+    if result.returncode != 0:
+        if "already exists" in result.stderr or "already exists" in result.stdout:
+            logger.info("Canonical Kubernetes cloud already configured")
+        else:
+            raise RuntimeError(f"Failed to add canonical-k8s cloud.\nStdout: {result.stdout}\nStderr: {result.stderr}")
 
 
-@pytest_asyncio.fixture(name="deploy", scope="module")
-async def deploy(ops_test: OpsTest, charm: str, charm_image: str):
-    """Test the app is up and running."""
-    await ops_test.model.set_config({"update-status-hook-interval": "1m"})
-    # resources = get_airbyte_charm_resources()
-    resources = {"airbyte-image": charm_image}
+def _collect_juju_logs_if_failed(request: FixtureRequest, juju: jubilant.Juju) -> None:
+    """Print Juju logs at teardown time when tests fail.
 
-    await ops_test.model.deploy(charm, resources=resources, application_name=APP_NAME_AIRBYTE_SERVER, trust=True)
-    await ops_test.model.deploy(
-        APP_NAME_TEMPORAL_SERVER,
-        channel="1.23/stable",
-        base="ubuntu@24.04",
-        config={"num-history-shards": 4},
-    )
-    await ops_test.model.deploy(
-        APP_NAME_TEMPORAL_ADMIN,
-        channel="1.23/stable",
-        base="ubuntu@24.04",
-    )
+    Args:
+        request: pytest request, used to detect test failures.
+        juju: Jubilant object for the model to collect logs from.
+    """
+    if not request.session.testsfailed:
+        return
+    logger.info("Collecting Juju logs from model '%s'", juju.model)
+    log = juju.debug_log(limit=1000)
+    print(log, end="", file=sys.stderr)
 
-    await ops_test.model.deploy("postgresql-k8s", channel="14/stable", trust=True, revision=381)
-    await ops_test.model.deploy("minio", channel="edge")
 
-    async with ops_test.fast_forward():
-        await ops_test.model.wait_for_idle(
-            apps=["postgresql-k8s", "minio"],
-            status="active",
-            raise_on_blocked=False,
-            timeout=1200,
-        )
-        await ops_test.model.wait_for_idle(
-            apps=[APP_NAME_TEMPORAL_SERVER, APP_NAME_TEMPORAL_ADMIN],
-            status="blocked",
-            raise_on_blocked=False,
-            timeout=600,
-        )
+@pytest.fixture(scope="session")
+def charm(request: FixtureRequest) -> Path:
+    """Return the path to the charm package to deploy.
 
-        await perform_temporal_integrations(ops_test)
-        await create_default_namespace(ops_test)
-        await run_sample_workflow(ops_test)
+    Args:
+        request: pytest request, used to read the --charm-file option.
 
-        await perform_airbyte_integrations(ops_test)
+    Returns:
+        Path to the charm package.
+
+    Raises:
+        FileNotFoundError: If no charm package can be located.
+        ValueError: If more than one charm package is present.
+    """
+    charm_file = request.config.getoption("--charm-file")
+    if charm_file:
+        charm_path = Path(charm_file[0]).expanduser().resolve()
+        if not charm_path.exists():
+            raise FileNotFoundError(f"Charm does not exist: {charm_path}")
+        return charm_path
+
+    charm_path_env = os.environ.get("CHARM_PATH")
+    if charm_path_env:
+        charm_path = Path(charm_path_env).expanduser().resolve()
+        if not charm_path.exists():
+            raise FileNotFoundError(f"Charm does not exist: {charm_path}")
+        return charm_path
+
+    charm_paths = list(Path(".").glob("*.charm"))
+    if not charm_paths:
+        raise FileNotFoundError("No .charm file in current directory")
+    if len(charm_paths) > 1:
+        path_list = ", ".join(str(path) for path in charm_paths)
+        raise ValueError(f"More than one .charm file in current directory: {path_list}")
+    return charm_paths[0].resolve()
+
+
+@pytest.fixture(scope="session")
+def rock_resources(request: FixtureRequest) -> Dict[str, str]:
+    """Provide the rock resource image deployed locally by operator-workflows.
+
+    Args:
+        request: pytest request, used to read the --airbyte-image option.
+
+    Returns:
+        Mapping of the charm's resource name to its local registry image.
+
+    Raises:
+        ValueError: If the required resource image option is missing.
+    """
+    image = request.config.getoption("--airbyte-image")
+    if image in {"", "None", "none", None}:
+        raise ValueError("Missing required resource image option: --airbyte-image")
+    return {"airbyte-image": str(image)}
+
+
+@pytest.fixture(scope="module")
+def k8s_juju(request: FixtureRequest) -> jubilant.Juju:
+    """Create a temporary Canonical Kubernetes model for the full deployment tests.
+
+    Args:
+        request: pytest request, used to collect logs on failure.
+
+    Yields:
+        Jubilant object bound to a fresh K8s model.
+    """
+    with jubilant.temp_model(cloud=K8S_CLOUD) as juju:
+        juju.wait_timeout = 30 * 60
+        yield juju
+        _collect_juju_logs_if_failed(request, juju)
