@@ -50,6 +50,9 @@ def test_scale_out_and_in(scaled_stack: jubilant.Juju):
     for unit in range(3):
         helpers.wait_until_healthy(juju, unit=unit)
 
+    logger.info("Verifying a sync job runs end to end while scaled out")
+    helpers.run_test_sync_job(juju)
+
     logger.info("Scaling back in to 1 unit")
     juju.remove_unit(app, num_units=2)
     juju.wait(

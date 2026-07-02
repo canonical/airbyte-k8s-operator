@@ -52,3 +52,6 @@ def test_refresh_from_published(baseline_stack: jubilant.Juju, charm: Path, rock
     logger.info("Verifying the refreshed charm still serves")
     helpers.wait_until_healthy(juju)
     helpers.assert_serving(juju)
+
+    logger.info("Verifying a sync job runs end to end after the upgrade")
+    helpers.run_test_sync_job(juju)
