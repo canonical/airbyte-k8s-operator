@@ -99,8 +99,8 @@ requires:
     interface: loki_push_api
     optional: true
 
-  tracing:
-    interface: tracing
+  send-otlp:
+    interface: otlp
     limit: 1
     optional: true
 

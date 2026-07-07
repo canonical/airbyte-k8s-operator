@@ -13,7 +13,7 @@
       }
     ]
   },
-  "description": "Airbyte charm observability. Logs panel is live via the Loki relation; metric panels are added under AC2 once the metrics path is finalised.",
+  "description": "Airbyte charm observability. The logs panel is live via the Loki relation. Airbyte application-metric panels are omitted: in local testing, Airbyte 1.7 community emitted no metrics over the OTLP path. Adding metric panels depends on a working metrics path (e.g. StatsD, or a metrics-enabled edition).",
   "editable": true,
   "graphTooltip": 0,
   "panels": [

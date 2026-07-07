@@ -9,12 +9,12 @@ import logging
 import kubernetes.client
 import ops
 from botocore.exceptions import ClientError
+from charmlibs.interfaces.otlp import OtlpRequirer
 from charms.data_platform_libs.v0.data_models import TypedCharmBase
 from charms.data_platform_libs.v0.database_requires import DatabaseRequires
 from charms.data_platform_libs.v0.s3 import S3Requirer
 from charms.grafana_k8s.v0.grafana_dashboard import GrafanaDashboardProvider
 from charms.loki_k8s.v1.loki_push_api import LogForwarder
-from charms.tempo_coordinator_k8s.v0.tracing import TracingEndpointRequirer
 from charms.traefik_k8s.v2.ingress import IngressPerAppRequirer
 from kubernetes.client.exceptions import ApiException
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingStatus
@@ -148,12 +148,11 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         self.log_forwarder = LogForwarder(self, relation_name="logging")
         self.grafana_dashboards = GrafanaDashboardProvider(self, relation_name="grafana-dashboard")
 
-        # The tracing relation is used purely to discover the OpenTelemetry
-        # Collector's OTLP endpoint; Airbyte pushes metrics (not traces) there,
-        # and the collector forwards them to COS.
-        self.tracing = TracingEndpointRequirer(self, relation_name="tracing", protocols=["otlp_http"])
-        self.framework.observe(self.tracing.on.endpoint_changed, self._on_tracing_endpoint_changed)
-        self.framework.observe(self.tracing.on.endpoint_removed, self._on_tracing_endpoint_changed)
+
+        self.otel_metrics = OtlpRequirer(self, relation_name="send-otlp", protocols=["http"], telemetries=["metrics"])
+        self.framework.observe(self.on["send-otlp"].relation_created, self._on_send_otlp_changed)
+        self.framework.observe(self.on["send-otlp"].relation_changed, self._on_send_otlp_changed)
+        self.framework.observe(self.on["send-otlp"].relation_broken, self._on_send_otlp_broken)
 
         for container_name in CONTAINER_HEALTH_CHECK_MAP:
             self.framework.observe(self.on[container_name].pebble_ready, self._on_pebble_ready)
@@ -186,23 +185,45 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         self.reconcile()
 
     @log_event_handler(logger)
-    def _on_tracing_endpoint_changed(self, event):
-        """Reconcile when the OTLP collector endpoint becomes available or changes.
+    def _on_send_otlp_changed(self, event):
+        """Publish the OTLP request and reconcile when the collector relation changes.
 
         Args:
-            event: The event triggered when the tracing relation data changes.
+            event: The send-otlp relation-created/-changed event.
+        """
+        self.otel_metrics.publish()
+        self.reconcile()
+
+    @log_event_handler(logger)
+    def _on_send_otlp_broken(self, event):
+        """Reconcile when the collector relation is removed.
+
+        Args:
+            event: The send-otlp relation-broken event.
         """
         self.reconcile()
 
-    def _get_otel_endpoint(self) -> str | None:
-        """Return the collector's OTLP/HTTP endpoint from the tracing relation, if ready.
+    def _get_otel_metrics_endpoint(self) -> str | None:
+        """Return the collector's OTLP/HTTP metrics endpoint from the send-otlp relation.
 
         Returns:
-            The OTLP/HTTP endpoint URL, or None when the relation is absent or not ready.
+            The OTLP/HTTP endpoint URL, or None when no collector has shared an endpoint yet.
         """
-        if not self.tracing.is_ready():
+        endpoints = self.otel_metrics.endpoints
+        if not endpoints:
             return None
-        return self.tracing.get_endpoint("otlp_http")
+        otlp = next(iter(endpoints.values()))
+        endpoint = otlp.endpoint
+        if not endpoint:
+            return None
+        # Point Micrometer's OTLP/HTTP exporter at the metrics signal path the
+        # collector serves; ensure a scheme and append /v1/metrics if absent.
+        if "://" not in endpoint:
+            endpoint = f"{'http' if otlp.insecure else 'https'}://{endpoint}"
+        endpoint = endpoint.rstrip("/")
+        if not endpoint.endswith("/v1/metrics"):
+            endpoint += "/v1/metrics"
+        return endpoint
 
     @log_event_handler(logger)
     def _on_peer_relation_changed(self, event):
@@ -475,7 +496,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         # re-reconciles once it appears.
         dataplane_env = self._get_auth_secret_env()
 
-        otel_collector_endpoint = self._get_otel_endpoint()
+        otel_collector_endpoint = self._get_otel_metrics_endpoint()
 
         for container_name in CONTAINER_HEALTH_CHECK_MAP:
             container = self.unit.get_container(container_name)
