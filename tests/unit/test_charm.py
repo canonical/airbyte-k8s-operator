@@ -337,6 +337,19 @@ class TestCharm(TestCase):
         plan = out.get_container("airbyte-server").plan.to_dict()
         self.assertNotIn("airbyte-server", plan.get("services", {}))
 
+    def test_auth_secret_without_dataplane_keys_configures_runtime(self):
+        """A redeploy reusing an existing dataplane configures runtime without dataplane env."""
+        secret = MagicMock()
+        secret.data = {"instance-admin-client-id": base64.b64encode(b"admin-id")}
+        self.mock_core_v1_instance.read_namespaced_secret.return_value = secret
+        state = make_state(db=True, minio=True)
+        out = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
+
+        self.assertNotIsInstance(out.unit_status, WaitingStatus)
+        env = out.get_container("airbyte-server").plan.to_dict()["services"]["airbyte-server"]["environment"]
+        self.assertNotIn("DATAPLANE_CLIENT_ID", env)
+        self.assertNotIn("DATAPLANE_CLIENT_SECRET", env)
+
 
 def _up_check(status):
     """Build the "up" CheckInfo mirroring the charm's pebble check definition.

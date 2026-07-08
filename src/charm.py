@@ -365,13 +365,12 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
 
         return content
 
-    def _get_auth_secret_env(self):
-        """Return the dataplane env vars from the bootloader-created K8s secret.
+    def _read_auth_secret(self) -> dict | None:
+        """Return the decoded airbyte-auth-secrets data, or None if not yet created.
 
         Returns:
-            A mapping with DATAPLANE_CLIENT_ID/DATAPLANE_CLIENT_SECRET when the
-            airbyte-auth-secrets secret exists and is populated, or an empty dict
-            if it has not been created yet (the bootloader creates it on startup).
+            The decoded secret data as a str->str mapping, or None when the secret
+            does not exist yet (the bootloader has not created it).
         """
         try:
             secret = self._k8s_client.read_namespaced_secret(AIRBYTE_AUTH_K8S_SECRET_NAME, self.model.name)
@@ -380,15 +379,9 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
                 logger.info("Secret %r not yet created in namespace %r", AIRBYTE_AUTH_K8S_SECRET_NAME, self.model.name)
             else:
                 logger.error("Error reading secret %r: %s", AIRBYTE_AUTH_K8S_SECRET_NAME, str(err))
-            return {}
+            return None
 
-        decoded = {k: base64.b64decode(v).decode("utf-8") for k, v in (secret.data or {}).items()}
-        env = {}
-        if decoded.get("dataplane-client-id"):
-            env["DATAPLANE_CLIENT_ID"] = decoded["dataplane-client-id"]
-        if decoded.get("dataplane-client-secret"):
-            env["DATAPLANE_CLIENT_SECRET"] = decoded["dataplane-client-secret"]
-        return env
+        return {k: base64.b64decode(v).decode("utf-8") for k, v in (secret.data or {}).items()}
 
     def reconcile(self):  # noqa: C901
         """Reconcile the charm to its desired state.
@@ -437,17 +430,25 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         if not self.ingress.url:
             logger.info("Ingress relation not configured; Airbyte is not exposed via ingress")
 
-        # Runtime services crash without DATAPLANE_CLIENT_ID/SECRET, so until the secret exists
-        # configure only the bootloader and leave the rest unconfigured; update-status then
-        # re-reconciles once it appears.
-        dataplane_env = self._get_auth_secret_env()
+        # Until the bootloader creates airbyte-auth-secrets, the auth subsystem is uninitialised
+        # and runtime services crash, so configure only the bootloader and wait for it to appear.
+        auth_secret = self._read_auth_secret()
+
+        # Dataplane credentials are only written on first dataplane creation (empty database), so
+        # they are injected when present & never blocked on them (a redeploy reuses an existing one).
+        dataplane_env = {}
+        if auth_secret:
+            if auth_secret.get("dataplane-client-id"):
+                dataplane_env["DATAPLANE_CLIENT_ID"] = auth_secret["dataplane-client-id"]
+            if auth_secret.get("dataplane-client-secret"):
+                dataplane_env["DATAPLANE_CLIENT_SECRET"] = auth_secret["dataplane-client-secret"]
 
         for container_name in CONTAINER_HEALTH_CHECK_MAP:
             container = self.unit.get_container(container_name)
             if not container.can_connect():
                 continue
 
-            if not dataplane_env and container_name != "airbyte-bootloader":
+            if auth_secret is None and container_name != "airbyte-bootloader":
                 continue
 
             env = create_env(
@@ -467,7 +468,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             container.add_layer(container_name, pebble_layer, combine=True)
             container.replan()
 
-        if not dataplane_env:
+        if auth_secret is None:
             self.unit.status = WaitingStatus("waiting for airbyte-auth-secrets")
             return
 
