@@ -5,7 +5,6 @@
 
 import logging
 import os
-import subprocess  # nosec B404
 import sys
 from pathlib import Path
 from typing import Dict
@@ -15,44 +14,6 @@ import pytest
 from pytest import FixtureRequest
 
 logger = logging.getLogger(__name__)
-
-LXD_CONTROLLER = "localhost-localhost"
-K8S_CLOUD = "canonical-k8s"
-
-
-@pytest.fixture(scope="session", autouse=True)
-def setup_canonical_k8s(request: FixtureRequest):
-    """Register Canonical Kubernetes as a Juju cloud before any tests run.
-
-    Args:
-        request: pytest request, used to read the --kube-config option.
-
-    Raises:
-        RuntimeError: If the canonical-k8s cloud cannot be registered.
-    """
-    logger.info("Bootstrapping the Juju controller and Canonical Kubernetes cloud.")
-
-    # Host the controller on LXD; canonical-k8s is added to it as a K8s cloud below.
-    subprocess.run(["/snap/bin/juju", "bootstrap", "localhost", LXD_CONTROLLER], check=False)  # nosec B603
-
-    # The kubeconfig path is supplied by operator-workflows via --kube-config;
-    # default to the conventional location.
-    kubeconfig = os.path.expanduser(request.config.getoption("--kube-config") or "~/.kube/config")
-
-    # Register the canonical-k8s cluster as a cloud on the LXD controller.
-    # `juju add-k8s` reads the cluster + credential from $KUBECONFIG.
-    result = subprocess.run(
-        ["/snap/bin/juju", "add-k8s", K8S_CLOUD, "--client", "--controller", LXD_CONTROLLER],
-        capture_output=True,
-        text=True,
-        check=False,
-        env={**os.environ, "KUBECONFIG": kubeconfig},
-    )  # nosec B603
-    if result.returncode != 0:
-        if "already exists" in result.stderr or "already exists" in result.stdout:
-            logger.info("Canonical Kubernetes cloud already configured")
-        else:
-            raise RuntimeError(f"Failed to add canonical-k8s cloud.\nStdout: {result.stdout}\nStderr: {result.stderr}")
 
 
 def _collect_juju_logs_if_failed(request: FixtureRequest, juju: jubilant.Juju) -> None:
@@ -127,15 +88,24 @@ def rock_resources(request: FixtureRequest) -> Dict[str, str]:
 
 @pytest.fixture(scope="module")
 def k8s_juju(request: FixtureRequest) -> jubilant.Juju:
-    """Create a temporary Canonical Kubernetes model for the full deployment tests.
+    """Provide the Juju model for the full deployment tests.
 
     Args:
-        request: pytest request, used to collect logs on failure.
+        request: pytest request, used to read --model and collect logs on failure.
 
     Yields:
-        Jubilant object bound to a fresh K8s model.
+        Jubilant object bound to the model.
     """
-    with jubilant.temp_model(cloud=K8S_CLOUD) as juju:
+    model_name = request.config.getoption("--model")
+    if model_name:
+        juju = jubilant.Juju(model=model_name)
         juju.wait_timeout = 30 * 60
-        yield juju
-        _collect_juju_logs_if_failed(request, juju)
+        try:
+            yield juju
+        finally:
+            _collect_juju_logs_if_failed(request, juju)
+    else:
+        with jubilant.temp_model() as juju:
+            juju.wait_timeout = 30 * 60
+            yield juju
+            _collect_juju_logs_if_failed(request, juju)
