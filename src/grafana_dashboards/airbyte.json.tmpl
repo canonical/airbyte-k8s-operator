@@ -1,0 +1,195 @@
+{
+  "__inputs": [],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Airbyte log-based health (from Loki): log-level and error/warning trends, per-container activity, Temporal connectivity, and filtered-error + raw log panels. No application/sync metrics: Airbyte community emits none over OTLP (see the charm's observability docs).",
+  "editable": true,
+  "graphTooltip": 0,
+  "panels": [
+    {
+      "datasource": "${lokids}",
+      "description": "INFO/WARN/ERROR/DEBUG/TRACE lines per interval, parsed from the log level that follows the thread name in each line.",
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "drawStyle": "bars", "fillOpacity": 60, "stacking": { "mode": "normal" } }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "id": 2,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "datasource": "${lokids}",
+          "expr": "sum(count_over_time({juju_model=~\"$juju_model\", juju_model_uuid=~\"$juju_model_uuid\", juju_application=~\"$juju_application\", juju_unit=~\"$juju_unit\", pebble_service=~\"$component\"} |= \"INFO\" [$__interval]))",
+          "legendFormat": "INFO",
+          "refId": "A"
+        },
+        {
+          "datasource": "${lokids}",
+          "expr": "sum(count_over_time({juju_model=~\"$juju_model\", juju_model_uuid=~\"$juju_model_uuid\", juju_application=~\"$juju_application\", juju_unit=~\"$juju_unit\", pebble_service=~\"$component\"} |= \"WARN\" [$__interval]))",
+          "legendFormat": "WARN",
+          "refId": "B"
+        },
+        {
+          "datasource": "${lokids}",
+          "expr": "sum(count_over_time({juju_model=~\"$juju_model\", juju_model_uuid=~\"$juju_model_uuid\", juju_application=~\"$juju_application\", juju_unit=~\"$juju_unit\", pebble_service=~\"$component\"} |= \"ERROR\" [$__interval]))",
+          "legendFormat": "ERROR",
+          "refId": "C"
+        },
+        {
+          "datasource": "${lokids}",
+          "expr": "sum(count_over_time({juju_model=~\"$juju_model\", juju_model_uuid=~\"$juju_model_uuid\", juju_application=~\"$juju_application\", juju_unit=~\"$juju_unit\", pebble_service=~\"$component\"} |= \"DEBUG\" [$__interval]))",
+          "legendFormat": "DEBUG",
+          "refId": "D"
+        }
+      ],
+      "title": "Log level distribution",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${lokids}",
+      "description": "Per-second rate of WARN- and ERROR-level log lines. A rising line is the first sign of trouble.",
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 20 }, "unit": "logs/s" }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "id": 3,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } },
+      "targets": [
+        {
+          "datasource": "${lokids}",
+          "expr": "sum(rate({juju_model=~\"$juju_model\", juju_model_uuid=~\"$juju_model_uuid\", juju_application=~\"$juju_application\", juju_unit=~\"$juju_unit\", pebble_service=~\"$component\"} |~ \"WARN|ERROR\" [$__interval]))",
+          "legendFormat": "warnings+errors",
+          "refId": "A"
+        }
+      ],
+      "title": "Error & warning rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${lokids}",
+      "description": "Log volume per container. Shows which services are active or unusually chatty.",
+      "fieldConfig": {
+        "defaults": { "custom": { "drawStyle": "bars", "fillOpacity": 60, "stacking": { "mode": "normal" } } },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "id": 4,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "datasource": "${lokids}",
+          "expr": "sum by (pebble_service) (count_over_time({juju_model=~\"$juju_model\", juju_model_uuid=~\"$juju_model_uuid\", juju_application=~\"$juju_application\", juju_unit=~\"$juju_unit\", pebble_service=~\"$component\"} [$__interval]))",
+          "legendFormat": "{{pebble_service}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Log volume by component",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${lokids}",
+      "description": "Lines reporting a failed connection to Temporal (poller failures / connection errors). Non-zero means the control plane can't reach temporal-k8s (sync orchestration is impaired).",
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "line", "fillOpacity": 20 } }, "overrides": [] },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "id": 5,
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } },
+      "targets": [
+        {
+          "datasource": "${lokids}",
+          "expr": "sum(count_over_time({juju_model=~\"$juju_model\", juju_model_uuid=~\"$juju_model_uuid\", juju_application=~\"$juju_application\", juju_unit=~\"$juju_unit\", pebble_service=~\"$component\"} |~ `(?i)failure in poller thread|temporal.*(unavailable|connection refused)` [$__interval]))",
+          "legendFormat": "temporal connectivity errors",
+          "refId": "A"
+        }
+      ],
+      "title": "Temporal connectivity errors",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "${lokids}",
+      "description": "Only error and exception lines, for fast triage.",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 16 },
+      "id": 6,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": "${lokids}",
+          "expr": "{juju_model=~\"$juju_model\", juju_model_uuid=~\"$juju_model_uuid\", juju_application=~\"$juju_application\", juju_unit=~\"$juju_unit\", pebble_service=~\"$component\"} |~ `(?i)error|exception`",
+          "refId": "A"
+        }
+      ],
+      "title": "Errors and exceptions",
+      "type": "logs"
+    },
+    {
+      "datasource": "${lokids}",
+      "description": "Aggregated logs from all Airbyte workload containers.",
+      "gridPos": { "h": 13, "w": 24, "x": 0, "y": 25 },
+      "id": 1,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "datasource": "${lokids}",
+          "expr": "{juju_model=~\"$juju_model\", juju_model_uuid=~\"$juju_model_uuid\", juju_application=~\"$juju_application\", juju_unit=~\"$juju_unit\", pebble_service=~\"$component\"}",
+          "refId": "A"
+        }
+      ],
+      "title": "All logs",
+      "type": "logs"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["airbyte"],
+  "templating": {
+    "list": [
+      {
+        "allValue": ".+",
+        "current": { "selected": true, "text": ["All"], "value": ["$__all"] },
+        "datasource": "${lokids}",
+        "definition": "label_values(pebble_service)",
+        "description": "Filter panels to specific containers in the airbyte-k8s pod. Defaults to all containers.",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Component",
+        "multi": true,
+        "name": "component",
+        "options": [],
+        "query": "label_values(pebble_service)",
+        "refresh": 2,
+        "regex": "",
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "",
+  "title": "Airbyte",
+  "weekStart": ""
+}
