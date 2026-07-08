@@ -144,7 +144,14 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         self.framework.observe(self.ingress.on.ready, self._on_ingress_ready)
         self.framework.observe(self.ingress.on.revoked, self._on_ingress_revoked)
 
-        # Observability: forward workload logs to Loki and expose Grafana dashboards to COS.
+        self._setup_observability()
+
+        for container_name in CONTAINER_HEALTH_CHECK_MAP:
+            self.framework.observe(self.on[container_name].pebble_ready, self._on_pebble_ready)
+
+    def _setup_observability(self):
+        """Wire up the COS observability integrations (logs, dashboards, metrics)."""
+        # Forward workload logs to Loki and expose Grafana dashboards to COS.
         self.log_forwarder = LogForwarder(self, relation_name="logging")
         self.grafana_dashboards = GrafanaDashboardProvider(self, relation_name="grafana-dashboard")
 
@@ -154,9 +161,6 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         self.framework.observe(self.on["send-otlp"].relation_created, self._on_send_otlp_changed)
         self.framework.observe(self.on["send-otlp"].relation_changed, self._on_send_otlp_changed)
         self.framework.observe(self.on["send-otlp"].relation_broken, self._on_send_otlp_broken)
-
-        for container_name in CONTAINER_HEALTH_CHECK_MAP:
-            self.framework.observe(self.on[container_name].pebble_ready, self._on_pebble_ready)
 
     @log_event_handler(logger)
     def _on_pebble_ready(self, event: ops.PebbleReadyEvent):
