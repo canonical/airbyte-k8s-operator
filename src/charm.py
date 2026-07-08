@@ -148,6 +148,8 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         self.log_forwarder = LogForwarder(self, relation_name="logging")
         self.grafana_dashboards = GrafanaDashboardProvider(self, relation_name="grafana-dashboard")
 
+        # Push Airbyte's OTLP metrics to a related opentelemetry-collector: it shares its
+        # OTLP receiver endpoint over this relation, which Micrometer is pointed at.
         self.otel_metrics = OtlpRequirer(self, relation_name="send-otlp", protocols=["http"], telemetries=["metrics"])
         self.framework.observe(self.on["send-otlp"].relation_created, self._on_send_otlp_changed)
         self.framework.observe(self.on["send-otlp"].relation_changed, self._on_send_otlp_changed)
