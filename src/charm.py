@@ -493,8 +493,8 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         # and runtime services crash, so configure only the bootloader and wait for it to appear.
         auth_secret = self._read_auth_secret()
 
-        # Dataplane credentials are only written on first dataplane creation (empty database), so
-        # they are injected when present & never blocked on them (a redeploy reuses an existing one).
+        # Dataplane credentials are only written on first dataplane creation (empty database);
+        # inject them when present but never block on them (a redeploy reuses an existing one).
         dataplane_env = {}
         if auth_secret:
             if auth_secret.get("dataplane-client-id"):
