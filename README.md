@@ -34,3 +34,24 @@ It is intended for **data engineers and platform teams** who want to automate an
 | **Tutorial** | A hands-on guide to deploying and configuring Charmed Airbyte for new users |
 | **How-to guides** | Step-by-step instructions for common operational tasks, such as ingress, authentication, and upgrades |
 | **Reference** | Technical details on configuration options, actions, and relations |
+
+### Observability
+
+The charm integrates with the [Canonical Observability Stack (COS)](https://charmhub.io/topics/canonical-observability-stack) over three relations:
+
+- `logging` (`loki_push_api`) — forwards all Airbyte container logs to Loki.
+- `grafana-dashboard` (`grafana_dashboard`) — provisions the **Airbyte** dashboard.
+- `send-otlp` (`otlp`) — points Airbyte's Micrometer exporter at a related
+  [opentelemetry-collector](https://charmhub.io/opentelemetry-collector-k8s)'s OTLP endpoint.
+
+The provisioned dashboard is **log-based**: it derives health signals from the forwarded
+logs (log-level and error trends, per-component activity, Temporal connectivity, plus
+filtered-error and raw log panels).
+
+**Metrics on the community edition.** The `send-otlp` metrics path is wired and correct,
+but carries **no data on Airbyte's community edition** — community does not emit application
+metrics over OTLP (native metrics are gated behind Airbyte Enterprise). The metrics activate
+automatically on a metrics-enabled edition. Note that Airbyte's per-sync detail (records,
+bytes, job status) is written to job logs (object storage) and exposed via the Airbyte API,
+not the forwarded container stream — so surfacing sync/business metrics on community would
+require a dedicated exporter rather than this pipeline.
