@@ -8,6 +8,8 @@ import logging
 
 import kubernetes.client
 import ops
+import pg8000.exceptions
+import pg8000.native
 from botocore.exceptions import ClientError
 from charmlibs.interfaces.otlp import OtlpRequirer
 from charms.data_platform_libs.v0.data_models import TypedCharmBase
@@ -43,6 +45,10 @@ from s3_helpers import S3Client
 from structured_config import CharmConfig, StorageType
 
 logger = logging.getLogger(__name__)
+
+
+class DataplaneCredentialsError(Exception):
+    """Raised when dataplane credentials cannot be read from the Airbyte database."""
 
 
 def get_pebble_layer(application_name, context):
@@ -442,6 +448,130 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
 
         return {k: base64.b64decode(v).decode("utf-8") for k, v in (secret.data or {}).items()}
 
+    def _ensure_dataplane_credentials(self, auth_secret, db_connection):
+        """Backfill dataplane credentials into airbyte-auth-secrets from the database.
+
+        The bootloader writes them only on first creation, so on a reused database recover
+        them from the database and patch the secret.
+
+        Args:
+            auth_secret: the decoded airbyte-auth-secrets data.
+            db_connection: the database connection details from the db relation.
+
+        Returns:
+            The auth_secret data, with dataplane credentials filled in when recovered.
+        """
+        if auth_secret.get("dataplane-client-id") and auth_secret.get("dataplane-client-secret"):
+            return auth_secret
+
+        credentials = self._fetch_dataplane_credentials(db_connection)
+        if credentials is None:
+            logger.warning("No dataplane row in the database; cannot backfill airbyte-auth-secrets")
+            return auth_secret
+
+        client_id, client_secret = credentials
+        dataplane_credentials = {"dataplane-client-id": client_id, "dataplane-client-secret": client_secret}
+        if self._patch_auth_secret(dataplane_credentials):
+            logger.info("Backfilled dataplane credentials into airbyte-auth-secrets from the database")
+        return {**auth_secret, **dataplane_credentials}
+
+    def _fetch_dataplane_credentials(self, db_connection):
+        """Read the dataplane client credentials from the Airbyte database.
+
+        Args:
+            db_connection: the database connection details from the db relation.
+
+        Raises:
+            DataplaneCredentialsError: when the relation carries no credentials, or the
+                database cannot be reached or queried.
+
+        Returns:
+            A (client_id, client_secret) tuple, or None when no dataplane row exists yet.
+        """
+        if not db_connection.user or not db_connection.password:
+            raise DataplaneCredentialsError("db relation provided no username/password")
+
+        try:
+            connection = pg8000.native.Connection(
+                user=db_connection.user,
+                password=db_connection.password,
+                host=db_connection.host,
+                port=int(db_connection.port),
+                database=db_connection.dbname,
+            )
+            try:
+                rows = connection.run(
+                    "SELECT c.client_id, c.client_secret "
+                    "FROM dataplane_client_credentials c "
+                    "JOIN dataplane d ON d.id = c.dataplane_id "
+                    "WHERE d.enabled AND NOT d.tombstone "
+                    "ORDER BY c.created_at DESC LIMIT 1"
+                )
+            finally:
+                connection.close()
+        except (pg8000.exceptions.Error, OSError) as err:
+            raise DataplaneCredentialsError(f"database query failed: {err}") from err
+
+        if not rows:
+            return None
+
+        client_id, client_secret = rows[0]
+        return str(client_id), str(client_secret)
+
+    def _patch_auth_secret(self, data):
+        """Patch decoded key/value pairs into the airbyte-auth-secrets K8s secret.
+
+        Args:
+            data: a str->str mapping of keys to add or update in the secret.
+
+        Returns:
+            True when the secret was patched, False when the API rejected the patch.
+        """
+        encoded = {key: base64.b64encode(value.encode("utf-8")).decode("utf-8") for key, value in data.items()}
+        try:
+            self._k8s_client.patch_namespaced_secret(AIRBYTE_AUTH_K8S_SECRET_NAME, self.model.name, {"data": encoded})
+        except ApiException as err:
+            logger.error("Error patching secret %r: %s", AIRBYTE_AUTH_K8S_SECRET_NAME, str(err))
+            return False
+        return True
+
+    def _resolve_dataplane_env(self, auth_secret, db_connection):
+        """Resolve dataplane env vars and the runtime gate status from the auth secret.
+
+        Args:
+            auth_secret: the decoded airbyte-auth-secrets data, or None when not yet created.
+            db_connection: the database connection details from the db relation.
+
+        Returns:
+            A (dataplane_env, runtime_status) tuple: the credentials to inject, and the status
+            explaining why runtime services must wait, or None when they are ready to start.
+        """
+        dataplane_error = False
+        if auth_secret is not None:
+            try:
+                auth_secret = self._ensure_dataplane_credentials(auth_secret, db_connection)
+            except DataplaneCredentialsError as err:
+                logger.warning("Could not recover dataplane credentials: %s", err)
+                dataplane_error = True
+
+        dataplane_env = {}
+        if auth_secret:
+            if auth_secret.get("dataplane-client-id"):
+                dataplane_env["DATAPLANE_CLIENT_ID"] = auth_secret["dataplane-client-id"]
+            if auth_secret.get("dataplane-client-secret"):
+                dataplane_env["DATAPLANE_CLIENT_SECRET"] = auth_secret["dataplane-client-secret"]
+
+        if auth_secret is None:
+            return dataplane_env, WaitingStatus("waiting for airbyte-auth-secrets")
+
+        if dataplane_error:
+            return dataplane_env, WaitingStatus("error recovering dataplane credentials from database")
+
+        if not dataplane_env.get("DATAPLANE_CLIENT_ID") or not dataplane_env.get("DATAPLANE_CLIENT_SECRET"):
+            return dataplane_env, BlockedStatus("dataplane credentials not found in database")
+
+        return dataplane_env, None
+
     def reconcile(self):  # noqa: C901
         """Reconcile the charm to its desired state.
 
@@ -489,18 +619,9 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         if not self.ingress.url:
             logger.info("Ingress relation not configured; Airbyte is not exposed via ingress")
 
-        # Until the bootloader creates airbyte-auth-secrets, the auth subsystem is uninitialised
-        # and runtime services crash, so configure only the bootloader and wait for it to appear.
+        # Runtime services need airbyte-auth-secrets and its dataplane credentials
         auth_secret = self._read_auth_secret()
-
-        # Dataplane credentials are only written on first dataplane creation (empty database);
-        # inject them when present but never block on them (a redeploy reuses an existing one).
-        dataplane_env = {}
-        if auth_secret:
-            if auth_secret.get("dataplane-client-id"):
-                dataplane_env["DATAPLANE_CLIENT_ID"] = auth_secret["dataplane-client-id"]
-            if auth_secret.get("dataplane-client-secret"):
-                dataplane_env["DATAPLANE_CLIENT_SECRET"] = auth_secret["dataplane-client-secret"]
+        dataplane_env, runtime_status = self._resolve_dataplane_env(auth_secret, db_connection)
 
         otel_collector_endpoint = self._get_otel_metrics_endpoint()
 
@@ -509,7 +630,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             if not container.can_connect():
                 continue
 
-            if auth_secret is None and container_name != "airbyte-bootloader":
+            if runtime_status is not None and container_name != "airbyte-bootloader":
                 continue
 
             env = create_env(
@@ -530,8 +651,8 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             container.add_layer(container_name, pebble_layer, combine=True)
             container.replan()
 
-        if auth_secret is None:
-            self.unit.status = WaitingStatus("waiting for airbyte-auth-secrets")
+        if runtime_status is not None:
+            self.unit.status = runtime_status
             return
 
         self.unit.status = MaintenanceStatus("replanning application")
