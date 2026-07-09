@@ -74,6 +74,15 @@ class TestCharm(TestCase):
         }
         self.mock_core_v1_instance.read_namespaced_secret.return_value = fake_secret
 
+        # Stub the Postgres driver so the dataplane-credential backfill never opens a real
+        # connection; defaults to no dataplane row.
+        patcher3 = patch("pg8000.native.Connection")
+        self.mock_pg_connection_cls = patcher3.start()
+        self.addCleanup(patcher3.stop)
+        self.mock_pg_connection = MagicMock()
+        self.mock_pg_connection_cls.return_value = self.mock_pg_connection
+        self.mock_pg_connection.run.return_value = []
+
         # The S3/MinIO client only performs bucket operations during reconcile;
         # stubbed out so no object storage is contacted.
         for target in (
@@ -334,6 +343,54 @@ class TestCharm(TestCase):
         out = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
 
         self.assertIsInstance(out.unit_status, WaitingStatus)
+        plan = out.get_container("airbyte-server").plan.to_dict()
+        self.assertNotIn("airbyte-server", plan.get("services", {}))
+
+    def test_reused_db_backfills_dataplane_credentials(self):
+        """A redeploy against a reused database backfills dataplane creds from the database.
+
+        The bootloader recreates airbyte-auth-secrets without dataplane keys; the charm
+        recovers them from the database, injects them into the plan, and patches the secret.
+        """
+        secret = MagicMock()
+        secret.data = {"instance-admin-client-id": base64.b64encode(b"admin-id")}
+        self.mock_core_v1_instance.read_namespaced_secret.return_value = secret
+        self.mock_pg_connection.run.return_value = [["db-client-id", "db-client-secret"]]
+
+        state = make_state(db=True, minio=True)
+        out = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
+
+        self.assertNotIsInstance(out.unit_status, WaitingStatus)
+        env = out.get_container("airbyte-server").plan.to_dict()["services"]["airbyte-server"]["environment"]
+        self.assertEqual(env["DATAPLANE_CLIENT_ID"], "db-client-id")
+        self.assertEqual(env["DATAPLANE_CLIENT_SECRET"], "db-client-secret")
+        self.mock_core_v1_instance.patch_namespaced_secret.assert_called_once()
+
+    def test_reused_db_no_dataplane_row_blocks(self):
+        """No dataplane row to recover blocks with a clear message and no runtime plan."""
+        secret = MagicMock()
+        secret.data = {"instance-admin-client-id": base64.b64encode(b"admin-id")}
+        self.mock_core_v1_instance.read_namespaced_secret.return_value = secret
+        self.mock_pg_connection.run.return_value = []  # no dataplane row exists
+
+        state = make_state(db=True, minio=True)
+        out = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
+
+        self.assertEqual(out.unit_status, BlockedStatus("dataplane credentials not found in database"))
+        plan = out.get_container("airbyte-server").plan.to_dict()
+        self.assertNotIn("airbyte-server", plan.get("services", {}))
+
+    def test_dataplane_credentials_db_error_waits(self):
+        """A database error while recovering dataplane creds surfaces a distinct waiting status."""
+        secret = MagicMock()
+        secret.data = {"instance-admin-client-id": base64.b64encode(b"admin-id")}
+        self.mock_core_v1_instance.read_namespaced_secret.return_value = secret
+        self.mock_pg_connection.run.side_effect = OSError("connection refused")
+
+        state = make_state(db=True, minio=True)
+        out = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
+
+        self.assertEqual(out.unit_status, WaitingStatus("error recovering dataplane credentials from database"))
         plan = out.get_container("airbyte-server").plan.to_dict()
         self.assertNotIn("airbyte-server", plan.get("services", {}))
 
