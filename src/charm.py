@@ -620,6 +620,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             logger.info("Ingress relation not configured; Airbyte is not exposed via ingress")
 
         # Runtime services need airbyte-auth-secrets and its dataplane credentials
+        # (backfilled from the DB on a reused database)
         auth_secret = self._read_auth_secret()
         dataplane_env, runtime_status = self._resolve_dataplane_env(auth_secret, db_connection)
 
