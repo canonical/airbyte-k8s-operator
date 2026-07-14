@@ -19,7 +19,7 @@ higher-level product module.
 | Name                 | Type          | Default          | Description                                              |
 | -------------------- | ------------- | ---------------- | -------------------------------------------------------- |
 | `app_name`           | `string`      | `"minio"`        | Name of the application in the Juju model.               |
-| `base`               | `string`      | `"ubuntu@22.04"` | The operating system on which to deploy.                 |
+| `base`               | `string`      | `"ubuntu@24.04"` | The operating system on which to deploy.                 |
 | `channel`            | `string`      | `"1.10/stable"`  | The channel to use when deploying the charm.             |
 | `config`             | `map(string)` | `{}`             | Application configuration.                               |
 | `constraints`        | `string`      | `null`           | Juju constraints to apply to the application.            |

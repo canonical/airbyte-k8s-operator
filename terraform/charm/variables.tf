@@ -108,7 +108,7 @@ variable "revision" {
 }
 
 variable "trust" {
-  description = "Whether the application can access cluster-wide Kubernetes resources. Airbyte requires this to read and patch its auth secret."
+  description = "Whether the application can access cluster-wide Kubernetes resources. Airbyte requires this to read its auth secret via the Kubernetes API."
   type        = bool
   default     = true
 }

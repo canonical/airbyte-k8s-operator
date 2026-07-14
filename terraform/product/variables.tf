@@ -33,7 +33,7 @@ variable "minio" {
     app_name           = optional(string, "minio")
     channel            = optional(string, "1.10/stable")
     revision           = optional(number)
-    base               = optional(string, "ubuntu@22.04")
+    base               = optional(string, "ubuntu@24.04")
     config             = optional(map(string), {})
     resources          = optional(map(string), {})
     storage_directives = optional(map(string), {})
