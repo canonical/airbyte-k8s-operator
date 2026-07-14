@@ -1,11 +1,6 @@
 # Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
-variable "model_uuid" {
-  description = "UUID of the Kubernetes Juju model to deploy Airbyte and its dependencies into."
-  type        = string
-}
-
 variable "airbyte" {
   description = "Configuration for the airbyte-k8s charm."
   type = object({
@@ -32,6 +27,27 @@ variable "database_offer_url" {
   default     = ""
 }
 
+variable "minio" {
+  description = "Configuration for the minio charm (Airbyte object storage)."
+  type = object({
+    app_name           = optional(string, "minio")
+    channel            = optional(string, "1.10/stable")
+    revision           = optional(number)
+    base               = optional(string, "ubuntu@22.04")
+    config             = optional(map(string), {})
+    resources          = optional(map(string), {})
+    storage_directives = optional(map(string), {})
+    units              = optional(number, 1)
+  })
+  default = {}
+}
+
+variable "model_uuid" {
+  description = "UUID of the Kubernetes Juju model to deploy Airbyte and its dependencies into."
+  type        = string
+  nullable    = false
+}
+
 variable "postgresql" {
   description = "Configuration for the postgresql-k8s charm (shared database for Airbyte and Temporal; used when database_offer_url is empty)."
   type = object({
@@ -41,21 +57,38 @@ variable "postgresql" {
     base               = optional(string, "ubuntu@22.04")
     constraints        = optional(string)
     config             = optional(map(string), {})
+    resources          = optional(map(string), {})
     storage_directives = optional(map(string), {})
     units              = optional(number, 1)
   })
   default = {}
 }
 
+variable "risk" {
+  description = <<-EOT
+    Solution-wide risk level applied to every charm's channel, overriding the risk component
+    while preserving each charm's track (e.g. "14/stable" becomes "14/edge"). Leave null to use
+    each charm's own configured channel unchanged.
+  EOT
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.risk == null || contains(["stable", "candidate", "beta", "edge"], var.risk)
+    error_message = "risk must be one of: stable, candidate, beta, edge."
+  }
+}
+
 variable "temporal" {
   description = "Configuration for the temporal-k8s charm (Airbyte's workflow engine)."
   type = object({
-    app_name = optional(string, "temporal-k8s")
-    channel  = optional(string, "1.23/stable")
-    revision = optional(number)
-    base     = optional(string, "ubuntu@24.04")
-    config   = optional(map(string), { num-history-shards = "4" })
-    units    = optional(number, 1)
+    app_name  = optional(string, "temporal-k8s")
+    channel   = optional(string, "1.23/stable")
+    revision  = optional(number)
+    base      = optional(string, "ubuntu@24.04")
+    config    = optional(map(string), { num-history-shards = "4" })
+    resources = optional(map(string), {})
+    units     = optional(number, 1)
   })
   default = {}
 }
@@ -63,25 +96,13 @@ variable "temporal" {
 variable "temporal_admin" {
   description = "Configuration for the temporal-admin-k8s charm (Temporal schema management)."
   type = object({
-    app_name = optional(string, "temporal-admin-k8s")
-    channel  = optional(string, "1.23/stable")
-    revision = optional(number)
-    base     = optional(string, "ubuntu@24.04")
-    units    = optional(number, 1)
-  })
-  default = {}
-}
-
-variable "minio" {
-  description = "Configuration for the minio charm (Airbyte object storage)."
-  type = object({
-    app_name           = optional(string, "minio")
-    channel            = optional(string, "1.10/stable")
-    revision           = optional(number)
-    base               = optional(string, "ubuntu@22.04")
-    config             = optional(map(string), {})
-    storage_directives = optional(map(string), {})
-    units              = optional(number, 1)
+    app_name  = optional(string, "temporal-admin-k8s")
+    channel   = optional(string, "1.23/stable")
+    revision  = optional(number)
+    base      = optional(string, "ubuntu@24.04")
+    config    = optional(map(string), {})
+    resources = optional(map(string), {})
+    units     = optional(number, 1)
   })
   default = {}
 }

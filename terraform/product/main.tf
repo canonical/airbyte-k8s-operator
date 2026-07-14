@@ -8,7 +8,7 @@ module "airbyte" {
 
   app_name    = var.airbyte.app_name
   model_uuid  = var.model_uuid
-  channel     = var.airbyte.channel
+  channel     = local.channels.airbyte
   revision    = var.airbyte.revision
   base        = var.airbyte.base
   config      = var.airbyte.config
@@ -20,66 +20,58 @@ module "airbyte" {
 
 ### DEPENDENCIES
 
-resource "juju_application" "postgresql_k8s" {
-  count      = local.deploy_database ? 1 : 0
-  name       = var.postgresql.app_name
-  model_uuid = var.model_uuid
-  trust      = true
+module "postgresql_k8s" {
+  count  = local.deploy_database ? 1 : 0
+  source = "../modules/postgresql-k8s"
 
-  charm {
-    name     = "postgresql-k8s"
-    channel  = var.postgresql.channel
-    revision = var.postgresql.revision
-    base     = var.postgresql.base
-  }
-
+  app_name           = var.postgresql.app_name
+  model_uuid         = var.model_uuid
+  channel            = local.channels.postgresql
+  revision           = var.postgresql.revision
+  base               = var.postgresql.base
   config             = var.postgresql.config
   constraints        = var.postgresql.constraints
+  resources          = var.postgresql.resources
   storage_directives = var.postgresql.storage_directives
   units              = var.postgresql.units
 }
 
-resource "juju_application" "temporal_k8s" {
-  name       = var.temporal.app_name
+module "temporal_k8s" {
+  source = "../modules/temporal-k8s"
+
+  app_name   = var.temporal.app_name
   model_uuid = var.model_uuid
-
-  charm {
-    name     = "temporal-k8s"
-    channel  = var.temporal.channel
-    revision = var.temporal.revision
-    base     = var.temporal.base
-  }
-
-  config = var.temporal.config
-  units  = var.temporal.units
+  channel    = local.channels.temporal
+  revision   = var.temporal.revision
+  base       = var.temporal.base
+  config     = var.temporal.config
+  resources  = var.temporal.resources
+  units      = var.temporal.units
 }
 
-resource "juju_application" "temporal_admin_k8s" {
-  name       = var.temporal_admin.app_name
+module "temporal_admin_k8s" {
+  source = "../modules/temporal-admin-k8s"
+
+  app_name   = var.temporal_admin.app_name
   model_uuid = var.model_uuid
-
-  charm {
-    name     = "temporal-admin-k8s"
-    channel  = var.temporal_admin.channel
-    revision = var.temporal_admin.revision
-    base     = var.temporal_admin.base
-  }
-
-  units = var.temporal_admin.units
+  channel    = local.channels.temporal_admin
+  revision   = var.temporal_admin.revision
+  base       = var.temporal_admin.base
+  config     = var.temporal_admin.config
+  resources  = var.temporal_admin.resources
+  units      = var.temporal_admin.units
 }
 
-resource "juju_application" "minio" {
-  name       = var.minio.app_name
-  model_uuid = var.model_uuid
+module "minio" {
+  source = "../modules/minio"
 
-  charm {
-    name     = "minio"
-    channel  = var.minio.channel
-    revision = var.minio.revision
-    base     = var.minio.base
-  }
-
+  app_name           = var.minio.app_name
+  model_uuid         = var.model_uuid
+  channel            = local.channels.minio
+  revision           = var.minio.revision
+  base               = var.minio.base
   config             = var.minio.config
+  resources          = var.minio.resources
   storage_directives = var.minio.storage_directives
   units              = var.minio.units
 }
@@ -112,8 +104,8 @@ resource "juju_integration" "airbyte_object_storage" {
     endpoint = module.airbyte.requires.object_storage
   }
   application {
-    name     = juju_application.minio.name
-    endpoint = "object-storage"
+    name     = module.minio.app_name
+    endpoint = module.minio.provides.object_storage
   }
 }
 
@@ -124,8 +116,8 @@ resource "juju_integration" "temporal_db" {
   model_uuid = var.model_uuid
 
   application {
-    name     = juju_application.temporal_k8s.name
-    endpoint = "db"
+    name     = module.temporal_k8s.app_name
+    endpoint = module.temporal_k8s.requires.db
   }
   dynamic "application" {
     for_each = [local.database_endpoint]
@@ -141,8 +133,8 @@ resource "juju_integration" "temporal_visibility" {
   model_uuid = var.model_uuid
 
   application {
-    name     = juju_application.temporal_k8s.name
-    endpoint = "visibility"
+    name     = module.temporal_k8s.app_name
+    endpoint = module.temporal_k8s.requires.visibility
   }
   dynamic "application" {
     for_each = [local.database_endpoint]
@@ -158,12 +150,12 @@ resource "juju_integration" "temporal_admin" {
   model_uuid = var.model_uuid
 
   application {
-    name     = juju_application.temporal_k8s.name
-    endpoint = "admin"
+    name     = module.temporal_k8s.app_name
+    endpoint = module.temporal_k8s.requires.admin
   }
   application {
-    name     = juju_application.temporal_admin_k8s.name
-    endpoint = "admin"
+    name     = module.temporal_admin_k8s.app_name
+    endpoint = module.temporal_admin_k8s.provides.admin
   }
 }
 
@@ -171,11 +163,11 @@ resource "juju_integration" "temporal_host_info" {
   model_uuid = var.model_uuid
 
   application {
-    name     = juju_application.temporal_k8s.name
-    endpoint = "temporal-host-info"
+    name     = module.temporal_k8s.app_name
+    endpoint = module.temporal_k8s.provides.temporal_host_info
   }
   application {
-    name     = juju_application.temporal_admin_k8s.name
-    endpoint = "temporal-host-info"
+    name     = module.temporal_admin_k8s.app_name
+    endpoint = module.temporal_admin_k8s.provides.temporal_host_info
   }
 }
