@@ -27,8 +27,47 @@ run "full_deploy" {
   }
 }
 
+# Temporal must be active before its default namespace can be created.
+run "wait_for_temporal_active" {
+  module {
+    source = "./tests/wait_for_active"
+  }
+
+  variables {
+    model_uuid = run.setup_tests.model_uuid
+    app_name   = "temporal-k8s"
+    timeout    = 1200
+  }
+
+  assert {
+    condition     = data.external.app_status.result.status == "active"
+    error_message = "temporal-k8s did not reach active state"
+  }
+}
+
+# Create the Temporal `default` namespace via the temporal-admin `cli` action. Airbyte stays in
+# maintenance until this namespace exists; the product module is declarative and cannot run charm
+# actions, so the test performs this step (mirroring helpers.create_default_namespace).
+run "create_default_namespace" {
+  module {
+    source = "./tests/create_namespace"
+  }
+
+  variables {
+    model_uuid = run.setup_tests.model_uuid
+    app_name   = "temporal-admin-k8s"
+    namespace  = "default"
+    timeout    = 600
+  }
+
+  assert {
+    condition     = data.external.create_namespace.result.result == "command succeeded"
+    error_message = "failed to create the Temporal default namespace"
+  }
+}
+
 # Assert the full stack converges: airbyte-k8s only reaches active once its database and object
-# storage are related and its auth/dataplane credentials are resolved.
+# storage are related and the Temporal default namespace exists.
 run "wait_for_airbyte_active" {
   module {
     source = "./tests/wait_for_active"
