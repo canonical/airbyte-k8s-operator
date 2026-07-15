@@ -5,6 +5,7 @@
 
 import logging
 import os
+import subprocess  # nosec B404
 import sys
 from pathlib import Path
 from typing import Dict
@@ -28,6 +29,31 @@ def _collect_juju_logs_if_failed(request: FixtureRequest, juju: jubilant.Juju) -
     logger.info("Collecting Juju logs from model '%s'", juju.model)
     log = juju.debug_log(limit=1000)
     print(log, end="", file=sys.stderr)
+
+
+def _collect_k8s_diagnostics_if_failed(request: FixtureRequest, juju: jubilant.Juju) -> None:
+    """Print pod states and cluster events at teardown time when tests fail.
+
+    Args:
+        request: pytest request, used to detect test failures.
+        juju: Jubilant object for the model to collect diagnostics from.
+    """
+    if not request.session.testsfailed or not juju.model:
+        return
+
+    namespace = juju.model
+    commands = {
+        "pods": ["kubectl", "-n", namespace, "get", "pods", "-o", "wide"],
+        "pod details": ["kubectl", "-n", namespace, "describe", "pods"],
+        "events": ["kubectl", "-n", namespace, "get", "events", "--sort-by=.lastTimestamp"],
+    }
+    for label, command in commands.items():
+        logger.info("Collecting K8s %s from namespace '%s'", label, namespace)
+        try:
+            result = subprocess.run(command, capture_output=True, text=True, check=False, timeout=120)  # nosec B603
+            print(f"\n===== kubectl {label} ({namespace}) =====\n{result.stdout}{result.stderr}", file=sys.stderr)
+        except (OSError, subprocess.SubprocessError) as exc:
+            logger.warning("Could not collect K8s %s: %s", label, exc)
 
 
 @pytest.fixture(scope="session")
@@ -104,8 +130,10 @@ def k8s_juju(request: FixtureRequest) -> jubilant.Juju:
             yield juju
         finally:
             _collect_juju_logs_if_failed(request, juju)
+            _collect_k8s_diagnostics_if_failed(request, juju)
     else:
         with jubilant.temp_model() as juju:
             juju.wait_timeout = 30 * 60
             yield juju
             _collect_juju_logs_if_failed(request, juju)
+            _collect_k8s_diagnostics_if_failed(request, juju)
