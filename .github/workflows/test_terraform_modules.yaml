@@ -1,0 +1,22 @@
+name: Terraform modules tests
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'terraform/**'
+
+jobs:
+  terraform-charm-tests:
+    uses: canonical/operator-workflows/.github/workflows/terraform_modules_test.yaml@main
+    secrets: inherit
+    with:
+      k8s-controller: true
+      terraform-directories: '["terraform/charm"]'
+
+  terraform-product-tests:
+    uses: canonical/operator-workflows/.github/workflows/terraform_modules_test.yaml@main
+    secrets: inherit
+    with:
+      lxd-controller-with-k8s-cloud: true
+      terraform-directories: '["terraform/product"]'
