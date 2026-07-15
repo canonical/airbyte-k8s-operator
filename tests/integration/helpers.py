@@ -37,8 +37,6 @@ TEMPORAL_BASE = "ubuntu@24.04"
 INTERNAL_API_PORT = 8001
 TEMPORAL_PORT = 7233
 
-WORKLOAD_LAUNCHER_CONTAINER = "airbyte-workload-launcher"
-
 GET_HEADERS = {"accept": "application/json"}
 POST_HEADERS = {"accept": "application/json", "content-type": "application/json"}
 
@@ -550,31 +548,12 @@ def cancel_airbyte_job(api_url, job_id):
     return response.json().get("status")
 
 
-def restart_workload_launcher(juju: jubilant.Juju) -> None:
-    """Restart the workload launcher so it re-initialises its dataplane identity.
-
-    Args:
-        juju: Jubilant object.
-    """
-    logger.info("restarting %s to force dataplane re-registration", WORKLOAD_LAUNCHER_CONTAINER)
-    juju.ssh(
-        f"{APP_NAME_AIRBYTE_SERVER}/0",
-        "pebble",
-        "restart",
-        WORKLOAD_LAUNCHER_CONTAINER,
-        container=WORKLOAD_LAUNCHER_CONTAINER,
-    )
-    wait_for_all_active(juju, [APP_NAME_AIRBYTE_SERVER], timeout=5 * 60)
-
-
 def run_test_sync_job(juju: jubilant.Juju) -> None:
     """Run a test Airbyte connection end to end and assert it succeeds.
 
     Args:
         juju: Jubilant object.
     """
-    restart_workload_launcher(juju)
-
     api_url = get_unit_url(juju, APP_NAME_AIRBYTE_SERVER, 0, INTERNAL_API_PORT)
     logger.info("curling app address: %s", api_url)
 
