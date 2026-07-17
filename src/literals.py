@@ -3,15 +3,31 @@
 
 """Charm literals."""
 
-CONNECTOR_BUILDER_SERVER_API_PORT = 80
+CONNECTOR_BUILDER_SERVER_API_PORT = 8080
 INTERNAL_API_PORT = 8001
 AIRBYTE_API_PORT = 8006
 WORKLOAD_API_PORT = 8007
 WORKLOAD_LAUNCHER_PORT = 8016
+WORKERS_PORT = 9000
+CRON_PORT = 9001
+BOOTLOADER_PORT = 9002
 AIRBYTE_VERSION = "2.0.0"
 DB_NAME = "airbyte-k8s_db"
 AIRBYTE_AUTH_K8S_SECRET_NAME = "airbyte-auth-secrets"  # nosec
 
+
+# Airbyte 2.0 serves Micronaut's management endpoints (including /health) on a dedicated port,
+# hardcoded to 8085 in every service, which the containers would all contend for since they share
+# a network namespace. Micronaut serves them from the main server when the ports match.
+SERVER_PORT_MAP = {
+    "airbyte-bootloader": BOOTLOADER_PORT,
+    "airbyte-connector-builder-server": CONNECTOR_BUILDER_SERVER_API_PORT,
+    "airbyte-cron": CRON_PORT,
+    "airbyte-server": INTERNAL_API_PORT,
+    "airbyte-workers": WORKERS_PORT,
+    "airbyte-workload-api-server": WORKLOAD_API_PORT,
+    "airbyte-workload-launcher": WORKLOAD_LAUNCHER_PORT,
+}
 
 CONTAINER_HEALTH_CHECK_MAP = {
     "airbyte-workload-api-server": {
@@ -25,7 +41,7 @@ CONTAINER_HEALTH_CHECK_MAP = {
     "airbyte-bootloader": None,
     "airbyte-connector-builder-server": None,
     "airbyte-cron": {
-        "port": 9001,
+        "port": CRON_PORT,
         "health_endpoint": "/health",
     },
     "airbyte-pod-sweeper": None,
@@ -33,7 +49,7 @@ CONTAINER_HEALTH_CHECK_MAP = {
         "port": INTERNAL_API_PORT,
         "health_endpoint": "/api/v1/health",
     },
-    "airbyte-workers": {"port": 9000, "health_endpoint": "/"},
+    "airbyte-workers": {"port": WORKERS_PORT, "health_endpoint": "/"},
 }
 
 BUCKET_CONFIGS = [

@@ -21,7 +21,12 @@ from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingSta
 from ops.pebble import CheckLevel, CheckStartup, CheckStatus, Layer
 
 from charm import AirbyteK8SOperatorCharm
-from src.literals import BASE_ENV, CONTAINER_HEALTH_CHECK_MAP, INTERNAL_API_PORT
+from src.literals import (
+    BASE_ENV,
+    CONTAINER_HEALTH_CHECK_MAP,
+    INTERNAL_API_PORT,
+    SERVER_PORT_MAP,
+)
 from src.structured_config import StorageType
 
 logging.basicConfig(level=logging.DEBUG)
@@ -514,13 +519,14 @@ def create_plan(container_name, storage_type):
                     **BASE_ENV,
                     "AIRBYTE_API_HOST": "airbyte-k8s:8006/api/public",
                     "AIRBYTE_SERVER_HOST": "airbyte-k8s:8001",
+                    "AIRBYTE_URL": "http://airbyte-k8s:8001",
                     "AWS_ACCESS_KEY_ID": "access",  # nosec
                     "AWS_SECRET_ACCESS_KEY": "secret",  # nosec
                     "CONFIG_API_HOST": "airbyte-k8s:8001",
                     "CONTROL_PLANE_TOKEN_ENDPOINT": "http://airbyte-k8s:8001/api/v1/dataplanes/token",
-                    "CONNECTOR_BUILDER_API_HOST": "airbyte-k8s:80",
+                    "CONNECTOR_BUILDER_API_HOST": "airbyte-k8s:8080",
                     "CONNECTOR_BUILDER_API_URL": "/connector-builder-api",
-                    "CONNECTOR_BUILDER_SERVER_API_HOST": "airbyte-k8s:80",
+                    "CONNECTOR_BUILDER_SERVER_API_HOST": "airbyte-k8s:8080",
                     "DATABASE_DB": "airbyte-k8s_db",
                     "DATABASE_HOST": "myhost",
                     "DATABASE_PASSWORD": "inner-light",  # nosec
@@ -567,7 +573,6 @@ def create_plan(container_name, storage_type):
                     "TEMPORAL_WORKER_PORTS": "9001,9002,9003,9004,9005,9006,9007,9008,9009,9010,9011,9012,9013,9014,9015,9016,9017,9018,9019,9020,9021,9022,9023,9024,9025,9026,9027,9028,9029,9030",
                     "UNSUCCESSFUL_TTL_MINUTES": 1440,
                     "VAULT_AUTH_METHOD": "token",
-                    "WEBAPP_URL": "http://airbyte-ui-k8s:8080",
                     "WORKER_LOGS_STORAGE_TYPE": storage_type,
                     "WORKER_STATE_STORAGE_TYPE": storage_type,
                     "WORKLOAD_API_HOST": "airbyte-k8s:8007",
@@ -580,6 +585,10 @@ def create_plan(container_name, storage_type):
 
     if container_name == "airbyte-bootloader":
         want_plan["services"][container_name].update({"on-success": "ignore"})
+
+    server_port = SERVER_PORT_MAP.get(container_name)
+    if server_port:
+        want_plan["services"][container_name]["environment"].update({"ENDPOINTS_ALL_PORT": server_port})
 
     if container_name in ["airbyte-workload-launcher", "airbyte-workers", "airbyte-cron"]:
         want_plan["services"][container_name]["environment"].update(

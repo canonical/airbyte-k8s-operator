@@ -521,6 +521,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
                 s3_connection=s3_connection,
                 credentials=credentials,
                 otel_collector_endpoint=otel_collector_endpoint,
+                ingress_url=self.ingress.url,
             )
             env = {k: v for k, v in env.items() if v is not None}
             env.update(dataplane_env)
