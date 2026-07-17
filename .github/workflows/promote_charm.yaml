@@ -4,15 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       origin-channel:
-        type: choice
-        description: "Origin Channel"
-        options:
-          - latest/edge
+        description: 'Origin Channel e.g. 1/edge'
+        required: true
       destination-channel:
-        type: choice
-        description: "Destination Channel"
-        options:
-          - latest/stable
+        description: 'Destination Channel e.g. 1/stable'
+        required: true
     secrets:
       CHARMHUB_TOKEN:
         required: true
