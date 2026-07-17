@@ -9,15 +9,30 @@ on:
 
 jobs:
   integration-tests:
+    name: integration (${{ matrix.name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # microk8s coverage.
+          - name: microk8s
+            provider: microk8s
+            use-canonical-k8s: "false"
+            channel: 1.32-strict/stable
+          # canonical-k8s coverage.
+          - name: canonical-k8s
+            provider: k8s
+            use-canonical-k8s: "true"
+            channel: 1.32-classic/stable
     uses: canonical/operator-workflows/.github/workflows/integration_test.yaml@main
     secrets: inherit
     permissions:
       contents: read
       packages: write
     with:
-      provider: "k8s"
-      use-canonical-k8s: true
-      channel: 1.32-classic/stable
+      provider: ${{ matrix.provider }}
+      use-canonical-k8s: ${{ matrix.use-canonical-k8s == 'true' }}
+      channel: ${{ matrix.channel }}
       modules: '["test_charm.py", "test_upgrade.py", "test_scaling.py"]'
       juju-channel: 3/stable
       self-hosted-runner: true

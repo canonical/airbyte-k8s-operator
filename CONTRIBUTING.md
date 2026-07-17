@@ -191,7 +191,7 @@ sudo rockcraft pack --destructive-mode --verbose
 The rock needs to be copied to the Microk8s registry so that it can be deployed in the Kubernetes cluster:
 
 ```bash
-rockcraft.skopeo --insecure-policy copy --dest-tls-verify=false oci-archive:airbyte_1.7.0_$(dpkg --print-architecture).rock docker://localhost:32000/airbyte:1.7.0
+rockcraft.skopeo --insecure-policy copy --dest-tls-verify=false oci-archive:airbyte_2.0.0_$(dpkg --print-architecture).rock docker://localhost:32000/airbyte:2.0.0
 ```
 
 #### Deploy Charm
@@ -204,7 +204,7 @@ cd ..
 charmcraft pack # the --destructive-mode flag can be used to pack the charm using the current host.
 
 # Deploy the charm
-juju deploy ./airbyte-k8s_ubuntu-22.04-$(dpkg --print-architecture).charm --resource airbyte-image=localhost:32000/airbyte:1.7.0 
+juju deploy ./airbyte-k8s_ubuntu-22.04-$(dpkg --print-architecture).charm --resource airbyte-image=localhost:32000/airbyte:2.0.0 
 ```
 
 #### Relate Charms
