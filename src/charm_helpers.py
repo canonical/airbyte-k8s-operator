@@ -140,6 +140,7 @@ def create_env(
         "STORAGE_BUCKET_STATE": config["storage-bucket-state"],
         "STORAGE_BUCKET_WORKLOAD_OUTPUT": config["storage-bucket-workload-output"],
         "STORAGE_BUCKET_ACTIVITY_PAYLOAD": config["storage-bucket-activity-payload"],
+        "STORAGE_BUCKET_AUDIT_LOGGING": config["storage-bucket-audit-logging"],
         # Database config
         "DATABASE_URL": db_url,
         "DATABASE_USER": db_connection.user,

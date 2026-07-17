@@ -436,6 +436,11 @@ config:
       default: "airbyte-state-storage"
       type: string
 
+    storage-bucket-audit-logging:
+      description: Name of audit logging storage bucket.
+      default: "airbyte-audit-logging"
+      type: string
+
     ##### Miscellaneous config #####
     pod-running-ttl-minutes:
       description: Number of minutes until a running job pod is removed.

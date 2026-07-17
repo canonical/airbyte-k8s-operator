@@ -58,6 +58,7 @@ BUCKET_CONFIGS = [
     "storage-bucket-state",
     "storage-bucket-activity-payload",
     "storage-bucket-workload-output",
+    "storage-bucket-audit-logging",
 ]
 LOGS_BUCKET_CONFIG = "storage-bucket-logs"
 

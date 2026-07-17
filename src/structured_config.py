@@ -113,6 +113,7 @@ class CharmConfig(BaseConfigModel):
     storage_bucket_state: str
     storage_bucket_activity_payload: str
     storage_bucket_workload_output: str
+    storage_bucket_audit_logging: str
     pod_running_ttl_minutes: int
     pod_successful_ttl_minutes: int
     pod_unsuccessful_ttl_minutes: int

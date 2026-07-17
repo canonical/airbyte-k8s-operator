@@ -555,6 +555,7 @@ def create_plan(container_name, storage_type):
                     "S3_LOG_BUCKET": "airbyte-dev-logs",
                     "SHOULD_RUN_NOTIFY_WORKFLOWS": "true",
                     "STORAGE_BUCKET_ACTIVITY_PAYLOAD": "airbyte-payload-storage",
+                    "STORAGE_BUCKET_AUDIT_LOGGING": "airbyte-audit-logging",
                     "STORAGE_BUCKET_LOG": "airbyte-dev-logs",
                     "STORAGE_BUCKET_STATE": "airbyte-state-storage",
                     "STORAGE_BUCKET_WORKLOAD_OUTPUT": "airbyte-state-storage",
