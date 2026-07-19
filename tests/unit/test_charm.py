@@ -544,6 +544,7 @@ def create_plan(container_name, storage_type):
                     "KEYCLOAK_DATABASE_URL": "jdbc:postgresql://myhost:5432/airbyte-k8s_db?currentSchema=keycloak",
                     "KEYCLOAK_INTERNAL_HOST": "localhost",
                     "LOG_LEVEL": "INFO",
+                    "MANIFEST_SERVER_API_HOST": "http://airbyte-k8s:8080",
                     "MAX_CHECK_WORKERS": 5,
                     "MAX_DAYS_OF_ONLY_FAILED_JOBS_BEFORE_CONNECTION_DISABLE": 14,
                     "MAX_DISCOVER_WORKERS": 5,

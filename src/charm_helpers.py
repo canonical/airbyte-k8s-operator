@@ -158,6 +158,9 @@ def create_env(
         "CONFIG_API_HOST": f"{app_name}:{INTERNAL_API_PORT}",
         "CONNECTOR_BUILDER_SERVER_API_HOST": f"{app_name}:{CONNECTOR_BUILDER_SERVER_API_PORT}",
         "CONNECTOR_BUILDER_API_HOST": f"{app_name}:{CONNECTOR_BUILDER_SERVER_API_PORT}",
+        # Airbyte 2.0's server needs this non-empty to build its bean graph; the optional
+        # manifest-server is off by default so it is never dialed (the builder handles manifests).
+        "MANIFEST_SERVER_API_HOST": f"http://{app_name}:{CONNECTOR_BUILDER_SERVER_API_PORT}",
         "AIRBYTE_API_HOST": f"{app_name}:{AIRBYTE_API_PORT}/api/public",
         "WORKLOAD_API_HOST": f"{app_name}:{WORKLOAD_API_PORT}",
         "WORKLOAD_API_BEARER_TOKEN": ".Values.workload-api.bearerToken",  # nosec
