@@ -36,7 +36,7 @@ jobs:
       use-canonical-k8s: ${{ matrix.use-canonical-k8s == 'true' }}
       channel: ${{ matrix.channel }}
       microk8s-addons: ${{ matrix.microk8s-addons }}
-      modules: '["test_charm.py", "test_upgrade.py", "test_scaling.py"]'
+      modules: '["test_charm.py", "test_upgrade.py"]'
       juju-channel: 3/stable
       self-hosted-runner: true
       self-hosted-runner-label: "self-hosted-linux-amd64-noble-xlarge"

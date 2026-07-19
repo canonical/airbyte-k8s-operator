@@ -517,6 +517,7 @@ def create_plan(container_name, storage_type):
                 "override": "replace",
                 "environment": {
                     **BASE_ENV,
+                    "AB_JWT_SIGNATURE_SECRET": "airbyte-internal-jwt-signature-secret",
                     "AIRBYTE_API_HOST": "airbyte-k8s:8006/api/public",
                     "AIRBYTE_SERVER_HOST": "airbyte-k8s:8001",
                     "AIRBYTE_URL": "http://airbyte-k8s:8001",

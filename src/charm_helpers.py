@@ -164,6 +164,9 @@ def create_env(
         "AIRBYTE_API_HOST": f"{app_name}:{AIRBYTE_API_PORT}/api/public",
         "WORKLOAD_API_HOST": f"{app_name}:{WORKLOAD_API_PORT}",
         "WORKLOAD_API_BEARER_TOKEN": ".Values.workload-api.bearerToken",  # nosec
+        # Airbyte 2.0 signs internal service-to-service JWTs; the co-located services share this
+        # and reject a blank value. Internal only (one pod, API_AUTHORIZATION_ENABLED is false).
+        "AB_JWT_SIGNATURE_SECRET": "airbyte-internal-jwt-signature-secret",  # nosec
         "CONTROL_PLANE_TOKEN_ENDPOINT": f"http://{app_name}:{INTERNAL_API_PORT}/api/v1/dataplanes/token",
     }
 
