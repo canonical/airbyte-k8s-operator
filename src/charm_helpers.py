@@ -63,9 +63,7 @@ def create_env(
         # Airbye services config
         "LOG_LEVEL": config["log-level"].value,
         "TEMPORAL_HOST": config["temporal-host"],
-        # Airbyte 2.0 resolves AIRBYTE_URL with no default and fails to start without it. It is the
-        # auth token issuer, so it must be where Airbyte itself is reachable: the ingress URL when
-        # exposed, otherwise the in-cluster server address.
+        # Airbyte 2.0 requires this (no default): the ingress URL when exposed, else the server address.
         "AIRBYTE_URL": ingress_url or f"http://{app_name}:{INTERNAL_API_PORT}",
         # Secrets config
         "SECRET_PERSISTENCE": secret_persistence,
@@ -158,14 +156,12 @@ def create_env(
         "CONFIG_API_HOST": f"{app_name}:{INTERNAL_API_PORT}",
         "CONNECTOR_BUILDER_SERVER_API_HOST": f"{app_name}:{CONNECTOR_BUILDER_SERVER_API_PORT}",
         "CONNECTOR_BUILDER_API_HOST": f"{app_name}:{CONNECTOR_BUILDER_SERVER_API_PORT}",
-        # Airbyte 2.0's server needs this non-empty to build its bean graph; the optional
-        # manifest-server is off by default so it is never dialed (the builder handles manifests).
+        # Airbyte 2.0's server needs a non-empty URL here to start; unused by default.
         "MANIFEST_SERVER_API_HOST": f"http://{app_name}:{CONNECTOR_BUILDER_SERVER_API_PORT}",
         "AIRBYTE_API_HOST": f"{app_name}:{AIRBYTE_API_PORT}/api/public",
         "WORKLOAD_API_HOST": f"{app_name}:{WORKLOAD_API_PORT}",
         "WORKLOAD_API_BEARER_TOKEN": ".Values.workload-api.bearerToken",  # nosec
-        # Airbyte 2.0 signs internal service-to-service JWTs; the co-located services share this
-        # and reject a blank value. Internal only (one pod, API_AUTHORIZATION_ENABLED is false).
+        # Airbyte 2.0 throws at startup on a blank value; internal only, so any non-blank works.
         "AB_JWT_SIGNATURE_SECRET": "airbyte-internal-jwt-signature-secret",  # nosec
         "CONTROL_PLANE_TOKEN_ENDPOINT": f"http://{app_name}:{INTERNAL_API_PORT}/api/v1/dataplanes/token",
     }
