@@ -63,7 +63,7 @@ def create_env(
         # Airbye services config
         "LOG_LEVEL": config["log-level"].value,
         "TEMPORAL_HOST": config["temporal-host"],
-        # Airbyte 2.0 requires this (no default): the ingress URL when exposed, else the server address.
+        # Airbyte 2.0 requires this (no default): ingress URL if exposed, else server address.
         "AIRBYTE_URL": ingress_url or f"http://{app_name}:{INTERNAL_API_PORT}",
         # Secrets config
         "SECRET_PERSISTENCE": secret_persistence,
