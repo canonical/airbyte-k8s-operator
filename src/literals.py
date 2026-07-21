@@ -15,12 +15,8 @@ AIRBYTE_VERSION = "2.0.0"
 DB_NAME = "airbyte-k8s_db"
 AIRBYTE_AUTH_K8S_SECRET_NAME = "airbyte-auth-secrets"  # nosec
 
-
-# Airbyte 2.0 serves Micronaut's management endpoints (including /health) on a dedicated port,
-# hardcoded to 8085 in every service, which the containers would all contend for since they share
-# a network namespace. Micronaut serves them from the main server when the ports match.
-# airbyte-workload-api-server is absent deliberately: it serves /health from its own controller on
-# its server port, which the management endpoint would collide with, so it keeps 8085 to itself.
+# Move each service's /health off the hardcoded 8085 onto its own server port, so co-located
+# containers don't contend. workload-api-server is absent on purpose (already serves /health).
 SERVER_PORT_MAP = {
     "airbyte-bootloader": BOOTLOADER_PORT,
     "airbyte-connector-builder-server": CONNECTOR_BUILDER_SERVER_API_PORT,
