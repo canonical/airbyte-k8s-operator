@@ -161,8 +161,6 @@ def create_env(
         "AIRBYTE_API_HOST": f"{app_name}:{AIRBYTE_API_PORT}/api/public",
         "WORKLOAD_API_HOST": f"{app_name}:{WORKLOAD_API_PORT}",
         "WORKLOAD_API_BEARER_TOKEN": ".Values.workload-api.bearerToken",  # nosec
-        # Airbyte 2.0 throws at startup on a blank value; internal only, so any non-blank works.
-        "AB_JWT_SIGNATURE_SECRET": "airbyte-internal-jwt-signature-secret",  # nosec
         "CONTROL_PLANE_TOKEN_ENDPOINT": f"http://{app_name}:{INTERNAL_API_PORT}/api/v1/dataplanes/token",
     }
 

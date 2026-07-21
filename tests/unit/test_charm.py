@@ -76,6 +76,7 @@ class TestCharm(TestCase):
         fake_secret.data = {
             "dataplane-client-id": base64.b64encode(b"sample-client-id"),
             "dataplane-client-secret": base64.b64encode(b"sample-client-secret"),
+            "jwt-signature-secret": base64.b64encode(b"sample-jwt-signature-secret"),
         }
         self.mock_core_v1_instance.read_namespaced_secret.return_value = fake_secret
 
@@ -318,14 +319,15 @@ class TestCharm(TestCase):
         self.assertIsInstance(out.unit_status, BlockedStatus)
         self.assertIn("missing keys", out.unit_status.message)
 
-    def test_dataplane_env_from_auth_secret(self):
-        """DATAPLANE_CLIENT_ID/SECRET from the bootloader's K8s secret reach the plan env."""
+    def test_auth_env_from_auth_secret(self):
+        """Dataplane creds and the JWT signature secret reach the plan env from the K8s secret."""
         state = make_state(db=True, minio=True)
         out = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
 
         env = out.get_container("airbyte-server").plan.to_dict()["services"]["airbyte-server"]["environment"]
         self.assertEqual(env["DATAPLANE_CLIENT_ID"], "sample-client-id")
         self.assertEqual(env["DATAPLANE_CLIENT_SECRET"], "sample-client-secret")
+        self.assertEqual(env["AB_JWT_SIGNATURE_SECRET"], "sample-jwt-signature-secret")
 
     def test_auth_secret_missing_leaves_runtime_unconfigured(self):
         """Runtime containers wait (unconfigured) until the auth secret exists.
@@ -517,7 +519,7 @@ def create_plan(container_name, storage_type):
                 "override": "replace",
                 "environment": {
                     **BASE_ENV,
-                    "AB_JWT_SIGNATURE_SECRET": "airbyte-internal-jwt-signature-secret",
+                    "AB_JWT_SIGNATURE_SECRET": "sample-jwt-signature-secret",
                     "AIRBYTE_API_HOST": "airbyte-k8s:8006/api/public",
                     "AIRBYTE_SERVER_HOST": "airbyte-k8s:8001",
                     "AIRBYTE_URL": "http://airbyte-k8s:8001",
