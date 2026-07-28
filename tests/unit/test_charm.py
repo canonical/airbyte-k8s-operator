@@ -21,7 +21,12 @@ from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingSta
 from ops.pebble import CheckLevel, CheckStartup, CheckStatus, Layer
 
 from charm import AirbyteK8SOperatorCharm
-from src.literals import BASE_ENV, CONTAINER_HEALTH_CHECK_MAP, INTERNAL_API_PORT
+from src.literals import (
+    BASE_ENV,
+    CONTAINER_HEALTH_CHECK_MAP,
+    INTERNAL_API_PORT,
+    SERVER_PORT_MAP,
+)
 from src.structured_config import StorageType
 
 logging.basicConfig(level=logging.DEBUG)
@@ -71,6 +76,7 @@ class TestCharm(TestCase):
         fake_secret.data = {
             "dataplane-client-id": base64.b64encode(b"sample-client-id"),
             "dataplane-client-secret": base64.b64encode(b"sample-client-secret"),
+            "jwt-signature-secret": base64.b64encode(b"sample-jwt-signature-secret"),
         }
         self.mock_core_v1_instance.read_namespaced_secret.return_value = fake_secret
 
@@ -313,14 +319,15 @@ class TestCharm(TestCase):
         self.assertIsInstance(out.unit_status, BlockedStatus)
         self.assertIn("missing keys", out.unit_status.message)
 
-    def test_dataplane_env_from_auth_secret(self):
-        """DATAPLANE_CLIENT_ID/SECRET from the bootloader's K8s secret reach the plan env."""
+    def test_auth_env_from_auth_secret(self):
+        """Dataplane creds and the JWT signature secret reach the plan env from the K8s secret."""
         state = make_state(db=True, minio=True)
         out = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
 
         env = out.get_container("airbyte-server").plan.to_dict()["services"]["airbyte-server"]["environment"]
         self.assertEqual(env["DATAPLANE_CLIENT_ID"], "sample-client-id")
         self.assertEqual(env["DATAPLANE_CLIENT_SECRET"], "sample-client-secret")
+        self.assertEqual(env["AB_JWT_SIGNATURE_SECRET"], "sample-jwt-signature-secret")
 
     def test_auth_secret_missing_leaves_runtime_unconfigured(self):
         """Runtime containers wait (unconfigured) until the auth secret exists.
@@ -512,15 +519,17 @@ def create_plan(container_name, storage_type):
                 "override": "replace",
                 "environment": {
                     **BASE_ENV,
+                    "AB_JWT_SIGNATURE_SECRET": "sample-jwt-signature-secret",
                     "AIRBYTE_API_HOST": "airbyte-k8s:8006/api/public",
                     "AIRBYTE_SERVER_HOST": "airbyte-k8s:8001",
+                    "AIRBYTE_URL": "http://airbyte-k8s:8001",
                     "AWS_ACCESS_KEY_ID": "access",  # nosec
                     "AWS_SECRET_ACCESS_KEY": "secret",  # nosec
                     "CONFIG_API_HOST": "airbyte-k8s:8001",
                     "CONTROL_PLANE_TOKEN_ENDPOINT": "http://airbyte-k8s:8001/api/v1/dataplanes/token",
-                    "CONNECTOR_BUILDER_API_HOST": "airbyte-k8s:80",
+                    "CONNECTOR_BUILDER_API_HOST": "airbyte-k8s:8080",
                     "CONNECTOR_BUILDER_API_URL": "/connector-builder-api",
-                    "CONNECTOR_BUILDER_SERVER_API_HOST": "airbyte-k8s:80",
+                    "CONNECTOR_BUILDER_SERVER_API_HOST": "airbyte-k8s:8080",
                     "DATABASE_DB": "airbyte-k8s_db",
                     "DATABASE_HOST": "myhost",
                     "DATABASE_PASSWORD": "inner-light",  # nosec
@@ -538,6 +547,7 @@ def create_plan(container_name, storage_type):
                     "KEYCLOAK_DATABASE_URL": "jdbc:postgresql://myhost:5432/airbyte-k8s_db?currentSchema=keycloak",
                     "KEYCLOAK_INTERNAL_HOST": "localhost",
                     "LOG_LEVEL": "INFO",
+                    "MANIFEST_SERVER_API_HOST": "http://airbyte-k8s:8080",
                     "MAX_CHECK_WORKERS": 5,
                     "MAX_DAYS_OF_ONLY_FAILED_JOBS_BEFORE_CONNECTION_DISABLE": 14,
                     "MAX_DISCOVER_WORKERS": 5,
@@ -549,6 +559,7 @@ def create_plan(container_name, storage_type):
                     "S3_LOG_BUCKET": "airbyte-dev-logs",
                     "SHOULD_RUN_NOTIFY_WORKFLOWS": "true",
                     "STORAGE_BUCKET_ACTIVITY_PAYLOAD": "airbyte-payload-storage",
+                    "STORAGE_BUCKET_AUDIT_LOGGING": "airbyte-audit-logging",
                     "STORAGE_BUCKET_LOG": "airbyte-dev-logs",
                     "STORAGE_BUCKET_STATE": "airbyte-state-storage",
                     "STORAGE_BUCKET_WORKLOAD_OUTPUT": "airbyte-state-storage",
@@ -567,11 +578,10 @@ def create_plan(container_name, storage_type):
                     "TEMPORAL_WORKER_PORTS": "9001,9002,9003,9004,9005,9006,9007,9008,9009,9010,9011,9012,9013,9014,9015,9016,9017,9018,9019,9020,9021,9022,9023,9024,9025,9026,9027,9028,9029,9030",
                     "UNSUCCESSFUL_TTL_MINUTES": 1440,
                     "VAULT_AUTH_METHOD": "token",
-                    "WEBAPP_URL": "http://airbyte-ui-k8s:8080",
                     "WORKER_LOGS_STORAGE_TYPE": storage_type,
                     "WORKER_STATE_STORAGE_TYPE": storage_type,
                     "WORKLOAD_API_HOST": "airbyte-k8s:8007",
-                    "WORKLOAD_INIT_IMAGE": "airbyte/workload-init-container:1.7.0",
+                    "WORKLOAD_INIT_IMAGE": "airbyte/workload-init-container:2.0.0",
                     "WORKLOAD_API_BEARER_TOKEN": ".Values.workload-api.bearerToken",  # nosec
                 },
             },
@@ -580,6 +590,10 @@ def create_plan(container_name, storage_type):
 
     if container_name == "airbyte-bootloader":
         want_plan["services"][container_name].update({"on-success": "ignore"})
+
+    server_port = SERVER_PORT_MAP.get(container_name)
+    if server_port:
+        want_plan["services"][container_name]["environment"].update({"ENDPOINTS_ALL_PORT": server_port})
 
     if container_name in ["airbyte-workload-launcher", "airbyte-workers", "airbyte-cron"]:
         want_plan["services"][container_name]["environment"].update(

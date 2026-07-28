@@ -4,7 +4,7 @@
 name: airbyte
 summary: Airbyte rock
 description: Airbyte OCI image for the Airbyte charm
-version: "1.7.0"
+version: "2.0.0"
 base: ubuntu@22.04
 license: Apache-2.0
 platforms:
@@ -14,7 +14,7 @@ environment:
   JAVA_HOME: /usr/lib/jvm/java-21-openjdk-amd64
   CDK_PYTHON: /usr/bin/python3.10
   CDK_ENTRYPOINT: /usr/lib/python3.10/dist-packages/airbyte_cdk/connector_builder/main.py
-  CDK_VERSION: "5.12.0"
+  CDK_VERSION: "7.3.0"
 
 
 parts:
@@ -38,7 +38,7 @@ parts:
       mkdir -p ${CRAFT_PART_INSTALL}/usr/local/lib/python3.10/dist-packages
       cp -r $(which kubectl) ${CRAFT_PART_INSTALL}/usr/local/bin/kubectl
 
-      pip install --upgrade setuptools pip airbyte-cdk==5.12.0 \
+      pip install --upgrade setuptools pip airbyte-cdk==7.3.0 \
           --target=/${CRAFT_PART_INSTALL}/usr/local/lib/python3.10/dist-packages
     stage:
       - usr/local/bin/kubectl
@@ -49,7 +49,7 @@ parts:
     plugin: dump
     source: https://github.com/airbytehq/airbyte-platform.git # yamllint disable-line
     source-type: git
-    source-tag: v1.7.0
+    source-tag: v2.0.0
     override-build: |
       cp -r . ${CRAFT_PART_INSTALL}/airbyte-platform
     stage:

@@ -84,7 +84,7 @@ Model          Controller          Cloud/Region        Version  SLA          Tim
 airbyte-model  airbyte-controller  microk8s/localhost  3.6.11   unsupported  14:00:29+03:00
 
 App                                        Version                Status  Scale  Charm                     Channel          Rev  Address        Exposed  Message
-airbyte-k8s                                v1.7.0                 active      1  airbyte-k8s               latest/edge       18  10.x.x.x  no
+airbyte-k8s                                v2.0.0                 active      1  airbyte-k8s               latest/edge       18  10.x.x.x  no
 airbyte-webhooks-k8s                                              active      1  airbyte-webhooks-charm    latest/edge       12  10.x.x.x  no
 minio                                      res:oci-image@7f2474f  active      1  minio                     ckf-1.10/stable  459  10.x.x.x  no
 temporal-admin-k8s                         1.23.1                 active      1  temporal-admin-k8s        latest/edge       13  10.x.x.x  no

@@ -24,7 +24,6 @@ variable "config" {
   type = object({
     log-level                                                 = optional(string)
     temporal-host                                             = optional(string)
-    webapp-url                                                = optional(string)
     secret-persistence                                        = optional(string)
     secret-store-gcp-project-id                               = optional(string)
     gcp-credentials-secret-id                                 = optional(string)
@@ -77,6 +76,7 @@ variable "config" {
     storage-bucket-state                                      = optional(string)
     storage-bucket-activity-payload                           = optional(string)
     storage-bucket-workload-output                            = optional(string)
+    storage-bucket-audit-logging                              = optional(string)
     pod-running-ttl-minutes                                   = optional(number)
     pod-successful-ttl-minutes                                = optional(number)
     pod-unsuccessful-ttl-minutes                              = optional(number)
