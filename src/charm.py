@@ -44,6 +44,8 @@ from structured_config import CharmConfig, StorageType
 
 logger = logging.getLogger(__name__)
 
+BOOTLOADER_FAILED_MESSAGE = "airbyte-bootloader failed; check the airbyte-bootloader container logs"
+
 
 def get_pebble_layer(application_name, context):
     """Create pebble layer based on application.
@@ -284,6 +286,10 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             self.reconcile()
             return
 
+        if self._bootloader_failed():
+            self.unit.status = BlockedStatus(BOOTLOADER_FAILED_MESSAGE)
+            return
+
         self.unit.set_workload_version(f"v{AIRBYTE_VERSION}")
         self.unit.status = ActiveStatus()
         if self.unit.is_leader():
@@ -453,6 +459,17 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             "AB_JWT_SIGNATURE_SECRET": jwt_signature_secret,
         }
 
+    def _bootloader_failed(self):
+        """Return True if the airbyte-bootloader is crash-looping instead of having completed."""
+        container = self.unit.get_container("airbyte-bootloader")
+        if not container.can_connect():
+            return False
+        service = container.get_services("airbyte-bootloader").get("airbyte-bootloader")
+        if service is None:
+            return False
+        healthy = (ops.pebble.ServiceStatus.ACTIVE, ops.pebble.ServiceStatus.INACTIVE)
+        return service.current not in healthy
+
     def reconcile(self):  # noqa: C901
         """Reconcile the charm to its desired state.
 
@@ -533,6 +550,10 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             pebble_layer = get_pebble_layer(container_name, env)
             container.add_layer(container_name, pebble_layer, combine=True)
             container.replan()
+
+        if self._bootloader_failed():
+            self.unit.status = BlockedStatus(BOOTLOADER_FAILED_MESSAGE)
+            return
 
         if not auth_env:
             self.unit.status = WaitingStatus("waiting for airbyte-auth-secrets")

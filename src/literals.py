@@ -87,6 +87,9 @@ BASE_ENV = {
     "PUB_SUB_ENABLED": "false",
     "PUB_SUB_TOPIC_NAME": "",
     "DATA_PLANE_ID": "local",
+    # Name of the dataplane group the launcher serves; must match the group Airbyte routes work to
+    # (the "AUTO" group from v1), else the launcher serves an orphan group and syncs never run.
+    "DEFAULT_DATAPLANE_GROUP_NAME": "AUTO",
     "LOCAL_ROOT": "/tmp/airbyte_local",  # nosec
     "RUN_DATABASE_MIGRATION_ON_STARTUP": "true",
     "API_AUTHORIZATION_ENABLED": "false",

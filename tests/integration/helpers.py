@@ -548,11 +548,14 @@ def cancel_airbyte_job(api_url, job_id):
     return response.json().get("status")
 
 
-def run_test_sync_job(juju: jubilant.Juju) -> None:
-    """Run a test Airbyte connection end to end and assert it succeeds.
+def create_test_connection(juju: jubilant.Juju) -> str:
+    """Create a source, destination and connection, returning the connection ID.
 
     Args:
         juju: Jubilant object.
+
+    Returns:
+        The created Airbyte connection ID.
     """
     api_url = get_unit_url(juju, APP_NAME_AIRBYTE_SERVER, 0, INTERNAL_API_PORT)
     logger.info("curling app address: %s", api_url)
@@ -564,7 +567,17 @@ def run_test_sync_job(juju: jubilant.Juju) -> None:
     model_name = model_short_name(juju.model or "")
     source_id = create_airbyte_source(api_url, workspace_id)
     destination_id = create_airbyte_destination(api_url, model_name, workspace_id, db_password)
-    connection_id = create_airbyte_connection(api_url, source_id, destination_id)
+    return create_airbyte_connection(api_url, source_id, destination_id)
+
+
+def sync_connection(juju: jubilant.Juju, connection_id: str) -> None:
+    """Trigger a sync on an existing connection and assert it succeeds.
+
+    Args:
+        juju: Jubilant object.
+        connection_id: the Airbyte connection to sync.
+    """
+    api_url = get_unit_url(juju, APP_NAME_AIRBYTE_SERVER, 0, INTERNAL_API_PORT)
 
     job_successful = False
     for i in range(4):
@@ -592,3 +605,13 @@ def run_test_sync_job(juju: jubilant.Juju) -> None:
         cancel_airbyte_job(api_url, job_id)
 
     assert job_successful
+
+
+def run_test_sync_job(juju: jubilant.Juju) -> None:
+    """Create a connection and run it end to end, asserting the sync succeeds.
+
+    Args:
+        juju: Jubilant object.
+    """
+    connection_id = create_test_connection(juju)
+    sync_connection(juju, connection_id)
