@@ -20,7 +20,7 @@ from ops import testing
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingStatus
 from ops.pebble import CheckLevel, CheckStartup, CheckStatus, Layer, ServiceStatus
 
-from charm import BOOTLOADER_FAILED_MESSAGE, AirbyteK8SOperatorCharm
+from charm import BOOTLOADER_WAITING_MESSAGE, AirbyteK8SOperatorCharm
 from src.literals import (
     BASE_ENV,
     CONTAINER_HEALTH_CHECK_MAP,
@@ -175,8 +175,8 @@ class TestCharm(TestCase):
         out = self.ctx.run(self.ctx.on.update_status(), mid)
         self.assertEqual(out.unit_status, MaintenanceStatus("Status check: 'airbyte-workload-api-server' DOWN"))
 
-    def test_update_status_blocked_when_bootloader_failed(self):
-        """A crash-looping bootloader blocks the unit instead of reporting active."""
+    def test_update_status_waiting_when_bootloader_failed(self):
+        """A crash-looping bootloader leaves the unit waiting instead of reporting active."""
         state = make_state(db=True, minio=True)
         mid = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
         mid = with_checks(mid, CheckStatus.UP)
@@ -189,7 +189,7 @@ class TestCharm(TestCase):
         mid = dataclasses.replace(mid, containers=containers)
 
         out = self.ctx.run(self.ctx.on.update_status(), mid)
-        self.assertEqual(out.unit_status, BlockedStatus(BOOTLOADER_FAILED_MESSAGE))
+        self.assertEqual(out.unit_status, WaitingStatus(BOOTLOADER_WAITING_MESSAGE))
 
     def test_incomplete_pebble_plan(self):
         """The charm re-applies the pebble plan if incomplete."""

@@ -44,7 +44,7 @@ from structured_config import CharmConfig, StorageType
 
 logger = logging.getLogger(__name__)
 
-BOOTLOADER_FAILED_MESSAGE = "airbyte-bootloader failed; check the airbyte-bootloader container logs"
+BOOTLOADER_WAITING_MESSAGE = "waiting for airbyte-bootloader to complete"
 
 
 def get_pebble_layer(application_name, context):
@@ -287,7 +287,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             return
 
         if self._bootloader_failed():
-            self.unit.status = BlockedStatus(BOOTLOADER_FAILED_MESSAGE)
+            self.unit.status = WaitingStatus(BOOTLOADER_WAITING_MESSAGE)
             return
 
         self.unit.set_workload_version(f"v{AIRBYTE_VERSION}")
@@ -552,7 +552,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             container.replan()
 
         if self._bootloader_failed():
-            self.unit.status = BlockedStatus(BOOTLOADER_FAILED_MESSAGE)
+            self.unit.status = WaitingStatus(BOOTLOADER_WAITING_MESSAGE)
             return
 
         if not auth_env:
