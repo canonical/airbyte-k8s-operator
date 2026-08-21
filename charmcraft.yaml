@@ -54,6 +54,10 @@ requires:
     interface: postgresql_client
     limit: 1
 
+  temporal-host-info:
+    interface: temporal-host-info
+    limit: 1
+
   object-storage:
     interface: object-storage
     limit: 1
@@ -130,11 +134,6 @@ config:
       type: string
 
     ##### Airbyte services config #####
-    temporal-host:
-      description: Temporal server host.
-      default: "temporal-k8s:7233"
-      type: string
-
     webapp-url:
       description: URL for the Airbyte webapp.
       default: "http://airbyte-ui-k8s:8080"
