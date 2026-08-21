@@ -54,6 +54,10 @@ requires:
     interface: postgresql_client
     limit: 1
 
+  temporal-host-info:
+    interface: temporal-host-info
+    limit: 1
+
   object-storage:
     interface: object-storage
     limit: 1
@@ -127,12 +131,6 @@ config:
 
         Acceptable values are: "INFO", "DEBUG", "WARNING", "ERROR" and "FATAL"
       default: "INFO"
-      type: string
-
-    ##### Airbyte services config #####
-    temporal-host:
-      description: Temporal server host.
-      default: "temporal-k8s:7233"
       type: string
 
     ##### Secrets config #####

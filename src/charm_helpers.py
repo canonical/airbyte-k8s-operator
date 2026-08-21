@@ -6,7 +6,12 @@
 import os
 from urllib.parse import urlparse
 
-from connections import DatabaseConnection, ObjectStorageConnection, S3Connection
+from connections import (
+    DatabaseConnection,
+    ObjectStorageConnection,
+    S3Connection,
+    TemporalConnection,
+)
 from literals import (
     AIRBYTE_API_PORT,
     BASE_ENV,
@@ -25,6 +30,7 @@ def create_env(
     config,
     *,
     db_connection: DatabaseConnection,
+    temporal_connection: TemporalConnection,
     minio_connection: ObjectStorageConnection | None,
     s3_connection: S3Connection | None,
     credentials: dict,
@@ -39,6 +45,8 @@ def create_env(
         container_name: Name of Airbyte container.
         config: Charm config.
         db_connection: Database connection details derived from the db relation.
+        temporal_connection: Temporal connection details derived from the
+            temporal-host-info relation.
         minio_connection: Object-storage details derived from the minio relation, or None.
         s3_connection: S3 details derived from the s3 relation, or None.
         credentials: Credentials resolved from Juju secrets (empty if none configured).
@@ -62,7 +70,7 @@ def create_env(
         **BASE_ENV,
         # Airbye services config
         "LOG_LEVEL": config["log-level"].value,
-        "TEMPORAL_HOST": config["temporal-host"],
+        "TEMPORAL_HOST": f"{temporal_connection.host}:{temporal_connection.port}",
         # Airbyte 2.0 requires this (no default): ingress URL if exposed, else server address.
         "AIRBYTE_URL": ingress_url or f"http://{app_name}:{INTERNAL_API_PORT}",
         # Secrets config
