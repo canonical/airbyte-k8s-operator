@@ -300,13 +300,17 @@ def create_default_namespace(juju: jubilant.Juju) -> None:
 
 
 def perform_airbyte_integrations(juju: jubilant.Juju) -> None:
-    """Integrate Airbyte with PostgreSQL and MinIO, then wait for it to go active.
+    """Integrate Airbyte with PostgreSQL, MinIO and Temporal, then wait until active.
 
     Args:
         juju: Jubilant object.
     """
     juju.integrate(APP_NAME_AIRBYTE_SERVER, POSTGRES_NAME)
     juju.integrate(APP_NAME_AIRBYTE_SERVER, MINIO_NAME)
+    juju.integrate(
+        f"{APP_NAME_TEMPORAL_SERVER}:temporal-host-info",
+        f"{APP_NAME_AIRBYTE_SERVER}:temporal-host-info",
+    )
     wait_for_all_active(juju, [APP_NAME_AIRBYTE_SERVER, POSTGRES_NAME, MINIO_NAME], timeout=15 * 60)
 
 
