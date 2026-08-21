@@ -27,4 +27,9 @@ run "basic_deploy" {
     condition     = output.requires.object_storage == "object-storage"
     error_message = "requires.object_storage endpoint did not match expected"
   }
+
+  assert {
+    condition     = output.requires.temporal_host_info == "temporal-host-info"
+    error_message = "requires.temporal_host_info endpoint did not match expected"
+  }
 }

@@ -23,7 +23,6 @@ variable "config" {
   description = "Application configuration. Options at https://charmhub.io/airbyte-k8s/configurations."
   type = object({
     log-level                                                 = optional(string)
-    temporal-host                                             = optional(string)
     webapp-url                                                = optional(string)
     secret-persistence                                        = optional(string)
     secret-store-gcp-project-id                               = optional(string)
