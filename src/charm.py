@@ -126,7 +126,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         self.framework.observe(self.on.secret_changed, self._on_secret_changed)
 
         # Handle postgresql relation.
-        self.db = DatabaseRequires(self, relation_name="db", database_name="airbyte-k8s_db", extra_user_roles="admin")
+        self.db = DatabaseRequires(self, relation_name="db", database_name="airbyte-k8s_db")
         self.postgresql = PostgresqlRelation(self)
 
         self.minio = MinioRelation(self)

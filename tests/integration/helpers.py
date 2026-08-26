@@ -29,6 +29,8 @@ APP_NAME_TEMPORAL_UI = "temporal-ui-k8s"
 POSTGRES_NAME = "postgresql-k8s"
 POSTGRES_CHANNEL = "14/stable"
 POSTGRES_REVISION = 381
+# A second PostgreSQL app for the PG16 test, so Airbyte's track varies independently.
+AIRBYTE_POSTGRES_NAME = "airbyte-postgresql"
 MINIO_NAME = "minio"
 MINIO_CHANNEL = "1.10/stable"
 TEMPORAL_CHANNEL = "1.23/stable"
