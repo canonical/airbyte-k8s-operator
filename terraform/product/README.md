@@ -22,13 +22,14 @@ Into a single Kubernetes Juju model (`model_uuid`):
 | --- | --- | --- |
 | `airbyte-k8s:db` | `postgresql-k8s:database` | Airbyte metadata database |
 | `airbyte-k8s:object-storage` | `minio:object-storage` | Airbyte object storage |
+| `airbyte-k8s:temporal-host-info` | `temporal-k8s:temporal-host-info` | Temporal frontend addressing |
 | `temporal-k8s:db` | `postgresql-k8s:database` | Temporal default store |
 | `temporal-k8s:visibility` | `postgresql-k8s:database` | Temporal visibility store |
 | `temporal-k8s:admin` | `temporal-admin-k8s:admin` | Temporal schema management |
 | `temporal-k8s:temporal-host-info` | `temporal-admin-k8s:temporal-host-info` | Admin CLI addressing |
 
-Airbyte connects to Temporal through the `temporal-host` **config** (default
-`temporal-k8s:7233`), not a relation, so there is no Airbyte↔Temporal integration.
+The `temporal-host-info` relations provide the Temporal frontend host and port to Airbyte and
+the Temporal admin charm.
 
 ## Module structure
 
