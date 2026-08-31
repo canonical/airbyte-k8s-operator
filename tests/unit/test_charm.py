@@ -117,6 +117,19 @@ class TestCharm(TestCase):
         out = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
         self.assertEqual(out.unit_status, BlockedStatus("database relation not ready"))
 
+    def test_db_requests_no_extra_user_roles(self):
+        """The db relation requests only the database, no extra-user-roles.
+
+        The relation user owns airbyte-k8s_db, which suffices for the bootloader
+        migrations, and this avoids the "admin" role rename on postgresql-k8s 16.
+        """
+        db_rel = testing.Relation("db")
+        state = add_relations(make_state(), db_rel)
+        out = self.ctx.run(self.ctx.on.relation_joined(db_rel), state)
+        local_data = out.get_relation(db_rel.id).local_app_data
+        self.assertEqual(local_data.get("database"), "airbyte-k8s_db")
+        self.assertNotIn("extra-user-roles", local_data)
+
     def test_blocked_by_minio(self):
         """The charm is blocked without a minio relation."""
         state = make_state(db=True)

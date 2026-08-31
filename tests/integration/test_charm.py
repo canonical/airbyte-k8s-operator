@@ -86,3 +86,21 @@ def test_optional_credentials_secret(deployed_stack: jubilant.Juju):
 
     # Resolving the granted secret must keep the charm active, not block it.
     helpers.wait_for_all_active(juju, [helpers.APP_NAME_AIRBYTE_SERVER], timeout=10 * 60)
+
+
+def test_active_on_postgresql_16(deployed_stack: jubilant.Juju):
+    """Airbyte works on 16-track PostgreSQL without the "admin" role (issue #54)."""
+    juju = deployed_stack
+    juju.deploy(helpers.POSTGRES_NAME, helpers.AIRBYTE_POSTGRES_NAME, channel="16/stable", revision=927, trust=True)
+    helpers.wait_for_apps_status(juju, {helpers.AIRBYTE_POSTGRES_NAME: "active"}, timeout=20 * 60)
+
+    # Move Airbyte's db from the 14-track PostgreSQL to the 16-track one.
+    juju.remove_relation(helpers.APP_NAME_AIRBYTE_SERVER, helpers.POSTGRES_NAME)
+    helpers.wait_for_apps_status(
+        juju, {helpers.APP_NAME_AIRBYTE_SERVER: "blocked"}, timeout=10 * 60, raise_on_error=False
+    )
+    juju.integrate(helpers.APP_NAME_AIRBYTE_SERVER, helpers.AIRBYTE_POSTGRES_NAME)
+    helpers.wait_for_all_active(juju, [helpers.APP_NAME_AIRBYTE_SERVER, helpers.AIRBYTE_POSTGRES_NAME], timeout=15 * 60)
+
+    helpers.wait_until_healthy(juju)
+    helpers.assert_serving(juju)
