@@ -265,7 +265,7 @@ def deploy_full_stack(
 
     perform_temporal_integrations(juju)
     create_default_namespace(juju)
-    perform_airbyte_integrations(juju)
+    perform_airbyte_integrations(juju, require_temporal=channel is None)
 
 
 def perform_temporal_integrations(juju: jubilant.Juju) -> None:
@@ -299,18 +299,52 @@ def create_default_namespace(juju: jubilant.Juju) -> None:
     assert task.results.get("result") == "command succeeded"
 
 
-def perform_airbyte_integrations(juju: jubilant.Juju) -> None:
-    """Integrate Airbyte with PostgreSQL, MinIO and Temporal, then wait until active.
+def ensure_airbyte_temporal_integration(juju: jubilant.Juju, *, required: bool) -> None:
+    """Integrate Airbyte with Temporal when the deployed charm supports it.
 
     Args:
         juju: Jubilant object.
+        required: Wait for the endpoint when upgrading to a charm that must provide it.
     """
-    juju.integrate(APP_NAME_AIRBYTE_SERVER, POSTGRES_NAME)
-    juju.integrate(APP_NAME_AIRBYTE_SERVER, MINIO_NAME)
+
+    def supports_temporal_host_info(status: jubilant.Status) -> bool:
+        """Return whether the deployed Airbyte charm exposes the endpoint.
+
+        Args:
+            status: Current Juju model status.
+
+        Returns:
+            Whether Airbyte exposes the Temporal host-info endpoint.
+        """
+        airbyte = status.apps.get(APP_NAME_AIRBYTE_SERVER)
+        return airbyte is not None and "temporal-host-info" in airbyte.endpoint_bindings
+
+    status = juju.status()
+    if required and not supports_temporal_host_info(status):
+        status = juju.wait(supports_temporal_host_info, timeout=5 * 60)
+    if not supports_temporal_host_info(status):
+        logger.info("Airbyte baseline does not support the temporal-host-info relation")
+        return
+
+    airbyte = status.apps[APP_NAME_AIRBYTE_SERVER]
+    if "temporal-host-info" in airbyte.relations:
+        return
     juju.integrate(
         f"{APP_NAME_TEMPORAL_SERVER}:temporal-host-info",
         f"{APP_NAME_AIRBYTE_SERVER}:temporal-host-info",
     )
+
+
+def perform_airbyte_integrations(juju: jubilant.Juju, *, require_temporal: bool = True) -> None:
+    """Integrate Airbyte with PostgreSQL, MinIO and Temporal, then wait until active.
+
+    Args:
+        juju: Jubilant object.
+        require_temporal: Whether Airbyte must support the Temporal relation.
+    """
+    juju.integrate(APP_NAME_AIRBYTE_SERVER, POSTGRES_NAME)
+    juju.integrate(APP_NAME_AIRBYTE_SERVER, MINIO_NAME)
+    ensure_airbyte_temporal_integration(juju, required=require_temporal)
     wait_for_all_active(juju, [APP_NAME_AIRBYTE_SERVER, POSTGRES_NAME, MINIO_NAME], timeout=15 * 60)
 
 
