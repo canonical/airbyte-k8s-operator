@@ -307,6 +307,9 @@ def ensure_airbyte_temporal_integration(juju: jubilant.Juju, *, required: bool) 
         required: Wait for the endpoint when upgrading to a charm that must provide it.
     """
 
+    # TODO: Remove capability detection and always integrate once every supported Charmhub
+    # upgrade baseline exposes temporal-host-info. Older baselines lack the endpoint, so an
+    # unconditional integration would fail before they can be refreshed to the local charm.
     def supports_temporal_host_info(status: jubilant.Status) -> bool:
         """Return whether the deployed Airbyte charm exposes the endpoint.
 
