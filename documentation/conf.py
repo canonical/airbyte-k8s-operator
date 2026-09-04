@@ -70,7 +70,7 @@ copyright = "%s CC-BY-SA, %s" % (datetime.date.today().year, author)
 # NOTE: The Open Graph Protocol (OGP) enhances page display in a social graph
 #       and is used by social media platforms; see https://ogp.me/
 
-ogp_site_url = "https://charmed-airbyte-k8s.readthedocs-hosted.com/"
+ogp_site_url = "https://canonical-data-mesh-documentation.readthedocs-hosted.com/en/latest/"
 
 
 # Preview name of the documentation website
