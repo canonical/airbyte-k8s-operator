@@ -526,7 +526,7 @@ def create_airbyte_connection(api_url, source_id, destination_id):
     }
 
     logger.info("creating Airbyte connection")
-    response = post_with_retry(url, payload)
+    response = post_with_retry(url, payload, attempts=10, timeout=600)
     logger.info(response.json())
 
     return response.json().get("connectionId")
