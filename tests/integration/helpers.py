@@ -38,6 +38,8 @@ TEMPORAL_BASE = "ubuntu@24.04"
 
 INTERNAL_API_PORT = 8001
 TEMPORAL_PORT = 7233
+SYNC_JOB_POLL_ATTEMPTS = 60
+SYNC_JOB_POLL_INTERVAL = 10
 
 GET_HEADERS = {"accept": "application/json"}
 POST_HEADERS = {"accept": "application/json", "content-type": "application/json"}
@@ -568,6 +570,7 @@ def check_airbyte_job_status(api_url, job_id):
     url = f"{api_url}/api/public/v1/jobs/{job_id}"
     logger.info("fetching Airbyte job status")
     response = requests.get(url, headers=GET_HEADERS, timeout=120)
+    assert response.status_code == 200, f"job status request returned {response.status_code}: {response.text}"
     logger.info(response.json())
 
     return response.json().get("status")
@@ -619,15 +622,19 @@ def sync_connection(juju: jubilant.Juju, connection_id: str) -> None:
     Args:
         juju: Jubilant object.
         connection_id: the Airbyte connection to sync.
+
+    Raises:
+        AssertionError: If no sync job succeeds.
     """
     api_url = get_unit_url(juju, APP_NAME_AIRBYTE_SERVER, 0, INTERNAL_API_PORT)
 
-    job_successful = False
+    job_id = None
+    status = None
     for i in range(4):
         logger.info("attempt %d to trigger new job", i + 1)
         job_id = trigger_airbyte_connection(api_url, connection_id)
 
-        for j in range(15):
+        for j in range(SYNC_JOB_POLL_ATTEMPTS):
             logger.info("job %d attempt %d: getting job status", i + 1, j + 1)
             status = check_airbyte_job_status(api_url, job_id)
 
@@ -636,18 +643,25 @@ def sync_connection(juju: jubilant.Juju, connection_id: str) -> None:
 
             if status == "succeeded":
                 logger.info("job %d attempt %d: job successful!", i + 1, j + 1)
-                job_successful = True
-                break
+                return
 
-            logger.info("job %d attempt %d: job still running, retrying in 10 seconds", i + 1, j + 1)
-            time.sleep(10)
-
-        if job_successful:
-            break
+            logger.info(
+                "job %d attempt %d: job status is %s, retrying in %d seconds",
+                i + 1,
+                j + 1,
+                status,
+                SYNC_JOB_POLL_INTERVAL,
+            )
+            time.sleep(SYNC_JOB_POLL_INTERVAL)
 
         cancel_airbyte_job(api_url, job_id)
+        if status != "failed":
+            raise AssertionError(
+                f"Airbyte job {job_id} did not complete after "
+                f"{SYNC_JOB_POLL_ATTEMPTS * SYNC_JOB_POLL_INTERVAL} seconds; last status: {status}"
+            )
 
-    assert job_successful
+    raise AssertionError(f"Airbyte job {job_id} did not succeed after 4 attempts; last status: {status}")
 
 
 def run_test_sync_job(juju: jubilant.Juju) -> None:
