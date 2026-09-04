@@ -54,16 +54,6 @@ make check      # runs 'lint', 'static' and 'unit'
 make pack       # build the charm (charmcraft pack)
 ```
 
-To preview your documentation changes locally, navigate to the `documentation/` directory and run:
-```bash
-make install
-make run
-```
-This installs the required documentation dependencies, builds the documentation and renders it in your browser.
-
-Before committing your changes, ensure all required checks pass by running the relevant validation targets
-e.g., `make spellcheck`, `make lint-md`.
-
 
 ### Committing
 
