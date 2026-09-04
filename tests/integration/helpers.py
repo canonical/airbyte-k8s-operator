@@ -73,6 +73,22 @@ def _app_status_current(status: jubilant.Status, app_name: str) -> str:
     return app.app_status.current
 
 
+# TODO: Remove capability detection and always integrate once every supported Charmhub
+# upgrade baseline exposes temporal-host-info. Older baselines lack the endpoint, so an
+# unconditional integration would fail before they can be refreshed to the local charm.
+def _supports_temporal_host_info(status: jubilant.Status) -> bool:
+    """Return whether the deployed Airbyte charm exposes the endpoint.
+
+    Args:
+        status: Current Juju model status.
+
+    Returns:
+        Whether Airbyte exposes the Temporal host-info endpoint.
+    """
+    airbyte = status.apps.get(APP_NAME_AIRBYTE_SERVER)
+    return airbyte is not None and "temporal-host-info" in airbyte.endpoint_bindings
+
+
 def wait_for_apps_status(
     juju: jubilant.Juju,
     expected_by_app: Mapping[str, str | Sequence[str]],
@@ -306,26 +322,10 @@ def ensure_airbyte_temporal_integration(juju: jubilant.Juju, *, required: bool) 
         juju: Jubilant object.
         required: Wait for the endpoint when upgrading to a charm that must provide it.
     """
-
-    # TODO: Remove capability detection and always integrate once every supported Charmhub
-    # upgrade baseline exposes temporal-host-info. Older baselines lack the endpoint, so an
-    # unconditional integration would fail before they can be refreshed to the local charm.
-    def supports_temporal_host_info(status: jubilant.Status) -> bool:
-        """Return whether the deployed Airbyte charm exposes the endpoint.
-
-        Args:
-            status: Current Juju model status.
-
-        Returns:
-            Whether Airbyte exposes the Temporal host-info endpoint.
-        """
-        airbyte = status.apps.get(APP_NAME_AIRBYTE_SERVER)
-        return airbyte is not None and "temporal-host-info" in airbyte.endpoint_bindings
-
     status = juju.status()
-    if required and not supports_temporal_host_info(status):
-        status = juju.wait(supports_temporal_host_info, timeout=5 * 60)
-    if not supports_temporal_host_info(status):
+    if required and not _supports_temporal_host_info(status):
+        status = juju.wait(_supports_temporal_host_info, timeout=5 * 60)
+    if not _supports_temporal_host_info(status):
         logger.info("Airbyte baseline does not support the temporal-host-info relation")
         return
 
