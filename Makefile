@@ -6,8 +6,7 @@ export PYTHONPATH := lib:src
 MYPY_FLAGS := --ignore-missing-imports --follow-imports=skip --install-types --non-interactive
 PYLINT_DISABLE := E0401,W1203,W0613,W0718,R0903,W1514,C0103,R0913,C0301,W0212,R0902,C0104,W0640,R0801,W0511,R0914,R0912,E1120
 CODESPELL_SKIPS := --skip .git --skip .tox --skip build --skip lib --skip ./.venv \
-	--skip .mypy_cache --skip ./icon.svg --skip ./uv.lock \
-	--skip ./documentation/.sphinx --skip ./documentation/_build
+	--skip .mypy_cache --skip ./icon.svg --skip ./uv.lock
 
 .PHONY: help lock fmt lint static unit coverage check pack clean
 
