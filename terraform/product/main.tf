@@ -109,9 +109,21 @@ resource "juju_integration" "airbyte_object_storage" {
   }
 }
 
+# Airbyte -> Temporal frontend.
+resource "juju_integration" "airbyte_temporal_host_info" {
+  model_uuid = var.model_uuid
+
+  application {
+    name     = module.airbyte.app_name
+    endpoint = module.airbyte.requires.temporal_host_info
+  }
+  application {
+    name     = module.temporal_k8s.app_name
+    endpoint = module.temporal_k8s.provides.temporal_host_info
+  }
+}
+
 # Temporal -> PostgreSQL (default + visibility stores) and the admin charm.
-# Airbyte reaches Temporal via the `temporal-host` config (default `temporal-k8s:7233`),
-# not a relation, so no Airbyte<->Temporal integration is required here.
 resource "juju_integration" "temporal_db" {
   model_uuid = var.model_uuid
 

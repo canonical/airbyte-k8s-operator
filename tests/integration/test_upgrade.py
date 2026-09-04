@@ -69,6 +69,7 @@ def test_refresh_from_published(baseline_stack: jubilant.Juju, charm: Path, rock
 
     logger.info("Refreshing '%s' to the local charm + local rock", helpers.APP_NAME_AIRBYTE_SERVER)
     juju.refresh(helpers.APP_NAME_AIRBYTE_SERVER, path=charm, resources=rock_resources)
+    helpers.ensure_airbyte_temporal_integration(juju, required=True)
 
     # Let the upgrade-charm / config-changed reconcile churn settle, then require active.
     juju.wait(lambda status: jubilant.all_agents_idle(status, helpers.APP_NAME_AIRBYTE_SERVER), timeout=10 * 60)
@@ -107,6 +108,7 @@ def test_major_upgrade(charm: Path, rock_resources: dict):
 
         logger.info("Refreshing '%s' to the local charm + local rock", helpers.APP_NAME_AIRBYTE_SERVER)
         juju.refresh(helpers.APP_NAME_AIRBYTE_SERVER, path=charm, resources=rock_resources)
+        helpers.ensure_airbyte_temporal_integration(juju, required=True)
 
         # Let the upgrade-charm / config-changed reconcile churn settle, then require active.
         juju.wait(lambda status: jubilant.all_agents_idle(status, helpers.APP_NAME_AIRBYTE_SERVER), timeout=10 * 60)

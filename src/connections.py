@@ -26,6 +26,19 @@ class DatabaseConnection:
 
 
 @dataclass(frozen=True)
+class TemporalConnection:
+    """Temporal connection details derived from the `temporal-host-info` relation.
+
+    Attrs:
+        host: the Temporal server host.
+        port: the Temporal frontend gRPC port.
+    """
+
+    host: str
+    port: int
+
+
+@dataclass(frozen=True)
 class ObjectStorageConnection:
     """MinIO/object-storage details derived from the `object-storage` relation.
 
@@ -75,12 +88,14 @@ class ReconcileData:
 
     Attrs:
         db: the database connection details.
+        temporal: the Temporal server connection details.
         minio: the object-storage details, or None when not configured.
         s3: the S3 details, or None when not configured.
         credentials: credentials resolved from Juju secrets (empty if none).
     """
 
     db: DatabaseConnection
+    temporal: TemporalConnection
     minio: ObjectStorageConnection | None
     s3: S3Connection | None
     credentials: dict[str, str]

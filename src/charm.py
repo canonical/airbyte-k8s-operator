@@ -15,13 +15,14 @@ from charms.data_platform_libs.v0.database_requires import DatabaseRequires
 from charms.data_platform_libs.v0.s3 import S3Requirer
 from charms.grafana_k8s.v0.grafana_dashboard import GrafanaDashboardProvider
 from charms.loki_k8s.v1.loki_push_api import LogForwarder
+from charms.temporal_k8s.v0.temporal_host_info import TemporalHostInfoRequirer
 from charms.traefik_k8s.v2.ingress import IngressPerAppRequirer
 from kubernetes.client.exceptions import ApiException
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingStatus
 from ops.pebble import CheckStatus
 
 from charm_helpers import create_env
-from connections import ReconcileData
+from connections import ReconcileData, TemporalConnection
 from literals import (
     AIRBYTE_API_PORT,
     AIRBYTE_AUTH_K8S_SECRET_NAME,
@@ -128,6 +129,10 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         # Handle postgresql relation.
         self.db = DatabaseRequires(self, relation_name="db", database_name="airbyte-k8s_db")
         self.postgresql = PostgresqlRelation(self)
+
+        self.temporal = TemporalHostInfoRequirer(self)
+        self.framework.observe(self.temporal.on.temporal_host_info_changed, self._on_temporal_relation_changed)
+        self.framework.observe(self.temporal.on.temporal_host_info_unavailable, self._on_temporal_relation_changed)
 
         self.minio = MinioRelation(self)
 
@@ -315,6 +320,15 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         self.unit.status = WaitingStatus("configuring application")
         self.reconcile()
 
+    @log_event_handler(logger)
+    def _on_temporal_relation_changed(self, event):
+        """Reconcile when Temporal connection information changes.
+
+        Args:
+            event: The Temporal host information event.
+        """
+        self.reconcile()
+
     def _validate(self) -> ReconcileData:
         """Validate that configuration and relations are valid and ready.
 
@@ -332,6 +346,12 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         db_connection = self.postgresql.get_data()
         if db_connection is None:
             raise ValueError("database relation not ready")
+
+        temporal_host = self.temporal.host
+        temporal_port = self.temporal.port
+        if temporal_host is None or temporal_port is None:
+            raise ValueError("temporal relation not ready")
+        temporal_connection = TemporalConnection(host=temporal_host, port=temporal_port)
 
         minio_connection = self.minio.get_data()
         s3_connection = self.s3_relation.get_data()
@@ -362,6 +382,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
 
         return ReconcileData(
             db=db_connection,
+            temporal=temporal_connection,
             minio=minio_connection,
             s3=s3_connection,
             credentials=credentials,
@@ -463,6 +484,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             return
 
         db_connection = data.db
+        temporal_connection = data.temporal
         minio_connection = data.minio
         s3_connection = data.s3
         credentials = data.credentials
@@ -517,6 +539,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
                 container_name,
                 self.config,
                 db_connection=db_connection,
+                temporal_connection=temporal_connection,
                 minio_connection=minio_connection,
                 s3_connection=s3_connection,
                 credentials=credentials,

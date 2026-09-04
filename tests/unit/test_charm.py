@@ -130,6 +130,19 @@ class TestCharm(TestCase):
         self.assertEqual(local_data.get("database"), "airbyte-k8s_db")
         self.assertNotIn("extra-user-roles", local_data)
 
+    def test_blocked_by_temporal(self):
+        """The charm is blocked without ready Temporal relation data."""
+        state = make_state(db=True, temporal=False)
+        out = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
+        self.assertEqual(out.unit_status, BlockedStatus("temporal relation not ready"))
+
+    def test_blocked_by_incomplete_temporal_data(self):
+        """The charm is blocked when the Temporal relation has incomplete data."""
+        temporal = testing.Relation("temporal-host-info", remote_app_data={"host": "temporal.internal"})
+        state = add_relations(make_state(db=True, temporal=False), temporal)
+        out = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
+        self.assertEqual(out.unit_status, BlockedStatus("temporal relation not ready"))
+
     def test_blocked_by_minio(self):
         """The charm is blocked without a minio relation."""
         state = make_state(db=True)
@@ -226,6 +239,24 @@ class TestCharm(TestCase):
         out = self.ctx.run(self.ctx.on.relation_broken(db_rel), state)
 
         self.assertEqual(out.unit_status, BlockedStatus("database relation not ready"))
+
+    def test_temporal_relation_changed(self):
+        """Temporal relation data is used to configure the Airbyte services."""
+        temporal = temporal_relation(host="temporal.internal", port=8233)
+        state = add_relations(make_state(db=True, minio=True, temporal=False), temporal)
+        out = self.ctx.run(self.ctx.on.relation_changed(temporal), state)
+
+        self.assertEqual(out.unit_status, MaintenanceStatus("replanning application"))
+        env = out.get_container("airbyte-server").plan.to_dict()["services"]["airbyte-server"]["environment"]
+        self.assertEqual(env["TEMPORAL_HOST"], "temporal.internal:8233")
+
+    def test_temporal_relation_broken(self):
+        """Removing the Temporal relation blocks the charm."""
+        temporal = testing.Relation("temporal-host-info")
+        state = add_relations(make_state(db=True, minio=True, temporal=False), temporal)
+        out = self.ctx.run(self.ctx.on.relation_broken(temporal), state)
+
+        self.assertEqual(out.unit_status, BlockedStatus("temporal relation not ready"))
 
     def test_object_storage_relation_changed(self):
         """The minio relation event reconciles, deriving object-storage live."""
@@ -408,7 +439,20 @@ def db_relation():
     )
 
 
-def make_state(*, config=None, leader=True, peer=True, db=False, minio=False, s3=False, containers=None):
+def temporal_relation(host="temporal-k8s", port=7233):
+    """Build a temporal-host-info relation carrying server connection data.
+
+    Args:
+        host: Temporal server host.
+        port: Temporal frontend gRPC port.
+
+    Returns:
+        A testing.Relation for the temporal-host-info endpoint.
+    """
+    return testing.Relation("temporal-host-info", remote_app_data={"host": host, "port": str(port)})
+
+
+def make_state(*, config=None, leader=True, peer=True, db=False, temporal=True, minio=False, s3=False, containers=None):
     """Build a scenario State for the charm.
 
     The charm derives its state live from relations, so readiness is reproduced
@@ -419,6 +463,7 @@ def make_state(*, config=None, leader=True, peer=True, db=False, minio=False, s3
         leader: whether the unit is the leader.
         peer: whether the airbyte-peer relation is present.
         db: whether to add a ready db relation.
+        temporal: whether to add a ready temporal-host-info relation.
         minio: whether to add an object-storage (minio) relation.
         s3: whether to add a ready s3-parameters relation.
         containers: optional explicit set of containers to use.
@@ -431,6 +476,8 @@ def make_state(*, config=None, leader=True, peer=True, db=False, minio=False, s3
         relations.append(testing.PeerRelation("airbyte-peer"))
     if db:
         relations.append(db_relation())
+    if temporal:
+        relations.append(temporal_relation())
     if minio:
         relations.append(testing.Relation("object-storage"))
     if s3:

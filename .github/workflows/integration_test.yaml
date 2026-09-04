@@ -27,7 +27,6 @@ jobs:
             channel: 1.32-classic/stable
             microk8s-addons: "dns ingress rbac storage"
     uses: canonical/operator-workflows/.github/workflows/integration_test.yaml@main
-    secrets: inherit
     permissions:
       contents: read
       packages: write

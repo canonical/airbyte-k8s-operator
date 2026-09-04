@@ -69,7 +69,11 @@ Add the relations:
 juju relate temporal-k8s:db postgresql-k8s:database
 juju relate temporal-k8s:visibility postgresql-k8s:database
 juju relate temporal-k8s:admin temporal-admin-k8s:admin
+juju relate temporal-k8s:temporal-host-info temporal-admin-k8s:temporal-host-info
+juju relate temporal-k8s:temporal-host-info airbyte-k8s:temporal-host-info
 ```
+
+The `temporal-host-info` relations provide the Temporal frontend host and port to Airbyte and the Temporal admin charm.
 
 After all relations and configurations are applied:
 
@@ -105,6 +109,8 @@ postgresql:database                                    temporal-k8s:visibility  
 temporal-admin-k8s:admin                               temporal-k8s:admin                                     temporal           regular
 temporal-admin-k8s:peer                                temporal-admin-k8s:peer                                temporal-admin     peer
 temporal-k8s:peer                                      temporal-k8s:peer                                      temporal           peer
+temporal-k8s:temporal-host-info                        airbyte-k8s:temporal-host-info                          temporal-host-info regular
+temporal-k8s:temporal-host-info                        temporal-admin-k8s:temporal-host-info                   temporal-host-info regular
 ```
 
 ## Next steps
