@@ -56,7 +56,7 @@ def test_ingress(deployed_stack: jubilant.Juju):
     juju = deployed_stack
     juju.deploy(TRAEFIK_NAME, channel=TRAEFIK_CHANNEL, trust=True)
     juju.integrate(f"{helpers.APP_NAME_AIRBYTE_SERVER}:ingress", f"{TRAEFIK_NAME}:ingress")
-    helpers.wait_for_apps_status(juju, {TRAEFIK_NAME: "active"}, timeout=10 * 60, raise_on_error=False)
+    helpers.wait_for_all_active(juju, [helpers.APP_NAME_AIRBYTE_SERVER, TRAEFIK_NAME], timeout=10 * 60)
 
     task = juju.run(f"{TRAEFIK_NAME}/0", "show-proxied-endpoints", wait=60)
     proxied_endpoints = json.loads(task.results["proxied-endpoints"])
