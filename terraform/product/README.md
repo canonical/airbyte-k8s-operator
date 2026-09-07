@@ -31,6 +31,9 @@ Into a single Kubernetes Juju model (`model_uuid`):
 The `temporal-host-info` relations provide the Temporal frontend host and port to Airbyte and
 the Temporal admin charm.
 
+Set `airbyte_temporal_host_info_integration` to `false` only when deploying a published
+`airbyte-k8s` revision that does not yet expose `temporal-host-info`.
+
 ## Module structure
 
 - **main.tf** - Composes the charm module, deploys the dependencies, and wires the integrations.
