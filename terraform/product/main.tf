@@ -111,6 +111,7 @@ resource "juju_integration" "airbyte_object_storage" {
 
 # Airbyte -> Temporal frontend.
 resource "juju_integration" "airbyte_temporal_host_info" {
+  count      = var.airbyte_temporal_host_info_integration ? 1 : 0
   model_uuid = var.model_uuid
 
   application {
