@@ -14,7 +14,7 @@ description: |
   data warehouses, lakes, or other destinations.
 
 links:
-  documentation: https://charmed-airbyte-k8s.readthedocs-hosted.com/
+  documentation: https://canonical-data-mesh-documentation.readthedocs-hosted.com/en/latest/
   source: 
     - https://github.com/canonical/airbyte-k8s-operator
   issues: 
