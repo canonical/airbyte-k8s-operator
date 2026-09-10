@@ -143,6 +143,13 @@ class TestCharm(TestCase):
         out = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
         self.assertEqual(out.unit_status, BlockedStatus("temporal relation not ready"))
 
+    def test_blocked_by_empty_temporal_host(self):
+        """The charm is blocked when the Temporal relation provides an empty host."""
+        temporal = testing.Relation("temporal-host-info", remote_app_data={"host": "", "port": "7233"})
+        state = add_relations(make_state(db=True, temporal=False), temporal)
+        out = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
+        self.assertEqual(out.unit_status, BlockedStatus("temporal relation not ready"))
+
     def test_blocked_by_minio(self):
         """The charm is blocked without a minio relation."""
         state = make_state(db=True)

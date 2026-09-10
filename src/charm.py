@@ -349,7 +349,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
 
         temporal_host = self.temporal.host
         temporal_port = self.temporal.port
-        if temporal_host is None or temporal_port is None:
+        if not temporal_host or not temporal_port:
             raise ValueError("temporal relation not ready")
         temporal_connection = TemporalConnection(host=temporal_host, port=temporal_port)
 
