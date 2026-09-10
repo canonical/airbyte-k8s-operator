@@ -38,6 +38,8 @@ TEMPORAL_BASE = "ubuntu@24.04"
 
 INTERNAL_API_PORT = 8001
 TEMPORAL_PORT = 7233
+SYNC_JOB_POLL_ATTEMPTS = 60
+SYNC_JOB_POLL_INTERVAL = 10
 
 GET_HEADERS = {"accept": "application/json"}
 POST_HEADERS = {"accept": "application/json", "content-type": "application/json"}
@@ -71,6 +73,22 @@ def _app_status_current(status: jubilant.Status, app_name: str) -> str:
     if not app:
         return ""
     return app.app_status.current
+
+
+# TODO: Remove capability detection and always integrate once every supported Charmhub
+# upgrade baseline exposes temporal-host-info. Older baselines lack the endpoint, so an
+# unconditional integration would fail before they can be refreshed to the local charm.
+def _supports_temporal_host_info(status: jubilant.Status) -> bool:
+    """Return whether the deployed Airbyte charm exposes the endpoint.
+
+    Args:
+        status: Current Juju model status.
+
+    Returns:
+        Whether Airbyte exposes the Temporal host-info endpoint.
+    """
+    airbyte = status.apps.get(APP_NAME_AIRBYTE_SERVER)
+    return airbyte is not None and "temporal-host-info" in airbyte.endpoint_bindings
 
 
 def wait_for_apps_status(
@@ -265,7 +283,7 @@ def deploy_full_stack(
 
     perform_temporal_integrations(juju)
     create_default_namespace(juju)
-    perform_airbyte_integrations(juju)
+    perform_airbyte_integrations(juju, require_temporal=channel is None)
 
 
 def perform_temporal_integrations(juju: jubilant.Juju) -> None:
@@ -299,14 +317,39 @@ def create_default_namespace(juju: jubilant.Juju) -> None:
     assert task.results.get("result") == "command succeeded"
 
 
-def perform_airbyte_integrations(juju: jubilant.Juju) -> None:
-    """Integrate Airbyte with PostgreSQL and MinIO, then wait for it to go active.
+def ensure_airbyte_temporal_integration(juju: jubilant.Juju, *, required: bool) -> None:
+    """Integrate Airbyte with Temporal when the deployed charm supports it.
 
     Args:
         juju: Jubilant object.
+        required: Wait for the endpoint when upgrading to a charm that must provide it.
+    """
+    status = juju.status()
+    if required and not _supports_temporal_host_info(status):
+        status = juju.wait(_supports_temporal_host_info, timeout=5 * 60)
+    if not _supports_temporal_host_info(status):
+        logger.info("Airbyte baseline does not support the temporal-host-info relation")
+        return
+
+    airbyte = status.apps[APP_NAME_AIRBYTE_SERVER]
+    if "temporal-host-info" in airbyte.relations:
+        return
+    juju.integrate(
+        f"{APP_NAME_TEMPORAL_SERVER}:temporal-host-info",
+        f"{APP_NAME_AIRBYTE_SERVER}:temporal-host-info",
+    )
+
+
+def perform_airbyte_integrations(juju: jubilant.Juju, *, require_temporal: bool = True) -> None:
+    """Integrate Airbyte with PostgreSQL, MinIO and Temporal, then wait until active.
+
+    Args:
+        juju: Jubilant object.
+        require_temporal: Whether Airbyte must support the Temporal relation.
     """
     juju.integrate(APP_NAME_AIRBYTE_SERVER, POSTGRES_NAME)
     juju.integrate(APP_NAME_AIRBYTE_SERVER, MINIO_NAME)
+    ensure_airbyte_temporal_integration(juju, required=require_temporal)
     wait_for_all_active(juju, [APP_NAME_AIRBYTE_SERVER, POSTGRES_NAME, MINIO_NAME], timeout=15 * 60)
 
 
@@ -488,7 +531,7 @@ def create_airbyte_connection(api_url, source_id, destination_id):
     }
 
     logger.info("creating Airbyte connection")
-    response = post_with_retry(url, payload)
+    response = post_with_retry(url, payload, attempts=10, timeout=600)
     logger.info(response.json())
 
     return response.json().get("connectionId")
@@ -527,6 +570,7 @@ def check_airbyte_job_status(api_url, job_id):
     url = f"{api_url}/api/public/v1/jobs/{job_id}"
     logger.info("fetching Airbyte job status")
     response = requests.get(url, headers=GET_HEADERS, timeout=120)
+    assert response.status_code == 200, f"job status request returned {response.status_code}: {response.text}"
     logger.info(response.json())
 
     return response.json().get("status")
@@ -555,6 +599,9 @@ def run_test_sync_job(juju: jubilant.Juju) -> None:
 
     Args:
         juju: Jubilant object.
+
+    Raises:
+        AssertionError: If no sync job succeeds.
     """
     api_url = get_unit_url(juju, APP_NAME_AIRBYTE_SERVER, 0, INTERNAL_API_PORT)
     logger.info("curling app address: %s", api_url)
@@ -568,12 +615,13 @@ def run_test_sync_job(juju: jubilant.Juju) -> None:
     destination_id = create_airbyte_destination(api_url, model_name, workspace_id, db_password)
     connection_id = create_airbyte_connection(api_url, source_id, destination_id)
 
-    job_successful = False
+    job_id = None
+    status = None
     for i in range(4):
         logger.info("attempt %d to trigger new job", i + 1)
         job_id = trigger_airbyte_connection(api_url, connection_id)
 
-        for j in range(15):
+        for j in range(SYNC_JOB_POLL_ATTEMPTS):
             logger.info("job %d attempt %d: getting job status", i + 1, j + 1)
             status = check_airbyte_job_status(api_url, job_id)
 
@@ -582,15 +630,22 @@ def run_test_sync_job(juju: jubilant.Juju) -> None:
 
             if status == "succeeded":
                 logger.info("job %d attempt %d: job successful!", i + 1, j + 1)
-                job_successful = True
-                break
+                return
 
-            logger.info("job %d attempt %d: job still running, retrying in 10 seconds", i + 1, j + 1)
-            time.sleep(10)
-
-        if job_successful:
-            break
+            logger.info(
+                "job %d attempt %d: job status is %s, retrying in %d seconds",
+                i + 1,
+                j + 1,
+                status,
+                SYNC_JOB_POLL_INTERVAL,
+            )
+            time.sleep(SYNC_JOB_POLL_INTERVAL)
 
         cancel_airbyte_job(api_url, job_id)
+        if status != "failed":
+            raise AssertionError(
+                f"Airbyte job {job_id} did not complete after "
+                f"{SYNC_JOB_POLL_ATTEMPTS * SYNC_JOB_POLL_INTERVAL} seconds; last status: {status}"
+            )
 
-    assert job_successful
+    raise AssertionError(f"Airbyte job {job_id} did not succeed after 4 attempts; last status: {status}")

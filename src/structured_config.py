@@ -60,7 +60,6 @@ class CharmConfig(BaseConfigModel):
     """Manager for the structured configuration."""
 
     log_level: LogLevelType
-    temporal_host: str
     webapp_url: str | None = None
     secret_persistence: SecretPersistenceType | None = None
     secret_store_gcp_project_id: str | None = None

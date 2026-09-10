@@ -14,6 +14,8 @@ run "setup_tests" {
 run "full_deploy" {
   variables {
     model_uuid = run.setup_tests.model_uuid
+    # TODO: Change to true when Temporal host info is available.
+    airbyte_temporal_host_info_integration = false
   }
 
   assert {

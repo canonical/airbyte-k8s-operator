@@ -17,6 +17,12 @@ variable "airbyte" {
   default = {}
 }
 
+variable "airbyte_temporal_host_info_integration" {
+  description = "Whether to relate airbyte-k8s to temporal-k8s over temporal-host-info. Disable only when deploying an airbyte-k8s revision that does not expose the relation."
+  type        = bool
+  default     = true
+}
+
 variable "database_offer_url" {
   description = <<-EOT
     Offer URL for an external PostgreSQL `database` endpoint (e.g. a managed database on another
