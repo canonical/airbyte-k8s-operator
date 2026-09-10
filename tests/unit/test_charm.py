@@ -257,6 +257,22 @@ class TestCharm(TestCase):
         env = out.get_container("airbyte-server").plan.to_dict()["services"]["airbyte-server"]["environment"]
         self.assertEqual(env["TEMPORAL_HOST"], "temporal.internal:8233")
 
+    def test_temporal_relation_changed_from_valid_to_incomplete(self):
+        """Losing Temporal relation data blocks a previously configured charm."""
+        temporal = temporal_relation(host="temporal.internal", port=8233)
+        state = add_relations(make_state(db=True, minio=True, temporal=False), temporal)
+        state = self.ctx.run(self.ctx.on.relation_changed(temporal), state)
+        state = with_checks(state, CheckStatus.UP)
+
+        incomplete_temporal = dataclasses.replace(temporal, remote_app_data={"host": "temporal.internal"})
+        state = dataclasses.replace(
+            state,
+            relations={incomplete_temporal if relation.id == temporal.id else relation for relation in state.relations},
+        )
+        out = self.ctx.run(self.ctx.on.relation_changed(incomplete_temporal), state)
+
+        self.assertEqual(out.unit_status, BlockedStatus("temporal relation not ready"))
+
     def test_temporal_relation_broken(self):
         """Removing the Temporal relation blocks the charm."""
         temporal = testing.Relation("temporal-host-info")
