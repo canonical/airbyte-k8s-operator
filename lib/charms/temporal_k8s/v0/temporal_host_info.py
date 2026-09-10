@@ -215,6 +215,7 @@ class TemporalHostInfoRequirer(Object):
         try:
             host = app_data["host"]
             port = int(app_data["port"])
-        except KeyError:
+        except (KeyError, ValueError):
+            self.on.temporal_host_info_unavailable.emit()
             return
         self.on.temporal_host_info_changed.emit(host=host, port=port)
