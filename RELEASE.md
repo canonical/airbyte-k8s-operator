@@ -18,11 +18,11 @@ The mapping from git branch to edge channel is:
 `main` is always the current major. Today the current major is **2**, so `main`
 publishes to `latest/edge` and mirrors that revision to `2/edge`.
 
-Each branch publishes via its **own** copy of `publish_charm.yaml`. A push runs
+Each branch publishes through its **own** copy of `publish_charm.yaml`. A push runs
 the workflow file present on the pushed branch. A `track/N` branch therefore
 publishes to `N/edge` whenever it is pushed. During the current major's lifetime
 the tracks are **dormant by convention**: all current-major work goes to `main`
-(which drives `<current-major>/edge` via the mirror), and the `track/N` branches
+(which drives `<current-major>/edge` through the mirror), and the `track/N` branches
 receive no pushes. A track becomes active again at a cutover (see the runbook).
 
 > Dormancy is a convention, not an enforced lock: pushing to `track/2` today
@@ -43,7 +43,7 @@ same revision into it.
   - `test-and-publish-charm` builds the charm **once** and publishes it to
     `latest/edge`.
   - `mirror-to-major-track` then releases whatever revision is on `latest/edge`
-    into the current major track (`2/edge`) via the promote workflow, with no rebuild.
+    into the current major track (`2/edge`) through the promote workflow, with no rebuild.
     It runs on every `main` push (there is no per-run "did it publish" signal to
     gate on), so on a docs-only push it simply re-releases the current
     `latest/edge` revision; the effect is to keep `2/edge` pointed at the same
@@ -108,13 +108,14 @@ When `main` moves from major `N` to `N+1` (for example, v2 → v3), do these
    If `CHARMHUB_TOKEN` is channel-pinned (not all-channels), regenerate it to
    include `3/edge` and `3/stable` first, or the mirror step fails.
 
-2. **Bring the outgoing major's `track/2` up to date.** Fast-forward `track/2`
-   (kept dormant during the v2 era) to `main`'s final v2 commit. `track/2` carries
-   its own `publish_charm.yaml` with a `track/*` push trigger, so from now on a
-   push to it publishes `2/edge`. This is the active v2 maintenance line. Do this
-   **before** merging v3 into `main`, so `2/edge` does not go stale in the interim.
-   (If the branch had been deleted, recreate it from the last v2 commit; see the
-   seeding gotcha below.)
+2. **Activate the outgoing major's `track/2`.** Bring `track/2` (kept dormant
+   during the v2 era) up to `main`'s final v2 commit. Since `main`'s workflow
+   triggers only on `main`, that commit has no `track/*` trigger, so add `track/*`
+   back to the `on.push.branches` list in `track/2`'s own `publish_charm.yaml` and
+   commit it on `track/2`. A push to `track/2` then publishes `2/edge`, making it
+   the active v2 maintenance line. Do this **before** merging v3 into `main`, so
+   `2/edge` does not go stale in the interim. (If the branch had been deleted,
+   recreate it from the last v2 commit; see the seeding gotcha below.)
 
 3. **Point `main` at the new major.** In `.github/workflows/publish_charm.yaml`,
    change `mirror-to-major-track`'s `destination-channel` from `2/edge` to `3/edge`.
@@ -140,11 +141,12 @@ When `main` moves from major `N` to `N+1` (for example, v2 → v3), do these
 - **Creating a track branch can skip/crash the publish run.** A branch-*creation*
   push sends `before=0000000...`; the reusable workflow's `Find changes` step runs
   `git diff <before> <after>` → `fatal: bad object` → the run fails. Seed a track
-  with a two-step push so the publishing push is an *update*, not a creation:
+  with a two-step push so the publishing push is an *update*, not a creation.
+  First push a commit whose workflow lacks the `track/*` trigger, which produces
+  no run; then fast-forward the branch to the intended commit, which is an update
+  and publishes normally:
   ```bash
-  # 1) create the branch at a commit whose workflow lacks the track/* trigger (no run)
   git push origin <OLD-COMMIT>:refs/heads/track/2
-  # 2) fast-forward it to the intended commit (an update -> publishes normally)
   git push origin <TARGET-COMMIT>:refs/heads/track/2
   ```
 - **Token failures** surface as `api-error: Invalid macaroon` (expired) or
