@@ -7,11 +7,24 @@ on:
       - track/*
 
 jobs:
-  # The workflow automatically detects which branch triggered it.
-  # If called from a merge on `main`, the charm is pushed to the `latest/edge` channel.
-  # If merged on a `track/X` branch, the revision is pushed to `X/edge` on Charmhub.
+  # Channel is auto-detected from the branch:
+  #   main       -> latest/edge
+  #   track/X    -> X/edge (older majors under maintenance)
   test-and-publish-charm:
     uses: canonical/operator-workflows/.github/workflows/publish_charm.yaml@main
     secrets: inherit
     permissions:
       contents: write
+
+  # main is the current-major line, so mirror the revision just published to
+  # latest/edge into the current major track (build once, release many).
+  # Bump destination-channel to the new major (e.g. 3/edge) when main moves to v3.
+  mirror-to-major-track:
+    if: github.ref_name == 'main'
+    needs: test-and-publish-charm
+    uses: canonical/operator-workflows/.github/workflows/promote_charm.yaml@main
+    with:
+      origin-channel: latest/edge
+      destination-channel: 2/edge
+      doc-automation-disabled: true
+    secrets: inherit

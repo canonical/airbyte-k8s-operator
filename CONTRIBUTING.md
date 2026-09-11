@@ -65,20 +65,22 @@ workflows are as follows:
   library checks which run on every pull request.
 - `integration_test.yaml`: This runs the suite of integration tests included
   with the charm and runs on every pull request.
-- `publish_charm.yaml`: This runs either by manual dispatch or on every
-  push to the main branch. Once a PR is merged
-  with one of these branches, this workflow runs to ensure the tests have passed
-  before building the charm and publishing the new version to the edge channel
-  on Charmhub.
-- `promote_charm.yaml`: This is a manually triggered workflow which publishes
-  the charm currently on the edge channel to the stable channel on Charmhub.
+- `publish_charm.yaml`: Runs on every push to `main` and `track/*`. It builds
+  the charm once and publishes it to the branch's edge channel (`main` →
+  `latest/edge`, `track/N` → `N/edge`); on `main` it also mirrors that revision
+  into the current major track (e.g. `2/edge`).
+- `promote_charm.yaml`: A manually triggered workflow that releases the revision
+  currently on an edge channel to the corresponding stable channel on Charmhub.
+
+For the full channel model, credential handling, and the runbook for cutting a
+new major, see [RELEASE.md](RELEASE.md).
 
 These tests validate extensive linting and formatting rules. Before creating a
 PR, please run `tox` to ensure proper formatting and linting is performed.
 
 ### Deploy
 
-This charm is used to deploy Airbyte server in a k8s cluster. For a local
+This charm is used to deploy Airbyte in a k8s cluster. For a local
 deployment, follow the following steps:
 
 
