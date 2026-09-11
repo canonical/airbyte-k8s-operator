@@ -43,11 +43,10 @@ same revision into it.
   - `test-and-publish-charm` builds the charm **once** and publishes it to
     `latest/edge`.
   - `mirror-to-major-track` then releases whatever revision is on `latest/edge`
-    into the current major track (`2/edge`) through the promote workflow, with no rebuild.
-    It runs on every `main` push (there is no per-run "did it publish" signal to
-    gate on), so on a docs-only push it simply re-releases the current
-    `latest/edge` revision; the effect is to keep `2/edge` pointed at the same
-    revision as `latest/edge`. The workflow's `concurrency` group serializes runs
+    into the current major track (`2/edge`) through the promote workflow, with no
+    rebuild. It runs after `test-and-publish-charm` succeeds and is skipped if that
+    fails, so like every publish here it depends on a tree-matching integration-test
+    run (see the gotcha below). The workflow's `concurrency` group serializes runs
     per ref, so no other push can move `latest/edge` between a run's publish and
     its mirror. GitHub keeps only one queued run per group, so a burst of pushes
     may skip intermediate revisions. The newest push wins.
@@ -112,10 +111,12 @@ When `main` moves from major `N` to `N+1` (for example, v2 → v3), do these
    during the v2 era) up to `main`'s final v2 commit. Since `main`'s workflow
    triggers only on `main`, that commit has no `track/*` trigger, so add `track/*`
    back to the `on.push.branches` list in `track/2`'s own `publish_charm.yaml` and
-   commit it on `track/2`. A push to `track/2` then publishes `2/edge`, making it
-   the active v2 maintenance line. Do this **before** merging v3 into `main`, so
-   `2/edge` does not go stale in the interim. (If the branch had been deleted,
-   recreate it from the last v2 commit; see the seeding gotcha below.)
+   commit it on `track/2`. Land that activation commit through a pull request so
+   `integration_test.yaml` runs for its tree; otherwise the push has no matching
+   plan and fails instead of publishing. The push to `track/2` then publishes
+   `2/edge`, making it the active v2 maintenance line. Do this **before** merging
+   v3 into `main`, so `2/edge` does not go stale in the interim. (If the branch had
+   been deleted, recreate it from the last v2 commit; see the seeding gotcha below.)
 
 3. **Point `main` at the new major.** In `.github/workflows/publish_charm.yaml`,
    change `mirror-to-major-track`'s `destination-channel` from `2/edge` to `3/edge`.
