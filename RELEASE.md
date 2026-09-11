@@ -7,7 +7,7 @@ do when cutting a new major.
 
 ## Channel model
 
-A Charmhub channel is `<track>/<risk>` (e.g. `latest/edge`, `2/stable`). The
+A Charmhub channel is `<track>/<risk>` (for example, `latest/edge`, `2/stable`). The
 mapping from git branch to edge channel is:
 
 | Branch     | Publishes to (edge)                              | Role                                        |
@@ -23,10 +23,10 @@ do not auto-publish** — a push to `track/2` does nothing. They are kept around
 but **dormant**, because `main` already drives `<current-major>/edge`. This is
 what keeps `main` and `track/2` from both publishing `2/edge`.
 
-To publish a track on demand (e.g. ship a `track/1` fix to `1/edge`), run the
+To publish a track on demand (for example, ship a `track/1` fix to `1/edge`), run the
 **Publish Charm** workflow manually (Actions → Publish Charm → Run workflow),
 selecting the track branch as the ref and setting the required `channel` input
-(e.g. `1/edge`). At a cutover a maintenance line is *fully* reactivated by adding
+(for example, `1/edge`). At a cutover a maintenance line is *fully* reactivated by adding
 `track/*` back to the push trigger (see the runbook below).
 
 Stable channels (`latest/stable`, `N/stable`) are **never published to
@@ -55,9 +55,9 @@ Two caveats for a manual track publish:
   `workflow_dispatch` trigger) — GitHub runs the workflow file from the chosen
   ref. A stale `track/1` needs the workflow brought over first.
 - **A recent (<14-day) integration-test run must exist for that commit**, since
-  the publish reuses that run's build plan; otherwise it fails to find the plan
-  (see the publish-gate note in the team's release history — unblock with a
-  throwaway PR based on the branch).
+  the publish reuses that run's build plan; otherwise it fails with
+  `can't find plan artifact`. Unblock by opening a throwaway pull request based on
+  the branch to produce a fresh integration-test run, then publish.
 - **`promote_charm.yaml`** is a manual (`workflow_dispatch`) workflow that
   releases the revision currently in an origin channel to a destination channel.
 
@@ -67,7 +67,7 @@ Run the **Promote charm** workflow (Actions → Promote charm → Run workflow) 
 per channel:
 
 - `latest/edge` → `latest/stable`
-- `<current-major>/edge` → `<current-major>/stable` (e.g. `2/edge` → `2/stable`)
+- `<current-major>/edge` → `<current-major>/stable` (for example, `2/edge` → `2/stable`)
 
 ## Charmhub credentials (`CHARMHUB_TOKEN`)
 
@@ -99,7 +99,7 @@ rm charmhub-auth.token
 
 ## Adding a new major (cutover runbook)
 
-When `main` moves from major `N` to `N+1` (e.g. v2 → v3), do these **in order**:
+When `main` moves from major `N` to `N+1` (for example, v2 → v3), do these **in order**:
 
 1. **Create the new track and confirm the token covers it.**
    ```bash
@@ -137,9 +137,9 @@ When `main` moves from major `N` to `N+1` (e.g. v2 → v3), do these **in order*
   creation:
   ```bash
   # 1) create the branch at a commit whose workflow lacks the track/* trigger (no run)
-  git push origin <old-commit>:refs/heads/track/2
+  git push origin <OLD-COMMIT>:refs/heads/track/2
   # 2) fast-forward it to the intended commit (an update -> publishes normally)
-  git push origin <target-commit>:refs/heads/track/2
+  git push origin <TARGET-COMMIT>:refs/heads/track/2
   ```
 - **Token failures** surface as `api-error: Invalid macaroon` (expired) or
   `Macaroon channel restrictions ... do not allow release to <channel>` (scope).

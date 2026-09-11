@@ -4,18 +4,34 @@ on:
   push:
     branches:
       - main
-  # Manually publish any branch to its channel, e.g. run on `track/1` -> `1/edge`.
+  # Manually publish a branch to an edge channel, e.g. run on `track/1` -> `1/edge`.
   workflow_dispatch:
     inputs:
       channel:
-        description: "Channel to publish the selected branch to, e.g. 1/edge."
+        description: "Edge channel to publish the selected branch to, e.g. 1/edge."
         required: true
         type: string
 
 jobs:
+  # Manual publishes must target an edge channel; stable is reached only via the
+  # Promote workflow. No-op on push, where the channel is auto-detected.
+  validate-channel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require an edge channel for manual publishes
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          CHANNEL: ${{ github.event.inputs.channel }}
+        run: |
+          case "$CHANNEL" in
+            */edge) ;;
+            *) echo "::error::Manual publish must target an edge channel (got '$CHANNEL'); use the Promote workflow for stable."; exit 1 ;;
+          esac
+
   # Only `main` auto-publishes (latest/edge + mirror below). Publish a track branch
   # on demand via workflow_dispatch; add `track/*` to the push trigger at a cutover.
   test-and-publish-charm:
+    needs: validate-channel
     uses: canonical/operator-workflows/.github/workflows/publish_charm.yaml@main
     with:
       # Blank on push (auto-detected from branch); set on manual runs to target a channel.
@@ -30,7 +46,7 @@ jobs:
   # latest/edge into the current major track (build once, release many).
   # Bump destination-channel to the new major (e.g. 3/edge) when main moves to v3.
   mirror-to-major-track:
-    if: github.ref_name == 'main'
+    if: github.event_name == 'push' && github.ref_name == 'main'
     needs: test-and-publish-charm
     uses: canonical/operator-workflows/.github/workflows/promote_charm.yaml@main
     with:
