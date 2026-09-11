@@ -4,14 +4,29 @@ on:
   push:
     branches:
       - main
-      - track/*
+
+# Serialize runs per ref so the mirror can't race a concurrent publish.
+concurrency:
+  group: publish-charm-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  # The workflow automatically detects which branch triggered it.
-  # If called from a merge on `main`, the charm is pushed to the `latest/edge` channel.
-  # If merged on a `track/X` branch, the revision is pushed to `X/edge` on Charmhub.
+  # Push to `main` publishes latest/edge. Track branches publish their own N/edge
+  # via their own copy of this file; they're left unpushed (dormant) meanwhile.
   test-and-publish-charm:
     uses: canonical/operator-workflows/.github/workflows/publish_charm.yaml@main
     secrets: inherit
     permissions:
       contents: write
+
+  # Keep the current major track on the same revision as latest/edge (no rebuild).
+  # Bump destination-channel to the new major (3/edge) when main moves to v3.
+  mirror-to-major-track:
+    if: github.ref_name == 'main'
+    needs: test-and-publish-charm
+    uses: canonical/operator-workflows/.github/workflows/promote_charm.yaml@main
+    with:
+      origin-channel: latest/edge
+      destination-channel: 2/edge
+      doc-automation-disabled: true
+    secrets: inherit
