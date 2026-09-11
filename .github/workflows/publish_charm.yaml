@@ -12,6 +12,13 @@ on:
         required: true
         type: string
 
+# Serialize per ref so a run's publish + mirror completes before the next one
+# starts; otherwise a concurrent push could move latest/edge between this run's
+# publish and its mirror. Don't cancel an in-flight publish.
+concurrency:
+  group: publish-charm-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   # Manual publishes must target an edge channel; stable is reached only via the
   # Promote workflow. No-op on push, where the channel is auto-detected.
