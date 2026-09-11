@@ -4,14 +4,24 @@ on:
   push:
     branches:
       - main
-      - track/*
+  # Manually publish any branch to its channel, e.g. run on `track/1` -> `1/edge`.
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: "Channel to publish the selected branch to, e.g. 1/edge."
+        required: true
+        type: string
 
 jobs:
-  # Channel is auto-detected from the branch:
-  #   main       -> latest/edge
-  #   track/X    -> X/edge (older majors under maintenance)
+  # Only `main` auto-publishes (latest/edge + mirror below). Publish a track branch
+  # on demand via workflow_dispatch; add `track/*` to the push trigger at a cutover.
   test-and-publish-charm:
     uses: canonical/operator-workflows/.github/workflows/publish_charm.yaml@main
+    with:
+      # Blank on push (auto-detected from branch); set on manual runs to target a channel.
+      channel: ${{ github.event.inputs.channel }}
+      # Manual runs have no before/after diff, so force past the "changed files" gate.
+      force-publish: ${{ github.event_name == 'workflow_dispatch' }}
     secrets: inherit
     permissions:
       contents: write

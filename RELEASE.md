@@ -13,15 +13,21 @@ mapping from git branch to edge channel is:
 | Branch     | Publishes to (edge)                              | Role                                        |
 |------------|-------------------------------------------------|---------------------------------------------|
 | `main`     | `latest/edge` **and** `<current-major>/edge`    | current major development line              |
-| `track/N`  | `N/edge`                                         | maintenance line for an older major `N`     |
+| `track/N`  | `N/edge` (only once activated — see below)       | maintenance line for an older major `N`     |
 
 `main` is always the current major. Today the current major is **2**, so `main`
-publishes to `latest/edge` and `2/edge`. Older majors are maintained on
-`track/N` branches (e.g. `track/1` → `1/edge`).
+publishes to `latest/edge` and `2/edge`.
 
-`track/N` for the *current* major is kept around but stays **dormant** — `main`
-drives `<current-major>/edge`, so the branch is only activated when `main` moves
-on to the next major (see the runbook below).
+Only `main` is in the `publish_charm.yaml` push trigger, so **`track/N` branches
+do not auto-publish** — a push to `track/2` does nothing. They are kept around
+but **dormant**, because `main` already drives `<current-major>/edge`. This is
+what keeps `main` and `track/2` from both publishing `2/edge`.
+
+To publish a track on demand (e.g. ship a `track/1` fix to `1/edge`), run the
+**Publish Charm** workflow manually (Actions → Publish Charm → Run workflow),
+selecting the track branch as the ref and setting the required `channel` input
+(e.g. `1/edge`). At a cutover a maintenance line is *fully* reactivated by adding
+`track/*` back to the push trigger (see the runbook below).
 
 Stable channels (`latest/stable`, `N/stable`) are **never published to
 directly** — they are reached by *promoting* an existing edge revision.
@@ -32,20 +38,28 @@ A *revision* is the immutable artifact; channels are pointers to a revision. We
 never rebuild the same source to serve a second channel — we release the same
 revision into it.
 
-- **`publish_charm.yaml`** runs on push to `main` and `track/*`:
-  - `test-and-publish-charm` builds the charm **once** and publishes it to the
-    branch's edge channel (`main` → `latest/edge`, `track/N` → `N/edge`).
+- **`publish_charm.yaml`** runs on push to `main` (only):
+  - `test-and-publish-charm` builds the charm **once** and publishes it to
+    `latest/edge`.
   - `mirror-to-major-track` (main only) takes the revision just published to
     `latest/edge` and releases the **same revision** into the current major
     track (`2/edge`) using the promote workflow. No rebuild; both channels point
     at one revision.
+  - A `track/N` branch publishes to `N/edge` only when run manually
+    (`workflow_dispatch`), or automatically again once `track/*` is added back to
+    the push trigger at a cutover.
+
+Two caveats for a manual track publish:
+
+- **The selected branch must contain this workflow version** (with the
+  `workflow_dispatch` trigger) — GitHub runs the workflow file from the chosen
+  ref. A stale `track/1` needs the workflow brought over first.
+- **A recent (<14-day) integration-test run must exist for that commit**, since
+  the publish reuses that run's build plan; otherwise it fails to find the plan
+  (see the publish-gate note in the team's release history — unblock with a
+  throwaway PR based on the branch).
 - **`promote_charm.yaml`** is a manual (`workflow_dispatch`) workflow that
   releases the revision currently in an origin channel to a destination channel.
-
-> **Do not push to the current major's `track/N` while `main` mirrors to it.**
-> During the v2 era `main` owns `2/edge`; a push to `track/2` would also publish
-> `2/edge` and the two would clobber each other's revisions. All current-major
-> work goes to `main`; `track/2` stays frozen until the next cutover.
 
 ## Promoting to stable
 
@@ -95,12 +109,13 @@ When `main` moves from major `N` to `N+1` (e.g. v2 → v3), do these **in order*
    If `CHARMHUB_TOKEN` is channel-pinned (not all-channels), regenerate it to
    include `3/edge` and `3/stable` first — otherwise the mirror step fails.
 
-2. **Bring the outgoing major's `track/N` up to date first.** `track/2` already
-   exists (kept dormant during the v2 era) — fast-forward it to `main`'s final
-   v2 commit so `2/edge` keeps receiving v2 fixes from it. Do this **before**
-   merging v3 into `main`; otherwise `2/edge` goes stale in the interim. (If the
-   branch had been deleted, recreate it from the last v2 commit instead — mind
-   the seeding gotcha below.)
+2. **Reactivate and update the outgoing major's `track/N`.** Add `track/*` back
+   to the `publish_charm.yaml` push trigger so `track/N` publishes again, then
+   fast-forward the existing `track/2` (kept dormant during the v2 era) to
+   `main`'s final v2 commit so `2/edge` keeps receiving v2 fixes. Do this
+   **before** merging v3 into `main`; otherwise `2/edge` goes stale in the
+   interim. (If the branch had been deleted, recreate it from the last v2 commit
+   instead — mind the seeding gotcha below.)
 
 3. **Point `main` at the new major.** In `.github/workflows/publish_charm.yaml`,
    change `mirror-to-major-track`'s `destination-channel` from `2/edge` to
