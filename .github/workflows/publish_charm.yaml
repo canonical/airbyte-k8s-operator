@@ -4,56 +4,25 @@ on:
   push:
     branches:
       - main
-  # Manually publish a branch to an edge channel, e.g. run on `track/1` -> `1/edge`.
-  workflow_dispatch:
-    inputs:
-      channel:
-        description: "Edge channel to publish the selected branch to, e.g. 1/edge."
-        required: true
-        type: string
 
-# Serialize per ref so a run's publish + mirror completes before the next one
-# starts; otherwise a concurrent push could move latest/edge between this run's
-# publish and its mirror. Don't cancel an in-flight publish.
+# Serialize runs per ref so the mirror can't race a concurrent publish.
 concurrency:
   group: publish-charm-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  # Manual publishes must target an edge channel; stable is reached only via the
-  # Promote workflow. No-op on push, where the channel is auto-detected.
-  validate-channel:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Require an edge channel for manual publishes
-        if: github.event_name == 'workflow_dispatch'
-        env:
-          CHANNEL: ${{ github.event.inputs.channel }}
-        run: |
-          case "$CHANNEL" in
-            */edge) ;;
-            *) echo "::error::Manual publish must target an edge channel (got '$CHANNEL'); use the Promote workflow for stable."; exit 1 ;;
-          esac
-
-  # Only `main` auto-publishes (latest/edge + mirror below). Publish a track branch
-  # on demand via workflow_dispatch; add `track/*` to the push trigger at a cutover.
+  # Push to `main` publishes latest/edge. Track branches publish their own N/edge
+  # via their own copy of this file; they're left unpushed (dormant) meanwhile.
   test-and-publish-charm:
-    needs: validate-channel
     uses: canonical/operator-workflows/.github/workflows/publish_charm.yaml@main
-    with:
-      # Blank on push (auto-detected from branch); set on manual runs to target a channel.
-      channel: ${{ github.event.inputs.channel }}
-      # Manual runs have no before/after diff, so force past the "changed files" gate.
-      force-publish: ${{ github.event_name == 'workflow_dispatch' }}
     secrets: inherit
     permissions:
       contents: write
 
-  # main is the current-major line, so mirror the revision just published to
-  # latest/edge into the current major track (build once, release many).
-  # Bump destination-channel to the new major (e.g. 3/edge) when main moves to v3.
+  # Keep the current major track on the same revision as latest/edge (no rebuild).
+  # Bump destination-channel to the new major (3/edge) when main moves to v3.
   mirror-to-major-track:
-    if: github.event_name == 'push' && github.ref_name == 'main'
+    if: github.ref_name == 'main'
     needs: test-and-publish-charm
     uses: canonical/operator-workflows/.github/workflows/promote_charm.yaml@main
     with:

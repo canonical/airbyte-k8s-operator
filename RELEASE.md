@@ -7,44 +7,56 @@ do when cutting a new major.
 
 ## Channel model
 
-A Charmhub channel is `<track>/<risk>` (e.g. `latest/edge`, `2/stable`). The
-mapping from git branch to edge channel is:
+A Charmhub channel is `<track>/<risk>` (for example, `latest/edge`, `2/stable`).
+The mapping from git branch to edge channel is:
 
 | Branch     | Publishes to (edge)                              | Role                                        |
-|------------|-------------------------------------------------|---------------------------------------------|
-| `main`     | `latest/edge` **and** `<current-major>/edge`    | current major development line              |
-| `track/N`  | `N/edge` (only once activated; see below)       | maintenance line for an older major `N`     |
+|------------|--------------------------------------------------|---------------------------------------------|
+| `main`     | `latest/edge` **and** `<current-major>/edge`     | current major development line              |
+| `track/N`  | `N/edge`                                          | maintenance line for an older major `N`     |
 
 `main` is always the current major. Today the current major is **2**, so `main`
-publishes to `latest/edge` and `2/edge`.
+publishes to `latest/edge` and mirrors that revision to `2/edge`.
 
-Only `main` is in the `publish_charm.yaml` push trigger, so **`track/N` branches
-do not auto-publish**; a push to `track/2` does nothing. They are kept around
-but **dormant**, because `main` already drives `<current-major>/edge`. A track is
-*activated* only at a cutover, by adding `track/*` back to the trigger (see the
-runbook below). This is what keeps `main` and `track/2` from both publishing
-`2/edge`.
+Each branch publishes via its **own** copy of `publish_charm.yaml`;a push runs
+the workflow file present on the pushed branch. A `track/N` branch therefore
+publishes to `N/edge` whenever it is pushed. During the current major's lifetime
+the tracks are **dormant by convention**: all current-major work goes to `main`
+(which drives `<current-major>/edge` via the mirror), and the `track/N` branches
+receive no pushes. A track becomes active again at a cutover (see the runbook).
+
+> Dormancy is a convention, not an enforced lock: pushing to `track/2` today
+> **would** publish `2/edge` from that branch's own workflow. Don't push to the
+> current major's track while `main` is mirroring to it;the two would compete
+> over `2/edge`.
 
 Stable channels (`latest/stable`, `N/stable`) are **never published to
-directly** — they are reached by *promoting* an existing edge revision.
+directly**;they are reached by *promoting* an existing edge revision.
 
 ## How it works: build once, release many
 
 A *revision* is the immutable artifact; channels are pointers to a revision. We
-never rebuild the same source to serve a second channel — we release the same
+never rebuild the same source to serve a second channel;we release the same
 revision into it.
 
-- **`publish_charm.yaml`** runs on push to `main` (only):
+- **`publish_charm.yaml`** runs on push to `main`:
   - `test-and-publish-charm` builds the charm **once** and publishes it to
     `latest/edge`.
-  - `mirror-to-major-track` (main only) takes the revision just published to
-    `latest/edge` and releases the **same revision** into the current major
-    track (`2/edge`) using the promote workflow. No rebuild; both channels point
-    at one revision.
-  - When `track/*` is added back to the trigger (at a cutover), a push to
-    `track/N` publishes to `N/edge`.
+  - `mirror-to-major-track` then releases whatever revision is on `latest/edge`
+    into the current major track (`2/edge`) via the promote workflow;no rebuild.
+    It runs on every `main` push (there is no per-run "did it publish" signal to
+    gate on), so on a docs-only push it simply re-releases the current
+    `latest/edge` revision; the effect is to keep `2/edge` pointed at the same
+    revision as `latest/edge`. The workflow's `concurrency` group serializes runs
+    per ref, so no other push can move `latest/edge` between a run's publish and
+    its mirror.
 - **`promote_charm.yaml`** is a manual (`workflow_dispatch`) workflow that
   releases the revision currently in an origin channel to a destination channel.
+
+To publish a fix on a maintenance track (for example, ship a `track/1` fix to
+`1/edge`), merge or push it to that branch;the branch's own `publish_charm.yaml`
+publishes it to the matching `N/edge` on push. There is no separate manual
+publish trigger.
 
 ## Promoting to stable
 
@@ -52,7 +64,7 @@ Run the **Promote charm** workflow (Actions → Promote charm → Run workflow) 
 per channel:
 
 - `latest/edge` → `latest/stable`
-- `<current-major>/edge` → `<current-major>/stable` (e.g. `2/edge` → `2/stable`)
+- `<current-major>/edge` → `<current-major>/stable` (for example, `2/edge` → `2/stable`)
 
 ## Charmhub credentials (`CHARMHUB_TOKEN`)
 
@@ -84,7 +96,8 @@ rm charmhub-auth.token
 
 ## Adding a new major (cutover runbook)
 
-When `main` moves from major `N` to `N+1` (e.g. v2 → v3), do these **in order**:
+When `main` moves from major `N` to `N+1` (for example, v2 → v3), do these
+**in order**:
 
 1. **Create the new track and confirm the token covers it.**
    ```bash
@@ -92,22 +105,21 @@ When `main` moves from major `N` to `N+1` (e.g. v2 → v3), do these **in order*
    ```
    The track-name guardrail is `\d+(\.\d+)?`, registered with the Charmhub team.
    If `CHARMHUB_TOKEN` is channel-pinned (not all-channels), regenerate it to
-   include `3/edge` and `3/stable` first — otherwise the mirror step fails.
+   include `3/edge` and `3/stable` first;otherwise the mirror step fails.
 
-2. **Reactivate and update the outgoing major's `track/N`.** Add `track/*` back
-   to the `publish_charm.yaml` push trigger so `track/N` publishes again, then
-   fast-forward the existing `track/2` (kept dormant during the v2 era) to
-   `main`'s final v2 commit so `2/edge` keeps receiving v2 fixes. Do this
-   **before** merging v3 into `main`; otherwise `2/edge` goes stale in the
-   interim. (If the branch had been deleted, recreate it from the last v2 commit
-   instead — mind the seeding gotcha below.)
+2. **Bring the outgoing major's `track/2` up to date.** Fast-forward `track/2`
+   (kept dormant during the v2 era) to `main`'s final v2 commit. `track/2` carries
+   its own `publish_charm.yaml` with a `track/*` push trigger, so from now on a
+   push to it publishes `2/edge`;this is the active v2 maintenance line. Do this
+   **before** merging v3 into `main`, so `2/edge` does not go stale in the interim.
+   (If the branch had been deleted, recreate it from the last v2 commit;mind the
+   seeding gotcha below.)
 
 3. **Point `main` at the new major.** In `.github/workflows/publish_charm.yaml`,
-   change `mirror-to-major-track`'s `destination-channel` from `2/edge` to
-   `3/edge`.
+   change `mirror-to-major-track`'s `destination-channel` from `2/edge` to `3/edge`.
 
 4. **Merge v3 into `main`.** It now publishes to `latest/edge` and mirrors to
-   `3/edge`. `track/2` independently keeps publishing `2/edge`.
+   `3/edge`; `track/2` independently publishes `2/edge` when pushed.
 
 5. **Communicate the breaking change.** `latest` now points to v3, so anyone
    tracking `latest/stable` is auto-upgraded v2 → v3 at the next stable
@@ -115,16 +127,24 @@ When `main` moves from major `N` to `N+1` (e.g. v2 → v3), do these **in order*
 
 ## Known gotchas
 
+- **A publish needs a recent integration-test run for that commit.** The publish
+  reuses the charm/rock artifacts and plan from the `integration_test.yaml` run
+  matching the commit's git tree ID. With no matching run, `get-plan` fails with
+  `Failed to find integration test workflow run on tree id ...`; if a run is found
+  but its plan artifact is missing (for example, the publish raced ahead of it),
+  the error is instead `can't find plan artifact`. Those artifacts also expire
+  (90 days by default), so an old commit may need a fresh run. Unblock by opening
+  a throwaway pull request based on the branch to produce a new integration run,
+  then publish.
 - **Creating a track branch can skip/crash the publish run.** A branch-*creation*
-  push sends `before=0000000...`; operator-workflows `get-plan` runs
-  `git diff <before> <after>` → `fatal: bad object` → publish is skipped. Seed a
-  track with a two-step push so the publishing push is an *update*, not a
-  creation:
+  push sends `before=0000000...`; the reusable workflow's `Find changes` step runs
+  `git diff <before> <after>` → `fatal: bad object` → the run fails. Seed a track
+  with a two-step push so the publishing push is an *update*, not a creation:
   ```bash
   # 1) create the branch at a commit whose workflow lacks the track/* trigger (no run)
-  git push origin <old-commit>:refs/heads/track/2
+  git push origin <OLD-COMMIT>:refs/heads/track/2
   # 2) fast-forward it to the intended commit (an update -> publishes normally)
-  git push origin <target-commit>:refs/heads/track/2
+  git push origin <TARGET-COMMIT>:refs/heads/track/2
   ```
 - **Token failures** surface as `api-error: Invalid macaroon` (expired) or
   `Macaroon channel restrictions ... do not allow release to <channel>` (scope).

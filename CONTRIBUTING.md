@@ -65,11 +65,11 @@ workflows are as follows:
   library checks which run on every pull request.
 - `integration_test.yaml`: This runs the suite of integration tests included
   with the charm and runs on every pull request.
-- `publish_charm.yaml`: Runs on every push to `main`, publishing to `latest/edge`
-  and mirroring that revision into the current major track (for example, `2/edge`).
-  `track/N` maintenance branches do not publish on push; publish one on demand by
-  running this workflow manually against the branch (`track/*` is re-added to the
-  push trigger at a major cutover).
+- `publish_charm.yaml`: Runs on push to `main`, publishing to `latest/edge` and
+  mirroring that revision into the current major track (for example, `2/edge`).
+  Each `track/N` maintenance branch carries its own copy and publishes to `N/edge`
+  when pushed; during the current major's lifetime the tracks are left unpushed
+  (dormant by convention), since `main` drives the release.
 - `promote_charm.yaml`: A manually triggered workflow that releases the revision
   currently on an edge channel to the corresponding stable channel on Charmhub.
 
