@@ -104,7 +104,7 @@ def get_pebble_layer(application_name, context):
 
 
 class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
-    """Airbyte Server charm.
+    """Airbyte charm.
 
     Attrs:
         config_type: the charm structured config
