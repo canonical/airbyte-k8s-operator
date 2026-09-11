@@ -41,6 +41,7 @@ class TestCharmStructuredConfig(TestCase):
         fake_secret.data = {
             "dataplane-client-id": base64.b64encode(b"sample-client-id"),
             "dataplane-client-secret": base64.b64encode(b"sample-client-secret"),
+            "jwt-signature-secret": base64.b64encode(b"sample-jwt-signature-secret"),
         }
         self.mock_core_v1_instance.read_namespaced_secret.return_value = fake_secret
 

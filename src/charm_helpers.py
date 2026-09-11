@@ -12,6 +12,7 @@ from literals import (
     BASE_ENV,
     CONNECTOR_BUILDER_SERVER_API_PORT,
     INTERNAL_API_PORT,
+    SERVER_PORT_MAP,
     WORKLOAD_API_PORT,
 )
 from structured_config import StorageType
@@ -28,6 +29,7 @@ def create_env(
     s3_connection: S3Connection | None,
     credentials: dict,
     otel_collector_endpoint: str | None = None,
+    ingress_url: str | None = None,
 ):
     """Create set of environment variables for application.
 
@@ -41,6 +43,7 @@ def create_env(
         s3_connection: S3 details derived from the s3 relation, or None.
         credentials: Credentials resolved from Juju secrets (empty if none configured).
         otel_collector_endpoint: OTLP endpoint discovered from the send-otlp relation, or None.
+        ingress_url: External URL discovered from the ingress relation, or None.
 
     Returns:
         environment variables dict.
@@ -60,7 +63,8 @@ def create_env(
         # Airbye services config
         "LOG_LEVEL": config["log-level"].value,
         "TEMPORAL_HOST": config["temporal-host"],
-        "WEBAPP_URL": config["webapp-url"],
+        # Airbyte 2.0 requires this (no default): ingress URL if exposed, else server address.
+        "AIRBYTE_URL": ingress_url or f"http://{app_name}:{INTERNAL_API_PORT}",
         # Secrets config
         "SECRET_PERSISTENCE": secret_persistence,
         "SECRET_STORE_GCP_PROJECT_ID": config["secret-store-gcp-project-id"],
@@ -134,6 +138,7 @@ def create_env(
         "STORAGE_BUCKET_STATE": config["storage-bucket-state"],
         "STORAGE_BUCKET_WORKLOAD_OUTPUT": config["storage-bucket-workload-output"],
         "STORAGE_BUCKET_ACTIVITY_PAYLOAD": config["storage-bucket-activity-payload"],
+        "STORAGE_BUCKET_AUDIT_LOGGING": config["storage-bucket-audit-logging"],
         # Database config
         "DATABASE_URL": db_url,
         "DATABASE_USER": db_connection.user,
@@ -151,6 +156,8 @@ def create_env(
         "CONFIG_API_HOST": f"{app_name}:{INTERNAL_API_PORT}",
         "CONNECTOR_BUILDER_SERVER_API_HOST": f"{app_name}:{CONNECTOR_BUILDER_SERVER_API_PORT}",
         "CONNECTOR_BUILDER_API_HOST": f"{app_name}:{CONNECTOR_BUILDER_SERVER_API_PORT}",
+        # Airbyte 2.0's server needs a non-empty URL here to start; unused by default.
+        "MANIFEST_SERVER_API_HOST": f"http://{app_name}:{CONNECTOR_BUILDER_SERVER_API_PORT}",
         "AIRBYTE_API_HOST": f"{app_name}:{AIRBYTE_API_PORT}/api/public",
         "WORKLOAD_API_HOST": f"{app_name}:{WORKLOAD_API_PORT}",
         "WORKLOAD_API_BEARER_TOKEN": ".Values.workload-api.bearerToken",  # nosec
@@ -165,6 +172,10 @@ def create_env(
                 "OTEL_COLLECTOR_ENDPOINT": otel_collector_endpoint,
             }
         )
+
+    server_port = SERVER_PORT_MAP.get(container_name)
+    if server_port:
+        env["ENDPOINTS_ALL_PORT"] = server_port
 
     # https://github.com/airbytehq/airbyte/issues/29506#issuecomment-1775148609
     if container_name in ["airbyte-workload-launcher", "airbyte-workers", "airbyte-cron"]:

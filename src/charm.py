@@ -44,6 +44,8 @@ from structured_config import CharmConfig, StorageType
 
 logger = logging.getLogger(__name__)
 
+BOOTLOADER_WAITING_MESSAGE = "waiting for airbyte-bootloader to complete"
+
 
 def get_pebble_layer(application_name, context):
     """Create pebble layer based on application.
@@ -284,6 +286,10 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             self.reconcile()
             return
 
+        if self._bootloader_failed():
+            self.unit.status = WaitingStatus(BOOTLOADER_WAITING_MESSAGE)
+            return
+
         self.unit.set_workload_version(f"v{AIRBYTE_VERSION}")
         self.unit.status = ActiveStatus()
         if self.unit.is_leader():
@@ -425,12 +431,12 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         return content
 
     def _get_auth_secret_env(self):
-        """Return the dataplane env vars from the bootloader-created K8s secret.
+        """Return the auth env vars from the bootloader-created K8s secret.
 
         Returns:
-            A mapping with DATAPLANE_CLIENT_ID/DATAPLANE_CLIENT_SECRET when the
-            airbyte-auth-secrets secret exists and is populated, or an empty dict
-            if it has not been created yet (the bootloader creates it on startup).
+            A mapping with DATAPLANE_CLIENT_ID/DATAPLANE_CLIENT_SECRET and
+            AB_JWT_SIGNATURE_SECRET once the secret exists and is fully populated,
+            or an empty dict until then (runtime services need all three to start).
         """
         try:
             secret = self._k8s_client.read_namespaced_secret(AIRBYTE_AUTH_K8S_SECRET_NAME, self.model.name)
@@ -442,12 +448,27 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             return {}
 
         decoded = {k: base64.b64decode(v).decode("utf-8") for k, v in (secret.data or {}).items()}
-        env = {}
-        if decoded.get("dataplane-client-id"):
-            env["DATAPLANE_CLIENT_ID"] = decoded["dataplane-client-id"]
-        if decoded.get("dataplane-client-secret"):
-            env["DATAPLANE_CLIENT_SECRET"] = decoded["dataplane-client-secret"]
-        return env
+        client_id = decoded.get("dataplane-client-id")
+        client_secret = decoded.get("dataplane-client-secret")
+        jwt_signature_secret = decoded.get("jwt-signature-secret")
+        if not (client_id and client_secret and jwt_signature_secret):
+            return {}
+        return {
+            "DATAPLANE_CLIENT_ID": client_id,
+            "DATAPLANE_CLIENT_SECRET": client_secret,
+            "AB_JWT_SIGNATURE_SECRET": jwt_signature_secret,
+        }
+
+    def _bootloader_failed(self):
+        """Return True if the airbyte-bootloader is crash-looping instead of having completed."""
+        container = self.unit.get_container("airbyte-bootloader")
+        if not container.can_connect():
+            return False
+        service = container.get_services("airbyte-bootloader").get("airbyte-bootloader")
+        if service is None:
+            return False
+        healthy = (ops.pebble.ServiceStatus.ACTIVE, ops.pebble.ServiceStatus.INACTIVE)
+        return service.current not in healthy
 
     def reconcile(self):  # noqa: C901
         """Reconcile the charm to its desired state.
@@ -496,10 +517,10 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         if not self.ingress.url:
             logger.info("Ingress relation not configured; Airbyte is not exposed via ingress")
 
-        # Runtime services crash without DATAPLANE_CLIENT_ID/SECRET, so until the secret exists
-        # configure only the bootloader and leave the rest unconfigured; update-status then
-        # re-reconciles once it appears.
-        dataplane_env = self._get_auth_secret_env()
+        # Runtime services crash without the dataplane credentials and JWT signature secret, so
+        # until the auth secret exists configure only the bootloader (which creates it) and leave
+        # the rest unconfigured; update-status then re-reconciles once it appears.
+        auth_env = self._get_auth_secret_env()
 
         otel_collector_endpoint = self._get_otel_metrics_endpoint()
 
@@ -508,7 +529,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             if not container.can_connect():
                 continue
 
-            if not dataplane_env and container_name != "airbyte-bootloader":
+            if not auth_env and container_name != "airbyte-bootloader":
                 continue
 
             env = create_env(
@@ -521,15 +542,20 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
                 s3_connection=s3_connection,
                 credentials=credentials,
                 otel_collector_endpoint=otel_collector_endpoint,
+                ingress_url=self.ingress.url,
             )
             env = {k: v for k, v in env.items() if v is not None}
-            env.update(dataplane_env)
+            env.update(auth_env)
 
             pebble_layer = get_pebble_layer(container_name, env)
             container.add_layer(container_name, pebble_layer, combine=True)
             container.replan()
 
-        if not dataplane_env:
+        if self._bootloader_failed():
+            self.unit.status = WaitingStatus(BOOTLOADER_WAITING_MESSAGE)
+            return
+
+        if not auth_env:
             self.unit.status = WaitingStatus("waiting for airbyte-auth-secrets")
             return
 

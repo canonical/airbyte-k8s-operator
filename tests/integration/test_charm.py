@@ -62,6 +62,9 @@ def test_ingress(deployed_stack: jubilant.Juju):
     proxied_endpoints = json.loads(task.results["proxied-endpoints"])
     assert helpers.APP_NAME_AIRBYTE_SERVER in proxied_endpoints
 
+    # Ingress restarts the server (new AIRBYTE_URL), so wait for it to serve again.
+    helpers.wait_until_healthy(juju)
+
 
 def test_optional_credentials_secret(deployed_stack: jubilant.Juju):
     """Credential secrets are optional, and a configured one resolves without blocking.

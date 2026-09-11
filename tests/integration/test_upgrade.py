@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 BASELINE_CHANNEL = "latest/edge"
 
 
-PREVIOUS_MAJOR_STABLE_CHANNEL = "1/stable"
+PREVIOUS_MAJOR_CHANNEL = "1/edge"
 
 
 def _published_channels(charm_name: str) -> set[str]:
@@ -83,27 +83,33 @@ def test_refresh_from_published(baseline_stack: jubilant.Juju, charm: Path, rock
 
 
 def test_major_upgrade(charm: Path, rock_resources: dict):
-    """The previous major's stable charm refreshes to the local build and keeps serving.
+    """The previous major's charm refreshes to the local build and keeps serving.
 
     Args:
         charm: Path to the locally built charm package.
         rock_resources: Resource-name to local image map for the local build.
     """
     published = _published_channels(helpers.APP_NAME_AIRBYTE_SERVER)
-    if PREVIOUS_MAJOR_STABLE_CHANNEL not in published:
+    if PREVIOUS_MAJOR_CHANNEL not in published:
         pytest.skip(
-            f"channel '{PREVIOUS_MAJOR_STABLE_CHANNEL}' is not published (or Charmhub is "
+            f"channel '{PREVIOUS_MAJOR_CHANNEL}' is not published (or Charmhub is "
             "unreachable) - major upgrade not testable yet"
         )
 
     with jubilant.temp_model() as juju:
         juju.wait_timeout = 30 * 60
 
-        logger.info("Deploying baseline full stack from '%s'", PREVIOUS_MAJOR_STABLE_CHANNEL)
-        helpers.deploy_full_stack(juju, channel=PREVIOUS_MAJOR_STABLE_CHANNEL)
+        logger.info("Deploying baseline full stack from '%s'", PREVIOUS_MAJOR_CHANNEL)
+        helpers.deploy_full_stack(juju, channel=PREVIOUS_MAJOR_CHANNEL)
 
         logger.info("Verifying the previous major serves before the refresh")
         helpers.assert_serving(juju)
+
+        # Create a connection under the previous major so the upgrade must carry an existing
+        # connection (bound to the legacy default dataplane group) through to a working sync.
+        logger.info("Seeding and syncing a connection under the previous major")
+        connection_id = helpers.create_test_connection(juju)
+        helpers.sync_connection(juju, connection_id)
 
         logger.info("Refreshing '%s' to the local charm + local rock", helpers.APP_NAME_AIRBYTE_SERVER)
         juju.refresh(helpers.APP_NAME_AIRBYTE_SERVER, path=charm, resources=rock_resources)
@@ -112,7 +118,9 @@ def test_major_upgrade(charm: Path, rock_resources: dict):
         juju.wait(lambda status: jubilant.all_agents_idle(status, helpers.APP_NAME_AIRBYTE_SERVER), timeout=10 * 60)
         helpers.wait_for_all_active(juju, [helpers.APP_NAME_AIRBYTE_SERVER], timeout=20 * 60)
 
-        logger.info("Verifying the refreshed charm still serves and syncs after the major upgrade")
+        logger.info("Verifying the refreshed charm still serves after the major upgrade")
         helpers.wait_until_healthy(juju)
         helpers.assert_serving(juju)
-        helpers.run_test_sync_job(juju)
+
+        logger.info("Re-syncing the pre-existing connection after the major upgrade")
+        helpers.sync_connection(juju, connection_id)

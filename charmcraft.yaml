@@ -135,11 +135,6 @@ config:
       default: "temporal-k8s:7233"
       type: string
 
-    webapp-url:
-      description: URL for the Airbyte webapp.
-      default: "http://airbyte-ui-k8s:8080"
-      type: string
-
     ##### Secrets config #####
     secret-persistence:
       description: |
@@ -439,6 +434,11 @@ config:
     storage-bucket-workload-output:
       description: Name of workload output storage bucket.
       default: "airbyte-state-storage"
+      type: string
+
+    storage-bucket-audit-logging:
+      description: Name of audit logging storage bucket.
+      default: "airbyte-audit-logging"
       type: string
 
     ##### Miscellaneous config #####

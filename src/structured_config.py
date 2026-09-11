@@ -61,7 +61,6 @@ class CharmConfig(BaseConfigModel):
 
     log_level: LogLevelType
     temporal_host: str
-    webapp_url: str | None = None
     secret_persistence: SecretPersistenceType | None = None
     secret_store_gcp_project_id: str | None = None
     vault_address: str | None = None
@@ -114,6 +113,7 @@ class CharmConfig(BaseConfigModel):
     storage_bucket_state: str
     storage_bucket_activity_payload: str
     storage_bucket_workload_output: str
+    storage_bucket_audit_logging: str
     pod_running_ttl_minutes: int
     pod_successful_ttl_minutes: int
     pod_unsuccessful_ttl_minutes: int
