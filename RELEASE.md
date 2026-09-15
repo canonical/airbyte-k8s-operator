@@ -1,4 +1,4 @@
-# Releasing the Airbyte charm
+# How to release the Airbyte charm
 
 This charm uses Charmhub [versioned tracks](https://documentation.ubuntu.com/charmcraft/stable/howto/manage-tracks/)
 so that shipping a new major version does not force-upgrade users on older majors.
@@ -7,12 +7,12 @@ do when cutting a new major.
 
 ## Channel model
 
-A Charmhub channel is `<track>/<risk>` (for example, `latest/edge`, `2/stable`).
+A Charmhub channel is `<TRACK>/<RISK>` (for example, `latest/edge`, `2/stable`).
 The mapping from git branch to edge channel is:
 
 | Branch     | Publishes to (edge)                              | Role                                        |
 |------------|--------------------------------------------------|---------------------------------------------|
-| `main`     | `latest/edge` **and** `<current-major>/edge`     | current major development line              |
+| `main`     | `latest/edge` **and** `<CURRENT-MAJOR>/edge`     | current major development line              |
 | `track/N`  | `N/edge`                                          | maintenance line for an older major `N`     |
 
 `main` is always the current major. Today the current major is **2**, so `main`
@@ -22,7 +22,7 @@ Each branch publishes through its **own** copy of `publish_charm.yaml`. A push r
 the workflow file present on the pushed branch. A `track/N` branch therefore
 publishes to `N/edge` whenever it is pushed. During the current major's lifetime
 the tracks are **dormant by convention**: all current-major work goes to `main`
-(which drives `<current-major>/edge` through the mirror), and the `track/N` branches
+(which drives `<CURRENT-MAJOR>/edge` through the mirror), and the `track/N` branches
 receive no pushes. A track becomes active again at a cutover (see the runbook).
 
 > Dormancy is a convention, not an enforced lock: pushing to `track/2` today
@@ -64,7 +64,7 @@ Run the **Promote charm** workflow (Actions → Promote charm → Run workflow) 
 per channel:
 
 - `latest/edge` → `latest/stable`
-- `<current-major>/edge` → `<current-major>/stable` (for example, `2/edge` → `2/stable`)
+- `<CURRENT-MAJOR>/edge` → `<CURRENT-MAJOR>/stable` (for example, `2/edge` → `2/stable`)
 
 ## Charmhub credentials (`CHARMHUB_TOKEN`)
 
@@ -89,7 +89,7 @@ rm charmhub-auth.token
   pin channels (`--channel=latest/edge ...`) you must include every track's
   `edge` and `stable`, and re-issue the token whenever a track is added, or
   releases fail with
-  `Macaroon channel restrictions ... do not allow release to <channel>`.
+  `Macaroon channel restrictions ... do not allow release to <CHANNEL>`.
 - `--ttl` is in seconds (`2592000` = 30 days). When the token expires,
   publish/promote fail with `api-error: Invalid macaroon`; regenerate with the
   same command.
@@ -97,7 +97,8 @@ rm charmhub-auth.token
 ## Adding a new major (cutover runbook)
 
 When `main` moves from major `N` to `N+1` (for example, v2 → v3), do these
-**in order**:
+**in order**. The steps use the v2 → v3 numbers concretely; substitute the actual
+majors at each future cutover.
 
 1. **Create the new track and confirm the token covers it.**
    ```bash
@@ -118,13 +119,14 @@ When `main` moves from major `N` to `N+1` (for example, v2 → v3), do these
    v3 into `main`, so `2/edge` does not go stale in the interim. (If the branch had
    been deleted, recreate it from the last v2 commit; see the seeding gotcha below.)
 
-3. **Point `main` at the new major.** In `.github/workflows/publish_charm.yaml`,
-   change `mirror-to-major-track`'s `destination-channel` from `2/edge` to `3/edge`.
+3. **Cut `main` over to v3 in one push.** In the same change that merges v3 into
+   `main`, update `mirror-to-major-track`'s `destination-channel` from `2/edge` to
+   `3/edge`. Both must land in the same `main` push: the mirror runs on every push,
+   so changing the channel in an earlier push would mirror the still-current v2
+   revision onto `3/edge`. After this push, `main` publishes v3 to `latest/edge`
+   and mirrors it to `3/edge`; `track/2` independently publishes `2/edge` when pushed.
 
-4. **Merge v3 into `main`.** It now publishes to `latest/edge` and mirrors to
-   `3/edge`; `track/2` independently publishes `2/edge` when pushed.
-
-5. **Communicate the breaking change.** `latest` now points to v3, so anyone
+4. **Communicate the breaking change.** `latest` now points to v3, so anyone
    tracking `latest/stable` is auto-upgraded v2 → v3 at the next stable
    promotion. Announce it and document that v2 users should switch to `2/stable`.
 
@@ -135,13 +137,14 @@ When `main` moves from major `N` to `N+1` (for example, v2 → v3), do these
   matching the commit's git tree ID. With no matching run, `get-plan` fails with
   `Failed to find integration test workflow run on tree id ...`; if a run is found
   but its plan artifact is missing (for example, the publish raced ahead of it),
-  the error is instead `can't find plan artifact`. Those artifacts also expire
-  (90 days by default), so an old commit may need a fresh run. Unblock by opening
-  a throwaway pull request based on the branch to produce a new integration run,
-  then publish.
+  the error is instead `can't find plan artifact`. `get-plan` also only searches
+  runs from roughly the last 14 days, and the artifacts themselves expire (90 days
+  by default), so a run older than the search window (or an expired artifact) needs
+  a fresh run. Unblock by opening a throwaway pull request based on the branch to
+  produce a new integration run, then publish.
 - **Creating a track branch can skip/crash the publish run.** A branch-*creation*
   push sends `before=0000000...`; the reusable workflow's `Find changes` step runs
-  `git diff <before> <after>` → `fatal: bad object` → the run fails. Seed a track
+  `git diff <BEFORE> <AFTER>` → `fatal: bad object` → the run fails. Seed a track
   with a two-step push so the publishing push is an *update*, not a creation.
   First push a commit whose workflow lacks the `track/*` trigger, which produces
   no run; then fast-forward the branch to the intended commit, which is an update
@@ -151,5 +154,5 @@ When `main` moves from major `N` to `N+1` (for example, v2 → v3), do these
   git push origin <TARGET-COMMIT>:refs/heads/track/2
   ```
 - **Token failures** surface as `api-error: Invalid macaroon` (expired) or
-  `Macaroon channel restrictions ... do not allow release to <channel>` (scope).
+  `Macaroon channel restrictions ... do not allow release to <CHANNEL>` (scope).
   Both are fixed by regenerating `CHARMHUB_TOKEN` (see credentials above).
