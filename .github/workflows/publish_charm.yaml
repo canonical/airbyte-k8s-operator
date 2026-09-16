@@ -13,7 +13,7 @@ concurrency:
 jobs:
   # Push to `main` publishes latest/edge. Track branches publish their own N/edge
   # via their own copy of this file; they're left unpushed (dormant) meanwhile.
-  test-and-publish-charm:
+  publish-charm:
     uses: canonical/operator-workflows/.github/workflows/publish_charm.yaml@main
     secrets: inherit
     permissions:
@@ -23,7 +23,7 @@ jobs:
   # Bump destination-channel to the new major (3/edge) when main moves to v3.
   mirror-to-major-track:
     if: github.ref_name == 'main'
-    needs: test-and-publish-charm
+    needs: publish-charm
     uses: canonical/operator-workflows/.github/workflows/promote_charm.yaml@main
     with:
       origin-channel: latest/edge

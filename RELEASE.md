@@ -40,11 +40,11 @@ never rebuild the same source to serve a second channel. Instead we release the
 same revision into it.
 
 - **`publish_charm.yaml`** runs on push to `main`:
-  - `test-and-publish-charm` builds the charm **once** and publishes it to
+  - `publish-charm` builds the charm **once** and publishes it to
     `latest/edge`.
   - `mirror-to-major-track` then releases whatever revision is on `latest/edge`
     into the current major track (`2/edge`) through the promote workflow, with no
-    rebuild. It runs after `test-and-publish-charm` succeeds and is skipped if that
+    rebuild. It runs after `publish-charm` succeeds and is skipped if that
     fails, so like every publish here it depends on a tree-matching integration-test
     run (see the gotcha below). The workflow's `concurrency` group serializes runs
     per ref, so no other push can move `latest/edge` between a run's publish and
