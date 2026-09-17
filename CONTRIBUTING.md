@@ -26,6 +26,22 @@ uv sync --all-groups
 source .venv/bin/activate
 ```
 
+### Setting up the environment for agents
+
+This repository uses [apm](https://github.com/microsoft/apm) for managing dependencies for agentic resources. 
+
+```sh
+apm install --target {copilot,claude,codex,opencode} # places skill and agent files. See apm docs for full list of supported harnesses
+```
+
+The agent `apm-expert` and `apm-usage` skills are available for FAQ and assistance with the tool.
+
+Some harnesses do not support granular instruction/rule sets, and rely solely on an entrypoint like `AGENTS.md`. To generate a single file with all the instructions, use `apm compile`.
+
+You can use `apm.local.yml` for specifying additional personal resources.
+
+> Please note, that generated artifacts for Copilot are still tracked in the repository. This ensures that agents launched in web applications (chat, IDE) of GitHub have the necessary instructions.
+
 ## Testing
 
 This project uses `tox` for managing test environments. There are some 
