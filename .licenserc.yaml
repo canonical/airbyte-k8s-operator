@@ -36,4 +36,5 @@ header:
     - 'trivy.yaml'
     - 'lib/**'
     - '**/*.patch'
+    - 'apm.lock.yaml'
   comment: on-failure
