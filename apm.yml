@@ -15,6 +15,12 @@ dependencies:
   apm:
   - git: canonical/canonical-data-mesh-docs
     path: resources/development
+  - canonical/copilot-collections/skills/documentation-style
+  - canonical/copilot-collections/skills/documentation-structure
+  - canonical/copilot-collections/skills/documentation-diataxis
+  - canonical/copilot-collections/skills/documentation-verify
+  - canonical/copilot-collections/skills/documentation-build
+  - canonical/copilot-collections/skills/documentation-review
   mcp: []
 includes: auto
 scripts: {}
