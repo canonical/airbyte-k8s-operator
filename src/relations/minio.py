@@ -5,9 +5,8 @@
 
 import logging
 
-from charmed_kubeflow_chisme.exceptions import ErrorWithStatus
 from ops import framework
-from ops.model import BlockedStatus, WaitingStatus
+from ops.model import BlockedStatus, StatusBase, WaitingStatus
 from serialized_data_interface import (
     NoCompatibleVersions,
     NoVersionsListed,
@@ -19,6 +18,29 @@ from connections import ObjectStorageConnection
 from log import log_event_handler
 
 logger = logging.getLogger(__name__)
+
+
+class StatusError(Exception):
+    """Error carrying the unit status it should result in.
+
+    Defined locally instead of importing charmed-kubeflow-chisme, which pins a
+    vulnerable deepdiff (<=6.2.1).
+
+    Attributes:
+        msg: The error message.
+        status_type: The ops status class to report.
+    """
+
+    def __init__(self, msg, status_type: type[StatusBase]):
+        """Construct.
+
+        Args:
+            msg: The error message.
+            status_type: The ops status class to report, e.g. BlockedStatus.
+        """
+        super().__init__(str(msg))
+        self.msg = str(msg)
+        self.status_type = status_type
 
 
 class MinioRelation(framework.Object):
@@ -68,7 +90,7 @@ class MinioRelation(framework.Object):
         try:
             interfaces = self._get_interfaces()
             storage_data = self._get_object_storage_data(interfaces)
-        except ErrorWithStatus as err:
+        except StatusError as err:
             logger.info("object-storage relation not ready: %s", str(err))
             return None
 
@@ -95,7 +117,7 @@ class MinioRelation(framework.Object):
             list of charm interfaces.
 
         Raises:
-            ErrorWithStatus: if an anticipated error occurs.
+            StatusError: if an anticipated error occurs.
         """
         try:
             charm = self.charm
@@ -105,9 +127,9 @@ class MinioRelation(framework.Object):
                 del charm.meta.relations["airbyte-peer"]
             interfaces = get_interfaces(charm)
         except NoVersionsListed as err:
-            raise ErrorWithStatus(err, WaitingStatus) from err
+            raise StatusError(err, WaitingStatus) from err
         except NoCompatibleVersions as err:
-            raise ErrorWithStatus(err, BlockedStatus) from err
+            raise StatusError(err, BlockedStatus) from err
         return interfaces
 
     def _get_object_storage_data(self, interfaces):
@@ -120,16 +142,16 @@ class MinioRelation(framework.Object):
             object storage connection data.
 
         Raises:
-            ErrorWithStatus: if an anticipated error occurs.
+            StatusError: if an anticipated error occurs.
         """
         if not ((obj_storage := interfaces["object-storage"]) and obj_storage.get_data()):
-            raise ErrorWithStatus("Waiting for object-storage relation data", WaitingStatus)
+            raise StatusError("Waiting for object-storage relation data", WaitingStatus)
 
         try:
             logger.info(f"obj_storage get_data: {obj_storage.get_data()}")
             obj_storage = list(obj_storage.get_data().values())[0]
         except Exception as e:
-            raise ErrorWithStatus(
+            raise StatusError(
                 f"Unexpected error unpacking object storage data - data format not "
                 f"as expected. Caught exception: '{str(e)}'",
                 BlockedStatus,
