@@ -3,6 +3,7 @@
 
 """Charm helpers."""
 
+import ipaddress
 import os
 from urllib.parse import urlparse
 
@@ -313,6 +314,25 @@ def _split_url(url):
         return protocol, host, port
     except Exception as e:
         raise ValueError(f"Invalid URL: {e}") from e
+
+
+def resolve_temporal_host(host, service_name):
+    """Return the Temporal host to connect to, preferring the service name over a pod IP.
+
+    A pod IP changes on reschedule and unlike a name, is not matched by the JVM no-proxy list.
+
+    Args:
+        host: The host advertised on the temporal-host-info relation.
+        service_name: The remote application name, which is its Kubernetes service name.
+
+    Returns:
+        The service name if the host is an IP address, otherwise the host.
+    """
+    try:
+        ipaddress.ip_address(host)
+    except ValueError:
+        return host
+    return service_name or host
 
 
 def construct_svc_endpoint(service_name, namespace, port, secure=False):
