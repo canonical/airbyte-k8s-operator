@@ -21,7 +21,7 @@ from kubernetes.client.exceptions import ApiException
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingStatus
 from ops.pebble import CheckStatus
 
-from charm_helpers import create_env
+from charm_helpers import create_env, resolve_temporal_host
 from connections import ReconcileData, TemporalConnection
 from literals import (
     AIRBYTE_API_PORT,
@@ -357,7 +357,11 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         temporal_port = self.temporal.port
         if not temporal_host or not temporal_port:
             raise ValueError("temporal relation not ready")
-        temporal_connection = TemporalConnection(host=temporal_host, port=temporal_port)
+        temporal_relation = self.temporal.relation
+        temporal_service = temporal_relation.app.name if temporal_relation and temporal_relation.app else None
+        temporal_connection = TemporalConnection(
+            host=resolve_temporal_host(temporal_host, temporal_service), port=temporal_port
+        )
 
         minio_connection = self.minio.get_data()
         s3_connection = self.s3_relation.get_data()

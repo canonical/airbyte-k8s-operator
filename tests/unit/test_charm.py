@@ -21,6 +21,7 @@ from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingSta
 from ops.pebble import CheckLevel, CheckStartup, CheckStatus, Layer, ServiceStatus
 
 from charm import BOOTLOADER_WAITING_MESSAGE, AirbyteK8SOperatorCharm
+from charm_helpers import resolve_temporal_host
 from src.literals import (
     BASE_ENV,
     CONTAINER_HEALTH_CHECK_MAP,
@@ -279,6 +280,19 @@ class TestCharm(TestCase):
         env = out.get_container("airbyte-server").plan.to_dict()["services"]["airbyte-server"]["environment"]
         self.assertEqual(env["TEMPORAL_HOST"], "temporal.internal:8233")
 
+    def test_temporal_pod_ip_replaced_by_service_name(self):
+        """A pod IP advertised by Temporal is replaced by its stable service name."""
+        temporal = testing.Relation(
+            "temporal-host-info",
+            remote_app_name="temporal-k8s",
+            remote_app_data={"host": "192.168.103.200", "port": "7233"},
+        )
+        state = add_relations(make_state(db=True, minio=True, temporal=False), temporal)
+        out = self.ctx.run(self.ctx.on.relation_changed(temporal), state)
+
+        env = out.get_container("airbyte-server").plan.to_dict()["services"]["airbyte-server"]["environment"]
+        self.assertEqual(env["TEMPORAL_HOST"], "temporal-k8s:7233")
+
     def test_temporal_relation_changed_from_valid_to_incomplete(self):
         """Losing Temporal relation data blocks a previously configured charm."""
         temporal = temporal_relation(host="temporal.internal", port=8233)
@@ -426,6 +440,22 @@ class TestCharm(TestCase):
         self.assertIsInstance(out.unit_status, WaitingStatus)
         plan = out.get_container("airbyte-server").plan.to_dict()
         self.assertNotIn("airbyte-server", plan.get("services", {}))
+
+
+class TestResolveTemporalHost(TestCase):
+    """Preference for the Temporal service name over a pod IP."""
+
+    def test_ip_replaced_by_service_name(self):
+        """An IP address is replaced by the service name."""
+        self.assertEqual(resolve_temporal_host("192.168.103.200", "temporal-k8s"), "temporal-k8s")
+
+    def test_hostname_kept(self):
+        """A hostname is used as advertised."""
+        self.assertEqual(resolve_temporal_host("temporal.example.com", "temporal-k8s"), "temporal.example.com")
+
+    def test_ip_kept_without_service_name(self):
+        """Without a service name to fall back to, the advertised IP is kept."""
+        self.assertEqual(resolve_temporal_host("192.168.103.200", None), "192.168.103.200")
 
 
 def _up_check(status):
