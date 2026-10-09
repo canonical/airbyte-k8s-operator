@@ -21,6 +21,7 @@ from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingSta
 from ops.pebble import CheckLevel, CheckStartup, CheckStatus, Layer, ServiceStatus
 
 from charm import BOOTLOADER_WAITING_MESSAGE, AirbyteK8SOperatorCharm
+from relations.minio import MinioRelation
 from src.literals import (
     BASE_ENV,
     CONTAINER_HEALTH_CHECK_MAP,
@@ -426,6 +427,21 @@ class TestCharm(TestCase):
         self.assertIsInstance(out.unit_status, WaitingStatus)
         plan = out.get_container("airbyte-server").plan.to_dict()
         self.assertNotIn("airbyte-server", plan.get("services", {}))
+
+
+class TestMinioRelationLogging(TestCase):
+    """Separate from TestCharm, whose setUp stubs the method under test."""
+
+    def test_object_storage_credentials_not_logged(self):
+        """Unpacking object-storage relation data never writes the credentials to the logs."""
+        interface = MagicMock()
+        interface.get_data.return_value = {("relation", "minio"): dict(MINIO_RAW)}
+        relation = MinioRelation.__new__(MinioRelation)
+
+        with self.assertNoLogs(level=logging.DEBUG):
+            data = relation._get_object_storage_data({"object-storage": interface})
+
+        self.assertEqual(data, MINIO_RAW)
 
 
 def _up_check(status):

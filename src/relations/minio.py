@@ -148,7 +148,6 @@ class MinioRelation(framework.Object):
             raise StatusError("Waiting for object-storage relation data", WaitingStatus)
 
         try:
-            logger.info(f"obj_storage get_data: {obj_storage.get_data()}")
             obj_storage = list(obj_storage.get_data().values())[0]
         except Exception as e:
             raise StatusError(
