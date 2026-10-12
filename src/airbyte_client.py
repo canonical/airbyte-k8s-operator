@@ -118,12 +118,16 @@ class AirbyteClient:
             connector_id: The connector ID.
 
         Returns:
-            The connector, or None if Airbyte returns 404.
+            The connector, or None if it does not exist or was deleted.
         """
         response = self._request("GET", f"/api/public/v1/{CONNECTOR_PATHS[connector_type]}/{connector_id}")
         if response.status_code == 404:
             return None
-        return self._json(response)
+        connector = self._json(response)
+        # Deleted connectors are tombstoned: the API still returns them, with a null configuration.
+        if connector.get("configuration") is None:
+            return None
+        return connector
 
     def create_connector(self, connector_type: str, workspace_id: str, name: str, configuration: dict) -> str:
         """Create a source or destination.

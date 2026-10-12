@@ -186,7 +186,13 @@ def get_connector(juju: jubilant.Juju, connector_type: str, connector_id: str) -
     return response.json()
 
 
-def create_connection(juju: jubilant.Juju, source_id: str, destination_id: str, namespace_format: str) -> str:
+def create_connection(
+    juju: jubilant.Juju,
+    source_id: str,
+    destination_id: str,
+    namespace_format: str,
+    streams: Optional[list[dict]] = None,
+) -> str:
     """Create a manual connection writing into a custom namespace.
 
     Args:
@@ -194,6 +200,7 @@ def create_connection(juju: jubilant.Juju, source_id: str, destination_id: str, 
         source_id: the source ID.
         destination_id: the destination ID.
         namespace_format: the destination namespace.
+        streams: optional stream configurations; all streams are synced when not set.
 
     Returns:
         The connection ID.
@@ -206,9 +213,29 @@ def create_connection(juju: jubilant.Juju, source_id: str, destination_id: str, 
         "sourceId": source_id,
         "destinationId": destination_id,
     }
+    if streams:
+        payload["configurations"] = {"streams": streams}
     url = f"{api_url(juju)}/api/public/v1/connections"
     response = helpers.post_with_retry(url, payload, attempts=10, timeout=600)
     return response.json()["connectionId"]
+
+
+def sync_with_rows(juju: jubilant.Juju, connection_id: str) -> None:
+    """Sync a connection and assert that its latest job moved rows.
+
+    Args:
+        juju: Jubilant object.
+        connection_id: the connection to sync.
+    """
+    helpers.sync_connection(juju, connection_id)
+    url = f"{api_url(juju)}/api/public/v1/jobs"
+    params = {"connectionId": connection_id, "orderBy": "createdAt|DESC", "limit": 1}
+    response = requests.get(url, params=params, headers=helpers.GET_HEADERS, timeout=60)
+    assert response.status_code == 200, f"GET {url} returned {response.status_code}: {response.text}"
+    job = response.json()["data"][0]
+    logger.info("latest job: %s", job)
+    assert job["status"] == "succeeded"
+    assert job.get("rowsSynced", 0) > 0, f"job {job['jobId']} synced no rows"
 
 
 @pytest.fixture(scope="module")
@@ -301,13 +328,22 @@ def test_sync_into_managed_destination(juju: jubilant.Juju):
     workspace_id = helpers.get_airbyte_workspace_id(url)
     STATE["manual_source"] = helpers.create_airbyte_source(url, workspace_id)
     connection_id = create_connection(juju, STATE["manual_source"], STATE["destination"], "public")
-    helpers.sync_connection(juju, connection_id)
+    sync_with_rows(juju, connection_id)
 
 
 def test_sync_from_managed_source(juju: jubilant.Juju):
     """The managed source reads the synced table and loads it into the managed destination."""
-    connection_id = create_connection(juju, STATE["source_a"], STATE["destination"], "copy")
-    helpers.sync_connection(juju, connection_id)
+    # Only plain columns are synced: the destination adds its own `_airbyte_*` columns,
+    # which already exist on the table loaded by the previous test.
+    streams = [
+        {
+            "name": "pokemon",
+            "syncMode": "full_refresh_overwrite",
+            "selectedFields": [{"fieldPath": ["id"]}, {"fieldPath": ["name"]}],
+        }
+    ]
+    connection_id = create_connection(juju, STATE["source_a"], STATE["destination"], "copy", streams)
+    sync_with_rows(juju, connection_id)
     STATE["source_connection"] = connection_id
 
 
@@ -327,7 +363,7 @@ def test_pg_scaling_updates_hosts(juju: jubilant.Juju):
         return f"{PG}-replicas" in host and f"{PG}-primary" in host
 
     wait_for("replicas endpoint in source host", has_replicas)
-    helpers.sync_connection(juju, STATE["source_connection"])
+    sync_with_rows(juju, STATE["source_connection"])
 
 
 def test_deleted_connector_recreated(juju: jubilant.Juju):
@@ -381,7 +417,7 @@ def test_readd_relation_readopts(juju: jubilant.Juju):
     assert sources["testdb_a"]["id"] == STATE["source_a"]
     assert sources["testdb_b"]["id"] == STATE["source_b"]
     # The new relation has a new PostgreSQL user, so this proves the credentials were updated.
-    helpers.sync_connection(juju, STATE["source_connection"])
+    sync_with_rows(juju, STATE["source_connection"])
 
 
 def test_manual_connector_untouched(juju: jubilant.Juju):
@@ -410,4 +446,4 @@ def test_tls(juju: jubilant.Juju):
         return source["ssl_mode"]["mode"] == "verify-ca" and destination["ssl_mode"]["mode"] == "verify-ca"
 
     wait_for("verify-ca on managed connectors", uses_tls)
-    helpers.sync_connection(juju, STATE["source_connection"])
+    sync_with_rows(juju, STATE["source_connection"])

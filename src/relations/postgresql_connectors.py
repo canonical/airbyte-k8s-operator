@@ -563,7 +563,7 @@ class PostgresqlConnectors(framework.Object):
                         "type": record["type"],
                         "id": record["id"],
                         "name": connector.get("name"),
-                        "database": connector.get("configuration", {}).get("database"),
+                        "database": (connector.get("configuration") or {}).get("database"),
                         "app": record["app"],
                         "orphaned": record["orphaned"],
                     }
