@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2026 Canonical Ltd.
+# Copyright 2024 Canonical Ltd.
 # See LICENSE file for licensing details.
 
 """Integration tests for the postgresql-source and postgresql-destination relations.
