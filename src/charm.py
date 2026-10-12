@@ -39,6 +39,7 @@ from log import log_event_handler
 from relations.airbyte_ui import AirbyteServerProvider
 from relations.minio import MinioRelation
 from relations.postgresql import PostgresqlRelation
+from relations.postgresql_connectors import PostgresqlConnectors
 from relations.s3 import S3Integrator
 from s3_helpers import S3Client
 from structured_config import CharmConfig, StorageType
@@ -131,6 +132,9 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         # Handle postgresql relation.
         self.db = DatabaseRequires(self, relation_name="db", database_name="airbyte-k8s_db")
         self.postgresql = PostgresqlRelation(self)
+
+        # Handle postgresql-source/destination relations that provision Airbyte connectors.
+        self.postgresql_connectors = PostgresqlConnectors(self)
 
         self.temporal = TemporalHostInfoRequirer(self)
         self.framework.observe(self.temporal.on.temporal_host_info_changed, self._on_temporal_relation_changed)
@@ -299,6 +303,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         self.unit.status = ActiveStatus()
         if self.unit.is_leader():
             self.airbyte_ui._provide_server_status()
+        self.postgresql_connectors.reconcile()
 
     def _validate_pebble_plan(self, container, container_name):
         """Validate pebble plan.
@@ -583,6 +588,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
             return
 
         self.unit.status = MaintenanceStatus("replanning application")
+        self.postgresql_connectors.reconcile()
 
 
 if __name__ == "__main__":  # pragma: nocover

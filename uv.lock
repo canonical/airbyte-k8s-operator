@@ -20,6 +20,7 @@ dependencies = [
     { name = "kubernetes" },
     { name = "ops" },
     { name = "pydantic" },
+    { name = "requests" },
     { name = "serialized-data-interface" },
 ]
 
@@ -71,6 +72,7 @@ requires-dist = [
     { name = "kubernetes", specifier = "==24.2.0" },
     { name = "ops", specifier = "~=3.7" },
     { name = "pydantic", specifier = "~=2.13" },
+    { name = "requests", specifier = "~=2.34" },
     { name = "serialized-data-interface", specifier = "==0.7.0" },
 ]
 

@@ -116,6 +116,8 @@ class CharmConfig(BaseConfigModel):
     pod_running_ttl_minutes: int
     pod_successful_ttl_minutes: int
     pod_unsuccessful_ttl_minutes: int
+    postgresql_source_config: str | None = None
+    postgresql_destination_config: str | None = None
 
     @field_validator("*", mode="before")
     @classmethod

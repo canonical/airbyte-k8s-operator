@@ -55,3 +55,35 @@ automatically on a metrics-enabled edition. Note that Airbyte's per-sync detail 
 bytes, job status) is written to job logs (object storage) and exposed via the Airbyte API,
 not the forwarded container stream — so surfacing sync/business metrics on community would
 require a dedicated exporter rather than this pipeline.
+
+### PostgreSQL sources and destinations
+
+The charm can create Airbyte sources and destinations for existing PostgreSQL 16
+databases from Juju relations, using the `postgresql_client` prefix-matching feature:
+
+```sh
+juju config airbyte-k8s postgresql-source-config='
+dbaas-revops:
+  database_prefix: dbaas*
+  name: "revops-{database}"
+'
+juju integrate airbyte-k8s:postgresql-source dbaas-revops:database
+juju integrate airbyte-k8s:postgresql-destination dbaas-warehouse:database
+```
+
+- One connector is created per database matching `database_prefix`, including databases
+  created after the relation.
+- Connectors connect to every PostgreSQL endpoint over multi-host JDBC, with
+  `targetServerType=preferSecondary` for sources and `targetServerType=primary` for
+  destinations. Extra `jdbc_url_params` are appended but cannot override `targetServerType`.
+- Credential rotation, endpoint changes and TLS (`verify-ca` with the provided CA) are applied
+  automatically by the leader unit.
+- The charm never deletes connectors. When a relation, config entry or database goes away,
+  its connectors are left in place and logged as orphaned; re-creating the relation re-adopts them.
+- Manually created connectors are never modified.
+
+List the managed connectors with:
+
+```sh
+juju run airbyte-k8s/leader list-managed-connectors type=source
+```
