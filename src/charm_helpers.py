@@ -231,10 +231,8 @@ def create_env(
             {
                 "HTTP_PROXY": http_proxy,
                 "http_proxy": http_proxy,
-                "JAVA_TOOL_OPTIONS": java_tool_options,
                 "JOB_DEFAULT_ENV_http_proxy": http_proxy,
                 "JOB_DEFAULT_ENV_HTTP_PROXY": http_proxy,
-                "JOB_DEFAULT_ENV_JAVA_TOOL_OPTIONS": java_tool_options,
             }
         )
 
@@ -247,6 +245,9 @@ def create_env(
                 "JOB_DEFAULT_ENV_HTTPS_PROXY": https_proxy,
             }
         )
+
+    java_options = {"JAVA_TOOL_OPTIONS": java_tool_options, "JOB_DEFAULT_ENV_JAVA_TOOL_OPTIONS": java_tool_options}
+    env.update(java_options if proxied else {})
 
     if no_proxy:
         env.update(

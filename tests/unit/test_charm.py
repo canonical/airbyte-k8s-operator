@@ -190,6 +190,17 @@ class TestCharm(TestCase):
         self.assertEqual(env["NO_PROXY"], "localhost,192.168.103.200")
         self.assertIn("192.168.103.200", env["JAVA_TOOL_OPTIONS"])
 
+    @patch.dict(
+        os.environ, {"JUJU_CHARM_HTTPS_PROXY": "https://proxy.example:3128", "JUJU_CHARM_NO_PROXY": "localhost"}
+    )
+    def test_java_options_with_https_proxy_only(self):
+        """The JVM gets the proxy and bypass settings when only an https proxy is set."""
+        env = self._server_env(temporal_relation(host="192.168.103.200"))
+
+        self.assertIn("-Dhttps.proxyHost=proxy.example", env["JAVA_TOOL_OPTIONS"])
+        self.assertIn("-Dhttp.nonProxyHosts=localhost|192.168.103.200", env["JAVA_TOOL_OPTIONS"])
+        self.assertNotIn("HTTP_PROXY", env)
+
     @patch.dict(os.environ, {"JUJU_CHARM_NO_PROXY": "localhost"})
     def test_no_proxy_unchanged_without_proxy(self):
         """The no-proxy list is left alone when no proxy is configured."""
