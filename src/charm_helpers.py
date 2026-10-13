@@ -222,6 +222,8 @@ def create_env(
     http_proxy = os.environ.get("JUJU_CHARM_HTTP_PROXY")
     https_proxy = os.environ.get("JUJU_CHARM_HTTPS_PROXY")
     no_proxy = os.environ.get("JUJU_CHARM_NO_PROXY")
+    proxied = bool(http_proxy or https_proxy)
+    no_proxy = add_to_no_proxy(no_proxy, temporal_connection.host) if proxied else no_proxy
     java_tool_options = _get_java_tool_options(http_proxy, https_proxy, no_proxy)
 
     if http_proxy:
@@ -257,6 +259,22 @@ def create_env(
         )
 
     return env
+
+
+def add_to_no_proxy(no_proxy, host):
+    """Add a host to a comma-separated no-proxy list unless it is already there.
+
+    Args:
+        no_proxy: The comma-separated no-proxy list, or None.
+        host: The host to add.
+
+    Returns:
+        The no-proxy list including the host.
+    """
+    hosts = [entry for entry in (no_proxy or "").split(",") if entry]
+    if host and host not in hosts:
+        hosts.append(host)
+    return ",".join(hosts)
 
 
 def _get_java_tool_options(http_proxy, https_proxy, no_proxy):
