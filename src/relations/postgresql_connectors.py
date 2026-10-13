@@ -84,7 +84,7 @@ class _ConnectorConfig(BaseModel):
         """
         try:
             value.format(app="app", database="database")
-        except (KeyError, IndexError, ValueError) as err:
+        except (KeyError, IndexError, ValueError, AttributeError, TypeError) as err:
             raise ValueError("name only supports the {app} and {database} placeholders") from err
         return value
 
@@ -153,7 +153,7 @@ class WantedConnector:
         workspace: the workspace name, or None for the first workspace.
         configuration: the Airbyte connector configuration.
         key: identifier of the connector in the tracked state.
-        hash: hash of everything sent to Airbyte, used to detect changes.
+        hash: hash of the name and configuration, used to detect changes.
     """
 
     connector_type: str
@@ -170,8 +170,11 @@ class WantedConnector:
 
     @property
     def hash(self) -> str:
-        """Hash of everything sent to Airbyte, used to detect changes."""
-        payload = {"name": self.name, "workspace": self.workspace, "configuration": self.configuration}
+        """Hash of the name and configuration, used to detect changes.
+
+        The workspace is excluded: Airbyte cannot move a connector between workspaces.
+        """
+        payload = {"name": self.name, "configuration": self.configuration}
         return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
 
 
@@ -359,15 +362,28 @@ class PostgresqlConnectors(framework.Object):
         Returns:
             The updated tracked record.
         """
-        if record and self.client.get_connector(connector.connector_type, record["id"]) is None:
+        if connector.workspace not in workspaces:
+            workspaces[connector.workspace] = self.client.get_workspace_id(connector.workspace)
+        workspace_id = workspaces[connector.workspace]
+
+        existing = self.client.get_connector(connector.connector_type, record["id"]) if record else None
+        if record and existing is None:
             logger.info("%s %s no longer exists in Airbyte, recreating it", connector.connector_type, record["id"])
             record = None
 
+        if existing and existing.get("workspaceId") != workspace_id:
+            logger.warning(
+                "%s %r (%s) is not in the configured workspace %r and cannot be moved; "
+                "delete it in Airbyte to have it recreated there",
+                connector.connector_type,
+                connector.name,
+                existing.get("workspaceId"),
+                connector.workspace or "default",
+            )
+
         if record is None:
-            if connector.workspace not in workspaces:
-                workspaces[connector.workspace] = self.client.get_workspace_id(connector.workspace)
             connector_id = self.client.create_connector(
-                connector.connector_type, workspaces[connector.workspace], connector.name, connector.configuration
+                connector.connector_type, workspace_id, connector.name, connector.configuration
             )
             logger.info("Created %s %r (%s)", connector.connector_type, connector.name, connector_id)
         elif record["hash"] != connector.hash or record.get("orphaned"):

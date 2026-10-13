@@ -63,12 +63,17 @@ databases from Juju relations, using the `postgresql_client` prefix-matching fea
 
 ```sh
 juju config airbyte-k8s postgresql-source-config='
-dbaas-revops:
-  database_prefix: dbaas*
-  name: "revops-{database}"
+sales-db:
+  database_prefix: sales*
+  name: "sales-{database}"
 '
-juju integrate airbyte-k8s:postgresql-source dbaas-revops:database
-juju integrate airbyte-k8s:postgresql-destination dbaas-warehouse:database
+juju config airbyte-k8s postgresql-destination-config='
+data-warehouse:
+  database_prefix: warehouse*
+  schema: staging
+'
+juju integrate airbyte-k8s:postgresql-source sales-db:database
+juju integrate airbyte-k8s:postgresql-destination data-warehouse:database
 ```
 
 - One connector is created per database matching `database_prefix`, including databases
@@ -76,9 +81,9 @@ juju integrate airbyte-k8s:postgresql-destination dbaas-warehouse:database
 - Connectors connect to every PostgreSQL endpoint over multi-host JDBC, with
   `targetServerType=preferSecondary` for sources and `targetServerType=primary` for
   destinations. Extra `jdbc_url_params` are appended but cannot override `targetServerType`.
-- Credential rotation, endpoint changes and TLS (`verify-ca` with the provided CA) are applied
+- Credential rotation, endpoint changes, and TLS (`verify-ca` with the provided CA) are applied
   automatically by the leader unit.
-- The charm never deletes connectors. When a relation, config entry or database goes away,
+- The charm never deletes connectors. When a relation, config entry, or database goes away,
   its connectors are left in place and logged as orphaned; re-creating the relation re-adopts them.
 - Manually created connectors are never modified.
 

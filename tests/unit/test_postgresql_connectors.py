@@ -23,7 +23,7 @@ from relations.postgresql_connectors import (
     merge_jdbc_params,
 )
 
-PG_APP = "dbaas-revops"
+PG_APP = "sales-db"
 PRIMARY = "pg-primary.model.svc.cluster.local:5432"
 REPLICAS = "pg-replicas.model.svc.cluster.local:5432"
 
@@ -64,7 +64,7 @@ class FakeAirbyte:
         Returns:
             The workspace ID.
         """
-        return "ws-1"
+        return f"ws-{name}" if name else "ws-1"
 
     def get_connector(self, connector_type, connector_id):
         """Return a connector or None.
@@ -97,7 +97,7 @@ class FakeAirbyte:
         """
         self.next_id += 1
         connector_id = f"{connector_type}-{self.next_id}"
-        self.connectors[connector_id] = {"name": name, "configuration": configuration}
+        self.connectors[connector_id] = {"name": name, "workspaceId": workspace_id, "configuration": configuration}
         self.calls.append(("create", connector_type, connector_id))
         return connector_id
 
@@ -110,7 +110,7 @@ class FakeAirbyte:
             name: the connector name.
             configuration: the connector configuration.
         """
-        self.connectors[connector_id] = {"name": name, "configuration": configuration}
+        self.connectors[connector_id].update(name=name, configuration=configuration)
         self.calls.append(("update", connector_type, connector_id))
 
 
@@ -373,6 +373,35 @@ class TestPostgresqlConnectors(TestCase):
 
         self.assertIn(("update", "source", connector_id), self.airbyte.calls)
         self.assertEqual(self.airbyte.connectors[connector_id]["configuration"]["password"], "new-pw")
+
+    def test_workspace_change_not_applied(self):
+        """A workspace change leaves the connector in its workspace and logs a warning."""
+        secret = user_secret()
+        relation = pg_relation(secret, databases="dbaas_a")
+        tracked = tracked_state(self.run_changed(make_state(relation, secrets=[secret]), relation))
+        connector_id = tracked[f"source:{PG_APP}:dbaas_a"]["id"]
+        self.airbyte.calls.clear()
+
+        state = make_state(relation, secrets=[secret], config=source_config(workspace="team"), tracked=tracked)
+        with self.assertLogs("relations.postgresql_connectors", level="WARNING") as logs:
+            out = self.run_changed(state, relation)
+
+        self.assertEqual(self.airbyte.calls, [])
+        self.assertEqual(self.airbyte.connectors[connector_id]["workspaceId"], "ws-1")
+        self.assertEqual(tracked_state(out)[f"source:{PG_APP}:dbaas_a"]["id"], connector_id)
+        self.assertTrue(any("cannot be moved" in line for line in logs.output))
+
+    def test_workspace_change_applied_after_manual_delete(self):
+        """Deleting the connector after a workspace change recreates it in the new workspace."""
+        secret = user_secret()
+        relation = pg_relation(secret, databases="dbaas_a")
+        tracked = tracked_state(self.run_changed(make_state(relation, secrets=[secret]), relation))
+        del self.airbyte.connectors[tracked[f"source:{PG_APP}:dbaas_a"]["id"]]
+
+        state = make_state(relation, secrets=[secret], config=source_config(workspace="team"), tracked=tracked)
+        out = self.run_changed(state, relation)
+        new_id = tracked_state(out)[f"source:{PG_APP}:dbaas_a"]["id"]
+        self.assertEqual(self.airbyte.connectors[new_id]["workspaceId"], "ws-team")
 
     def test_recreates_deleted_connector(self):
         """A managed connector deleted in Airbyte is recreated."""

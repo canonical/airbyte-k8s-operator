@@ -476,12 +476,13 @@ config:
           schemas: schemas to replicate. Default [public]
           replication_method: "Standard" or "Xmin". Default "Standard"
           jdbc_url_params: extra JDBC parameters; targetServerType cannot be overridden
-          workspace: workspace name. Default is the first workspace
+          workspace: workspace name. Default is the first workspace. Changing it
+            does not move existing connectors; delete them to have them recreated
 
         Example:
-          dbaas-revops:
-            database_prefix: dbaas*
-            name: "revops-{database}"
+          sales-db:
+            database_prefix: sales*
+            name: "sales-{database}"
             schemas: [public, sales]
       type: string
 
@@ -499,11 +500,12 @@ config:
           raw_data_schema: schema for raw tables. Default is the Airbyte default
           disable_type_dedupe: whether to disable typing and deduping
           jdbc_url_params: extra JDBC parameters; targetServerType cannot be overridden
-          workspace: workspace name. Default is the first workspace
+          workspace: workspace name. Default is the first workspace. Changing it
+            does not move existing connectors; delete them to have them recreated
 
         Example:
-          dbaas-warehouse:
-            database_prefix: warehouse*
+          data-warehouse:
+            database_prefix: data-warehouse*
             schema: airbyte_raw
       type: string
 

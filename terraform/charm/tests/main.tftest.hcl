@@ -32,4 +32,14 @@ run "basic_deploy" {
     condition     = output.requires.temporal_host_info == "temporal-host-info"
     error_message = "requires.temporal_host_info endpoint did not match expected"
   }
+
+  assert {
+    condition     = output.requires.postgresql_source == "postgresql-source"
+    error_message = "requires.postgresql_source endpoint did not match expected"
+  }
+
+  assert {
+    condition     = output.requires.postgresql_destination == "postgresql-destination"
+    error_message = "requires.postgresql_destination endpoint did not match expected"
+  }
 }

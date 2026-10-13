@@ -66,7 +66,7 @@ The base content is described in [Files](https://documentation.ubuntu.com/charmc
 #### `charm.py`
 
 - All methods are private and should start with `_`, including `_reconcile`.
-- Required ports must explicitly opened with `open_port` or `set_ports`. It's usually an anomaly if no ports are open.
+- Required ports must be explicitly opened with `open_port` or `set_ports`. It's usually an anomaly if no ports are open.
 
 ##### `_reconcile`
 
