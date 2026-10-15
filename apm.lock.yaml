@@ -1,6 +1,6 @@
 lockfile_version: '1'
-generated_at: '2026-09-24T19:21:18.806398+00:00'
-apm_version: 0.29.0
+generated_at: '2026-10-12T09:37:35.543303+00:00'
+apm_version: 0.33.0
 dependencies:
 - repo_url: canonical/canonical-data-mesh-docs
   name: data-mesh-guidelines
@@ -189,6 +189,7 @@ dependencies:
   is_virtual: true
   depth: 2
   resolved_by: canonical/canonical-data-mesh-docs
+  package_type: apm_package
   deployed_files:
   - .claude/rules/documentation.md
   - .github/instructions/documentation.instructions.md
@@ -205,6 +206,7 @@ dependencies:
   is_virtual: true
   depth: 2
   resolved_by: canonical/canonical-data-mesh-docs
+  package_type: apm_package
   deployed_files:
   - .claude/rules/code-commenting.md
   - .github/instructions/code-commenting.instructions.md
@@ -221,6 +223,7 @@ dependencies:
   is_virtual: true
   depth: 2
   resolved_by: canonical/canonical-data-mesh-docs
+  package_type: apm_package
   deployed_files:
   - .claude/agents/charm-engineer.md
   - .codex/agents/charm-engineer.toml
@@ -241,6 +244,7 @@ dependencies:
   is_virtual: true
   depth: 2
   resolved_by: canonical/canonical-data-mesh-docs
+  package_type: apm_package
   deployed_files:
   - .claude/rules/lib-updates.md
   - .github/instructions/lib-updates.instructions.md
