@@ -61,6 +61,23 @@ class AirbyteClient:
             raise AirbyteAPIError(f"{method} {path} failed: {err}") from err
 
     @staticmethod
+    def _error_title(response: requests.Response) -> str:
+        """Return the short error title of an Airbyte error response, if any.
+
+        Args:
+            response: The HTTP response.
+
+        Returns:
+            The title prefixed with a space, or an empty string.
+        """
+        try:
+            body = response.json()
+        except requests.JSONDecodeError:
+            return ""
+        title = body.get("title") if isinstance(body, dict) else None
+        return f" {title}" if isinstance(title, str) else ""
+
+    @staticmethod
     def _json(response: requests.Response) -> dict:
         """Return the JSON body of a successful response.
 
@@ -71,13 +88,18 @@ class AirbyteClient:
             The decoded JSON body.
 
         Raises:
-            AirbyteAPIError: If the response is not successful.
+            AirbyteAPIError: If the response is not successful or not valid JSON.
         """
         if not response.ok:
+            # The error body is left out: it can quote the submitted credentials.
             raise AirbyteAPIError(
-                f"{response.request.method} {response.url} returned {response.status_code}: {response.text[:500]}"
+                f"{response.request.method} {response.url} returned {response.status_code}"
+                f"{AirbyteClient._error_title(response)}"
             )
-        return response.json()
+        try:
+            return response.json()
+        except requests.JSONDecodeError as err:
+            raise AirbyteAPIError(f"{response.request.method} {response.url} returned invalid JSON: {err}") from err
 
     def is_healthy(self) -> bool:
         """Return whether the Airbyte server reports itself available.
@@ -86,10 +108,10 @@ class AirbyteClient:
             True if the health endpoint reports available.
         """
         try:
-            response = self._request("GET", "/api/v1/health", timeout=10)
+            body = self._json(self._request("GET", "/api/v1/health", timeout=10))
         except AirbyteAPIError:
             return False
-        return response.ok and bool(response.json().get("available"))
+        return bool(body.get("available"))
 
     def get_workspace_id(self, name: str | None = None) -> str:
         """Return the ID of a workspace by name, or of the first workspace.

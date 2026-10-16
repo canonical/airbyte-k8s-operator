@@ -7,6 +7,7 @@ import hashlib
 import json
 import logging
 from dataclasses import dataclass, field
+from functools import cached_property
 from typing import Literal
 
 import ops
@@ -170,7 +171,7 @@ class WantedConnector:
         """Identifier of the connector in the tracked state."""
         return f"{self.connector_type}:{self.app}:{self.database}"
 
-    @property
+    @cached_property
     def hash(self) -> str:
         """Hash of the name and configuration, used to detect changes.
 
@@ -191,7 +192,12 @@ def build_host(endpoints: list[str]) -> tuple[str, int]:
 
     Returns:
         The comma-separated host string and the port of the last host.
+
+    Raises:
+        ValueError: if there are no endpoints or one is not `host:port`.
     """
+    if not endpoints:
+        raise ValueError("no endpoints")
     pairs = sorted({(host, int(port)) for host, port in (entry.rsplit(":", 1) for entry in endpoints)})
     *others, (last_host, last_port) = pairs
     return ",".join([f"{host}:{port}" for host, port in others] + [last_host]), last_port
@@ -307,7 +313,7 @@ class PostgresqlConnectors(framework.Object):
         self._write_databags(entries)
 
         tracked = self._load_tracked()
-        wanted = self._compute_wanted(entries)
+        wanted, skipped = self._compute_wanted(entries)
         if not wanted and not tracked:
             return
 
@@ -323,18 +329,24 @@ class PostgresqlConnectors(framework.Object):
                 logger.error("Failed to reconcile %s connector %r: %s", connector.connector_type, connector.name, err)
             self._save_tracked(tracked)
 
-        self._mark_orphans(tracked, wanted)
+        self._mark_orphans(tracked, wanted, skipped)
         self._save_tracked(tracked)
 
-    def _mark_orphans(self, tracked: dict[str, dict], wanted: dict[str, WantedConnector]) -> None:
+    def _mark_orphans(
+        self, tracked: dict[str, dict], wanted: dict[str, WantedConnector], skipped: set[tuple[str, str]]
+    ) -> None:
         """Flag tracked connectors that are no longer wanted, untracking deleted ones.
 
         Args:
             tracked: tracked records keyed by connector key, updated in place.
             wanted: wanted connectors keyed by connector key.
+            skipped: (type, app) of relations whose data could not be used; their
+                connectors are left as they are until the data is usable again.
         """
         for key in [key for key in tracked if key not in wanted]:
             record = tracked[key]
+            if (record["type"], record["app"]) in skipped:
+                continue
             try:
                 exists = self.client.get_connector(record["type"], record["id"]) is not None
             except AirbyteAPIError as err:
@@ -509,36 +521,68 @@ class PostgresqlConnectors(framework.Object):
             tls_ca=tls.get("tls-ca") or None,
         )
 
-    def _compute_wanted(self, entries: dict[str, dict[str, _ConnectorConfig]]) -> dict[str, WantedConnector]:
+    def _compute_wanted(
+        self, entries: dict[str, dict[str, _ConnectorConfig]]
+    ) -> tuple[dict[str, WantedConnector], set[tuple[str, str]]]:
         """Compute the connectors that should exist from relations and config.
+
+        A relation whose data is incomplete or malformed is skipped without
+        affecting the others.
 
         Args:
             entries: validated config entries per connector type.
 
         Returns:
-            Wanted connectors keyed by their tracked-state key.
+            Wanted connectors keyed by their tracked-state key, and the
+            (type, app) of skipped relations.
         """
         wanted = {}
+        skipped = set()
         for connector_type, relation in self._relations():
             app = relation.app.name
             entry = entries[connector_type].get(app)
             if entry is None:
                 continue
-            provider = self._load_provider_data(relation)
-            if provider is None:
-                logger.info("Relation data from %r not ready yet", app)
+            try:
+                connectors = self._wanted_for_relation(connector_type, relation, entry)
+            except (KeyError, ValueError) as err:
+                logger.error("Skipping %s relation with %r: malformed relation data: %r", connector_type, app, err)
+                connectors = None
+            if connectors is None:
+                skipped.add((connector_type, app))
                 continue
-            for database in provider.databases:
-                connector = WantedConnector(
-                    connector_type=connector_type,
-                    app=app,
-                    database=database,
-                    name=entry.name.format(app=app, database=database),
-                    workspace=entry.workspace,
-                    configuration=build_configuration(connector_type, entry, provider, database),
-                )
-                wanted[connector.key] = connector
-        return wanted
+            wanted.update({connector.key: connector for connector in connectors})
+        return wanted, skipped
+
+    def _wanted_for_relation(
+        self, connector_type: str, relation: ops.Relation, entry: _ConnectorConfig
+    ) -> list[WantedConnector] | None:
+        """Compute the connectors wanted for one relation.
+
+        Args:
+            connector_type: "source" or "destination".
+            relation: the PostgreSQL relation.
+            entry: the validated config entry for the relation.
+
+        Returns:
+            The wanted connectors, or None if the relation data is not ready yet.
+        """
+        app = relation.app.name
+        provider = self._load_provider_data(relation)
+        if provider is None:
+            logger.info("Relation data from %r not ready yet", app)
+            return None
+        return [
+            WantedConnector(
+                connector_type=connector_type,
+                app=app,
+                database=database,
+                name=entry.name.format(app=app, database=database),
+                workspace=entry.workspace,
+                configuration=build_configuration(connector_type, entry, provider, database),
+            )
+            for database in provider.databases
+        ]
 
     def _load_tracked(self) -> dict[str, dict]:
         """Return the tracked connectors from the peer relation.

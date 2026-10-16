@@ -3,8 +3,9 @@
 
 """Unit tests for the postgresql-source/destination connector relations."""
 
-# pylint:disable=protected-access
+# pylint:disable=protected-access,too-many-public-methods
 
+import dataclasses
 import json
 from unittest import TestCase
 from unittest.mock import patch
@@ -213,6 +214,12 @@ class TestHelpers(TestCase):
     def test_build_host_single(self):
         """A single endpoint maps directly to host and port."""
         self.assertEqual(build_host(["a:5432"]), ("a", 5432))
+
+    def test_build_host_invalid(self):
+        """No endpoints or an endpoint without a port raise ValueError."""
+        for endpoints in ([], ["a"], ["a:port"]):
+            with self.subTest(endpoints=endpoints), self.assertRaises(ValueError):
+                build_host(endpoints)
 
     def test_merge_jdbc_params_keeps_user_params(self):
         """User params are appended to the charm-managed targetServerType."""
@@ -438,6 +445,35 @@ class TestPostgresqlConnectors(TestCase):
         record = tracked_state(out)[f"source:{PG_APP}:dbaas_a"]
         self.assertTrue(record["orphaned"])
         self.assertIn(record["id"], self.airbyte.connectors)
+
+    def test_malformed_relation_skipped(self):
+        """A relation with malformed data is skipped while other relations still reconcile."""
+        good_secret = user_secret()
+        good = pg_relation(good_secret, databases="dbaas_a")
+        bad_secret = testing.Secret(tracked_content={"password": "pw"}, latest_content={"password": "pw"})  # nosec
+        bad = pg_relation(bad_secret, databases="dbaas_a", app="other-db")
+        entry = {"database_prefix": "dbaas*"}
+        config = {"postgresql-source-config": yaml.safe_dump({PG_APP: entry, "other-db": entry})}
+        state = make_state(good, bad, secrets=[good_secret, bad_secret], config=config)
+
+        with self.assertLogs("relations.postgresql_connectors", level="ERROR") as logs:
+            out = self.run_changed(state, bad)
+
+        self.assertEqual(set(tracked_state(out)), {f"source:{PG_APP}:dbaas_a"})
+        self.assertTrue(any("other-db" in line and "malformed" in line for line in logs.output))
+
+    def test_malformed_relation_keeps_connectors(self):
+        """Connectors of a relation whose data becomes malformed are not orphaned."""
+        secret = user_secret()
+        relation = pg_relation(secret, databases="dbaas_a")
+        tracked = tracked_state(self.run_changed(make_state(relation, secrets=[secret]), relation))
+        self.airbyte.calls.clear()
+
+        broken = dataclasses.replace(relation, remote_app_data={**relation.remote_app_data, "endpoints": "no-port"})
+        out = self.run_changed(make_state(broken, secrets=[secret], tracked=tracked), broken)
+
+        self.assertEqual(tracked_state(out), tracked)
+        self.assertEqual(self.airbyte.calls, [])
 
     def test_orphan_deleted_manually_untracked(self):
         """An orphaned connector deleted by a user is no longer tracked."""
