@@ -9,6 +9,7 @@ The tests run in order and build on each other, like the Trino-PostgreSQL relati
 
 import json
 import logging
+import shlex
 import time
 from pathlib import Path
 from typing import Callable, Optional
@@ -238,6 +239,25 @@ def sync_with_rows(juju: jubilant.Juju, connection_id: str) -> None:
     assert job.get("rowsSynced", 0) > 0, f"job {job['jobId']} synced no rows"
 
 
+def run_as_source_user(juju: jubilant.Juju, database: str, sql: str) -> str:
+    """Run SQL on the PostgreSQL primary as the source relation user.
+
+    Args:
+        juju: Jubilant object.
+        database: the database to connect to.
+        sql: the statement to run.
+
+    Returns:
+        The psql output.
+    """
+    unit = json.loads(juju.cli("show-unit", f"{APP}/0", "--format", "json"))[f"{APP}/0"]
+    relation = next(info for info in unit["relation-info"] if info["endpoint"] == "postgresql-source")
+    secret = juju.show_secret(relation["application-data"]["secret-user"], reveal=True)
+    username, password = secret.content["username"], secret.content["password"]
+    uri = f"postgresql://{username}:{password}@{PG}-primary:5432/{database}"
+    return juju.ssh(f"{PG}/0", shlex.join(["psql", uri, "-tA", "-c", sql]), container="postgresql")
+
+
 @pytest.fixture(scope="module")
 def juju(k8s_juju: jubilant.Juju, charm: Path, rock_resources: dict) -> jubilant.Juju:
     """Deploy Airbyte with its stack, plus a PG16 app with a database to match.
@@ -345,6 +365,15 @@ def test_sync_from_managed_source(juju: jubilant.Juju):
     connection_id = create_connection(juju, STATE["source_a"], STATE["destination"], "copy", streams)
     sync_with_rows(juju, connection_id)
     STATE["source_connection"] = connection_id
+
+
+def test_source_user_read_only(juju: jubilant.Juju):
+    """The source relation user can read tables but cannot create them."""
+    assert int(run_as_source_user(juju, "testdb_a", "SELECT count(*) FROM public.pokemon;").strip()) > 0
+
+    with pytest.raises(jubilant.CLIError) as err:
+        run_as_source_user(juju, "testdb_a", "CREATE TABLE public.read_only_check (id int);")
+    assert "permission denied" in f"{err.value.stdout}{err.value.stderr}"
 
 
 def test_pg_scaling_updates_hosts(juju: jubilant.Juju):

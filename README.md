@@ -81,6 +81,9 @@ juju integrate airbyte-k8s:postgresql-destination data-warehouse:database
 - Connectors connect to every PostgreSQL endpoint over multi-host JDBC, with
   `targetServerType=preferSecondary` for sources and `targetServerType=primary` for
   destinations. Extra `jdbc_url_params` are appended but cannot override `targetServerType`.
+- Sources request the read-only `charmed_read` role, so their user cannot create or modify
+  tables. This role can read every database the PostgreSQL charm manages, not only those
+  matching `database_prefix`.
 - Credential rotation, endpoint changes, and TLS (`verify-ca` with the provided CA) are applied
   automatically by the leader unit.
 - The charm never deletes connectors. When a relation, config entry, or database goes away,

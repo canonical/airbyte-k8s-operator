@@ -292,6 +292,16 @@ class TestPostgresqlConnectors(TestCase):
         databag = out.get_relation(relation.id).local_app_data
         self.assertEqual(databag["database"], "dbaas*")
         self.assertEqual(json.loads(databag["requested-secrets"]), ["username", "password", "tls", "tls-ca"])
+        self.assertEqual(databag["extra-user-roles"], "charmed_read")
+
+    def test_destination_databag_has_no_extra_roles(self):
+        """Destinations keep the default database owner access needed to create tables."""
+        relation = testing.Relation("postgresql-destination", remote_app_name=PG_APP)
+        config = {"postgresql-destination-config": yaml.safe_dump({PG_APP: {"database_prefix": "dbaas*"}})}
+        out = self.ctx.run(self.ctx.on.relation_created(relation), make_state(relation, config=config))
+        databag = out.get_relation(relation.id).local_app_data
+        self.assertEqual(databag["database"], "dbaas*")
+        self.assertNotIn("extra-user-roles", databag)
 
     def test_databag_not_written_without_config(self):
         """No databag is written for a relation without a config entry."""

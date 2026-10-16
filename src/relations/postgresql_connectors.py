@@ -30,6 +30,8 @@ TARGET_SERVER_TYPES = {"source": "preferSecondary", "destination": "primary"}
 PEER_RELATION = "airbyte-peer"
 MANAGED_CONNECTORS_KEY = "managed-connectors"
 REQUESTED_SECRETS = ["username", "password", "tls", "tls-ca"]
+# Sources only read, so their user gets read-only access instead of database ownership.
+EXTRA_USER_ROLES = {"source": "charmed_read"}
 
 
 class _ConnectorConfig(BaseModel):
@@ -470,6 +472,8 @@ class PostgresqlConnectors(framework.Object):
             if not requested:
                 databag["database"] = entry.database_prefix
                 databag["requested-secrets"] = json.dumps(REQUESTED_SECRETS)
+                if connector_type in EXTRA_USER_ROLES:
+                    databag["extra-user-roles"] = EXTRA_USER_ROLES[connector_type]
 
     def _load_provider_data(self, relation: ops.Relation) -> ProviderData | None:
         """Read the provider's connection details, resolving its secrets.
