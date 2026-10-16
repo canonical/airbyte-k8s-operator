@@ -473,7 +473,7 @@ config:
         Fields:
           database_prefix: (required) prefix of the databases to match, must end with *
           name: source name template, supports {app} and {database}. Default "{app}-{database}"
-          schemas: schemas to replicate. Default [public]
+          schemas: (required) schemas to replicate, e.g. [public]
           replication_method: "Standard" or "Xmin". Default "Standard"
           jdbc_url_params: extra JDBC parameters; targetServerType cannot be overridden
           workspace: workspace name. Default is the first workspace. Changing it
@@ -496,7 +496,7 @@ config:
         Fields:
           database_prefix: (required) prefix of the databases to match, must end with *
           name: destination name template, supports {app} and {database}. Default "{app}-{database}"
-          schema: default schema to write to. Default "public"
+          schema: (required) default schema to write to, e.g. public
           raw_data_schema: schema for raw tables. Default is the Airbyte default
           disable_type_dedupe: whether to disable typing and deduping
           jdbc_url_params: extra JDBC parameters; targetServerType cannot be overridden

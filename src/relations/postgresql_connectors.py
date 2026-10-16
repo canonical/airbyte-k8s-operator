@@ -3,273 +3,28 @@
 
 """Provision Airbyte sources and destinations from postgresql_client relations."""
 
-import hashlib
 import json
 import logging
-from dataclasses import dataclass, field
-from functools import cached_property
-from typing import Literal
 
 import ops
 import yaml
 from ops import framework
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import ValidationError
 
 from airbyte_client import AirbyteAPIError, AirbyteClient
+from connector_configuration import ProviderData, WantedConnector, build_configuration
+from literals import (
+    CONNECTOR_CONFIG_OPTIONS,
+    CONNECTOR_ENDPOINT_TYPES,
+    CONNECTOR_EXTRA_USER_ROLES,
+    CONNECTOR_REQUESTED_SECRETS,
+    MANAGED_CONNECTORS_KEY,
+    PEER_RELATION,
+)
 from log import log_event_handler
+from structured_config import CONFIG_MODELS, ConnectorConfig
 
 logger = logging.getLogger(__name__)
-
-SOURCE_ENDPOINT = "postgresql-source"
-DESTINATION_ENDPOINT = "postgresql-destination"
-# Relation endpoint -> Airbyte connector type.
-ENDPOINT_TYPES = {SOURCE_ENDPOINT: "source", DESTINATION_ENDPOINT: "destination"}
-CONFIG_OPTIONS = {"source": "postgresql-source-config", "destination": "postgresql-destination-config"}
-# Sources read from replicas when available; destinations always write to the primary.
-TARGET_SERVER_TYPES = {"source": "preferSecondary", "destination": "primary"}
-
-PEER_RELATION = "airbyte-peer"
-MANAGED_CONNECTORS_KEY = "managed-connectors"
-REQUESTED_SECRETS = ["username", "password", "tls", "tls-ca"]
-# Sources only read, so their user gets read-only access instead of database ownership.
-EXTRA_USER_ROLES = {"source": "charmed_read"}
-
-
-class _ConnectorConfig(BaseModel):
-    """Settings shared by source and destination config entries.
-
-    Attrs:
-        model_config: pydantic model configuration.
-        database_prefix: prefix requested from PostgreSQL; must end with `*`.
-        name: connector name template with `{app}` and `{database}` placeholders.
-        jdbc_url_params: extra JDBC parameters, appended to the charm-managed ones.
-        workspace: workspace name; the first workspace is used when not set.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    database_prefix: str
-    name: str = "{app}-{database}"
-    jdbc_url_params: str = ""
-    workspace: str | None = None
-
-    @field_validator("database_prefix")
-    @classmethod
-    def prefix_ends_with_asterisk(cls, value: str) -> str:
-        """Check that the database prefix ends with `*`.
-
-        Args:
-            value: the database prefix.
-
-        Returns:
-            The validated prefix.
-
-        Raises:
-            ValueError: if the prefix does not end with `*`.
-        """
-        if len(value) < 2 or not value.endswith("*"):
-            raise ValueError("database_prefix must end with '*'")
-        return value
-
-    @field_validator("name")
-    @classmethod
-    def name_is_valid_template(cls, value: str) -> str:
-        """Check that the name only uses the supported placeholders.
-
-        Args:
-            value: the name template.
-
-        Returns:
-            The validated template.
-
-        Raises:
-            ValueError: if the template uses unknown placeholders.
-        """
-        try:
-            value.format(app="app", database="database")
-        except (KeyError, IndexError, ValueError, AttributeError, TypeError) as err:
-            raise ValueError("name only supports the {app} and {database} placeholders") from err
-        return value
-
-
-class SourceConfig(_ConnectorConfig):
-    """A `postgresql-source-config` entry.
-
-    Attrs:
-        schemas: schemas to replicate.
-        replication_method: Airbyte replication method.
-    """
-
-    schemas: list[str] = ["public"]
-    replication_method: Literal["Standard", "Xmin"] = "Standard"
-
-
-class DestinationConfig(_ConnectorConfig):
-    """A `postgresql-destination-config` entry.
-
-    Attrs:
-        destination_schema: default schema to write to.
-        raw_data_schema: schema for raw tables, Airbyte default when not set.
-        disable_type_dedupe: whether to disable typing and deduping.
-    """
-
-    destination_schema: str = Field("public", alias="schema")
-    raw_data_schema: str | None = None
-    disable_type_dedupe: bool | None = None
-
-
-CONFIG_MODELS: dict[str, type[_ConnectorConfig]] = {"source": SourceConfig, "destination": DestinationConfig}
-
-
-@dataclass(frozen=True)
-class ProviderData:
-    """Connection details published by the PostgreSQL provider.
-
-    Attrs:
-        endpoints: primary endpoints as comma-separated `host:port`.
-        read_only_endpoints: replica endpoints as comma-separated `host:port`.
-        databases: databases matched by the requested prefix.
-        username: relation user name.
-        password: relation user password.
-        tls: whether the server requires TLS.
-        tls_ca: CA certificate for TLS, if provided.
-    """
-
-    endpoints: str
-    read_only_endpoints: str
-    databases: list[str]
-    username: str
-    password: str
-    tls: bool
-    tls_ca: str | None
-
-
-@dataclass(frozen=True)
-class WantedConnector:
-    """A connector the charm should manage, derived from relations and config.
-
-    Attrs:
-        connector_type: "source" or "destination".
-        app: the PostgreSQL application name.
-        database: the matched database.
-        name: the connector name.
-        workspace: the workspace name, or None for the first workspace.
-        configuration: the Airbyte connector configuration.
-        key: identifier of the connector in the tracked state.
-        hash: hash of the name and configuration, used to detect changes.
-    """
-
-    connector_type: str
-    app: str
-    database: str
-    name: str
-    workspace: str | None
-    configuration: dict = field(hash=False)
-
-    @property
-    def key(self) -> str:
-        """Identifier of the connector in the tracked state."""
-        return f"{self.connector_type}:{self.app}:{self.database}"
-
-    @cached_property
-    def hash(self) -> str:
-        """Hash of the name and configuration, used to detect changes.
-
-        The workspace is excluded: Airbyte cannot move a connector between workspaces.
-        """
-        payload = {"name": self.name, "configuration": self.configuration}
-        return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
-
-
-def build_host(endpoints: list[str]) -> tuple[str, int]:
-    """Build the multi-host `host` and `port` fields from `host:port` endpoints.
-
-    The connectors format `jdbc:postgresql://{host}:{port}/{db}`, so every host
-    but the last carries its own port and the last one uses `port`.
-
-    Args:
-        endpoints: `host:port` entries.
-
-    Returns:
-        The comma-separated host string and the port of the last host.
-
-    Raises:
-        ValueError: if there are no endpoints or one is not `host:port`.
-    """
-    if not endpoints:
-        raise ValueError("no endpoints")
-    pairs = sorted({(host, int(port)) for host, port in (entry.rsplit(":", 1) for entry in endpoints)})
-    *others, (last_host, last_port) = pairs
-    return ",".join([f"{host}:{port}" for host, port in others] + [last_host]), last_port
-
-
-def merge_jdbc_params(target_server_type: str, user_params: str) -> str:
-    """Prepend the charm-managed targetServerType to the user's JDBC parameters.
-
-    Args:
-        target_server_type: the targetServerType the charm enforces.
-        user_params: user-supplied `key=value&...` parameters.
-
-    Returns:
-        The merged parameters; a user-supplied targetServerType is dropped.
-    """
-    params = [f"targetServerType={target_server_type}"]
-    for param in user_params.split("&"):
-        param = param.strip()
-        if not param:
-            continue
-        if param.split("=", 1)[0].strip().lower() == "targetservertype":
-            logger.warning("Ignoring %r in jdbc_url_params: targetServerType is managed by the charm", param)
-            continue
-        params.append(param)
-    return "&".join(params)
-
-
-def build_configuration(connector_type: str, entry: _ConnectorConfig, provider: ProviderData, database: str) -> dict:
-    """Build the Airbyte configuration for a Postgres source or destination.
-
-    Args:
-        connector_type: "source" or "destination".
-        entry: the validated config entry for the relation.
-        provider: the provider's connection details.
-        database: the matched database.
-
-    Returns:
-        The connector configuration.
-    """
-    entries = [e.strip() for e in f"{provider.endpoints},{provider.read_only_endpoints}".split(",") if e.strip()]
-    host, port = build_host(entries)
-
-    if not provider.tls:
-        ssl_mode: dict = {"mode": "disable"}
-    elif provider.tls_ca:
-        ssl_mode = {"mode": "verify-ca", "ca_certificate": provider.tls_ca}
-    else:
-        ssl_mode = {"mode": "require"}
-
-    configuration: dict = {
-        "host": host,
-        "port": port,
-        "database": database,
-        "username": provider.username,
-        "password": provider.password,
-        "ssl_mode": ssl_mode,
-        "tunnel_method": {"tunnel_method": "NO_TUNNEL"},
-        "jdbc_url_params": merge_jdbc_params(TARGET_SERVER_TYPES[connector_type], entry.jdbc_url_params),
-    }
-
-    if isinstance(entry, SourceConfig):
-        configuration["sourceType"] = "postgres"
-        configuration["schemas"] = entry.schemas
-        configuration["replication_method"] = {"method": entry.replication_method}
-    elif isinstance(entry, DestinationConfig):
-        configuration["destinationType"] = "postgres"
-        configuration["schema"] = entry.destination_schema
-        if entry.raw_data_schema:
-            configuration["raw_data_schema"] = entry.raw_data_schema
-        if entry.disable_type_dedupe is not None:
-            configuration["disable_type_dedupe"] = entry.disable_type_dedupe
-    return configuration
 
 
 class PostgresqlConnectors(framework.Object):
@@ -285,7 +40,7 @@ class PostgresqlConnectors(framework.Object):
         self.charm = charm
         self.client = AirbyteClient()
 
-        for endpoint in ENDPOINT_TYPES:
+        for endpoint in CONNECTOR_ENDPOINT_TYPES:
             charm.framework.observe(charm.on[endpoint].relation_created, self._on_relation_event)
             charm.framework.observe(charm.on[endpoint].relation_changed, self._on_relation_event)
             charm.framework.observe(charm.on[endpoint].relation_broken, self._on_relation_event)
@@ -309,7 +64,7 @@ class PostgresqlConnectors(framework.Object):
         if not self.charm.unit.is_leader():
             return
 
-        entries = {connector_type: self._load_config(connector_type) for connector_type in CONFIG_OPTIONS}
+        entries = {connector_type: self._load_config(connector_type) for connector_type in CONNECTOR_CONFIG_OPTIONS}
         self._write_databags(entries)
 
         tracked = self._load_tracked()
@@ -418,7 +173,7 @@ class PostgresqlConnectors(framework.Object):
             "orphaned": False,
         }
 
-    def _load_config(self, connector_type: str) -> dict[str, _ConnectorConfig]:
+    def _load_config(self, connector_type: str) -> dict[str, ConnectorConfig]:
         """Parse and validate a postgresql-*-config option.
 
         Args:
@@ -428,7 +183,7 @@ class PostgresqlConnectors(framework.Object):
             Valid entries keyed by PostgreSQL application name; invalid ones are
             logged and skipped.
         """
-        option = CONFIG_OPTIONS[connector_type]
+        option = CONNECTOR_CONFIG_OPTIONS[connector_type]
         raw = self.charm.config[option]
         if not raw:
             return {}
@@ -455,12 +210,12 @@ class PostgresqlConnectors(framework.Object):
         Yields:
             (connector type, relation) pairs.
         """
-        for endpoint, connector_type in ENDPOINT_TYPES.items():
+        for endpoint, connector_type in CONNECTOR_ENDPOINT_TYPES.items():
             for relation in self.model.relations[endpoint]:
                 if relation.active and relation.app is not None:
                     yield connector_type, relation
 
-    def _write_databags(self, entries: dict[str, dict[str, _ConnectorConfig]]) -> None:
+    def _write_databags(self, entries: dict[str, dict[str, ConnectorConfig]]) -> None:
         """Request access to the configured database prefix on each relation.
 
         Args:
@@ -469,7 +224,7 @@ class PostgresqlConnectors(framework.Object):
         for connector_type, relation in self._relations():
             entry = entries[connector_type].get(relation.app.name)
             if entry is None:
-                logger.warning("No %s entry for %r", CONFIG_OPTIONS[connector_type], relation.app.name)
+                logger.warning("No %s entry for %r", CONNECTOR_CONFIG_OPTIONS[connector_type], relation.app.name)
                 continue
             databag = relation.data[self.charm.app]
             requested = databag.get("database")
@@ -483,9 +238,9 @@ class PostgresqlConnectors(framework.Object):
                 continue
             if not requested:
                 databag["database"] = entry.database_prefix
-                databag["requested-secrets"] = json.dumps(REQUESTED_SECRETS)
-                if connector_type in EXTRA_USER_ROLES:
-                    databag["extra-user-roles"] = EXTRA_USER_ROLES[connector_type]
+                databag["requested-secrets"] = json.dumps(CONNECTOR_REQUESTED_SECRETS)
+                if connector_type in CONNECTOR_EXTRA_USER_ROLES:
+                    databag["extra-user-roles"] = CONNECTOR_EXTRA_USER_ROLES[connector_type]
 
     def _load_provider_data(self, relation: ops.Relation) -> ProviderData | None:
         """Read the provider's connection details, resolving its secrets.
@@ -522,7 +277,7 @@ class PostgresqlConnectors(framework.Object):
         )
 
     def _compute_wanted(
-        self, entries: dict[str, dict[str, _ConnectorConfig]]
+        self, entries: dict[str, dict[str, ConnectorConfig]]
     ) -> tuple[dict[str, WantedConnector], set[tuple[str, str]]]:
         """Compute the connectors that should exist from relations and config.
 
@@ -555,7 +310,7 @@ class PostgresqlConnectors(framework.Object):
         return wanted, skipped
 
     def _wanted_for_relation(
-        self, connector_type: str, relation: ops.Relation, entry: _ConnectorConfig
+        self, connector_type: str, relation: ops.Relation, entry: ConnectorConfig
     ) -> list[WantedConnector] | None:
         """Compute the connectors wanted for one relation.
 

@@ -66,6 +66,7 @@ juju config airbyte-k8s postgresql-source-config='
 sales-db:
   database_prefix: sales*
   name: "sales-{database}"
+  schemas: [public, sales]
 '
 juju config airbyte-k8s postgresql-destination-config='
 data-warehouse:

@@ -286,7 +286,7 @@ def test_relation_without_config(juju: jubilant.Juju):
 
 def test_invalid_config(juju: jubilant.Juju):
     """A database prefix without `*` is rejected without blocking the charm."""
-    set_config(juju, SOURCE_CONFIG, {PG: {"database_prefix": "testdb"}})
+    set_config(juju, SOURCE_CONFIG, {PG: {"database_prefix": "testdb", "schemas": ["public"]}})
     assert list_managed(juju) == []
 
 
@@ -295,7 +295,13 @@ def test_source_created(juju: jubilant.Juju):
     set_config(
         juju,
         SOURCE_CONFIG,
-        {PG: {"database_prefix": "testdb*", "jdbc_url_params": "connectTimeout=10&targetServerType=any"}},
+        {
+            PG: {
+                "database_prefix": "testdb*",
+                "schemas": ["public"],
+                "jdbc_url_params": "connectTimeout=10&targetServerType=any",
+            }
+        },
     )
     connectors = wait_for_managed(juju, "source for testdb_a", lambda c: "testdb_a" in by_database(c, "source"))
     source = by_database(connectors, "source")["testdb_a"]
@@ -321,7 +327,7 @@ def test_new_database_auto_added(juju: jubilant.Juju):
 
 def test_destination_created(juju: jubilant.Juju):
     """The destination endpoint creates a destination targeting the primary."""
-    juju.config(APP, {DESTINATION_CONFIG: yaml.safe_dump({PG: {"database_prefix": "testdb_a*"}})})
+    juju.config(APP, {DESTINATION_CONFIG: yaml.safe_dump({PG: {"database_prefix": "testdb_a*", "schema": "public"}})})
     juju.integrate(DESTINATION_ENDPOINT, PG_ENDPOINT)
     wait_for_idle(juju)
 

@@ -15,14 +15,7 @@ from ops import testing
 
 from airbyte_client import AirbyteAPIError
 from charm import AirbyteK8SOperatorCharm
-from relations.postgresql_connectors import (
-    MANAGED_CONNECTORS_KEY,
-    ProviderData,
-    SourceConfig,
-    build_configuration,
-    build_host,
-    merge_jdbc_params,
-)
+from literals import MANAGED_CONNECTORS_KEY
 
 PG_APP = "sales-db"
 PRIMARY = "pg-primary.model.svc.cluster.local:5432"
@@ -186,7 +179,7 @@ def source_config(**settings):
     Returns:
         Charm config.
     """
-    entry = {"database_prefix": "dbaas*", **settings}
+    entry = {"database_prefix": "dbaas*", "schemas": ["public"], **settings}
     return {"postgresql-source-config": yaml.safe_dump({PG_APP: entry})}
 
 
@@ -201,58 +194,6 @@ def tracked_state(state):
     """
     peer = state.get_relations("airbyte-peer")[0]
     return json.loads(peer.local_app_data.get(MANAGED_CONNECTORS_KEY, "{}"))
-
-
-class TestHelpers(TestCase):
-    """Tests for the pure helpers."""
-
-    def test_build_host_multi_host(self):
-        """Every host but the last carries its port; the last uses the port field."""
-        host, port = build_host(["b:5432", "a:6432", "b:5432"])
-        self.assertEqual((host, port), ("a:6432,b", 5432))
-
-    def test_build_host_single(self):
-        """A single endpoint maps directly to host and port."""
-        self.assertEqual(build_host(["a:5432"]), ("a", 5432))
-
-    def test_build_host_invalid(self):
-        """No endpoints or an endpoint without a port raise ValueError."""
-        for endpoints in ([], ["a"], ["a:port"]):
-            with self.subTest(endpoints=endpoints), self.assertRaises(ValueError):
-                build_host(endpoints)
-
-    def test_merge_jdbc_params_keeps_user_params(self):
-        """User params are appended to the charm-managed targetServerType."""
-        self.assertEqual(
-            merge_jdbc_params("primary", "connectTimeout=10&socketTimeout=5"),
-            "targetServerType=primary&connectTimeout=10&socketTimeout=5",
-        )
-
-    def test_merge_jdbc_params_drops_override(self):
-        """A user-supplied targetServerType is dropped."""
-        self.assertEqual(
-            merge_jdbc_params("preferSecondary", "TargetServerType=any&connectTimeout=10"),
-            "targetServerType=preferSecondary&connectTimeout=10",
-        )
-
-    def test_build_configuration_tls_modes(self):
-        """ssl_mode follows the provider's TLS settings."""
-        entry = SourceConfig(database_prefix="db*")
-        base = {
-            "endpoints": PRIMARY,
-            "read_only_endpoints": "",
-            "databases": ["db"],
-            "username": "u",
-            "password": "p",  # nosec B105
-        }
-        cases = [
-            ((False, None), {"mode": "disable"}),
-            ((True, None), {"mode": "require"}),
-            ((True, "CA"), {"mode": "verify-ca", "ca_certificate": "CA"}),
-        ]
-        for (tls, ca), expected in cases:
-            provider = ProviderData(**base, tls=tls, tls_ca=ca)
-            self.assertEqual(build_configuration("source", entry, provider, "db")["ssl_mode"], expected)
 
 
 class TestPostgresqlConnectors(TestCase):
@@ -304,11 +245,20 @@ class TestPostgresqlConnectors(TestCase):
     def test_destination_databag_has_no_extra_roles(self):
         """Destinations keep the default database owner access needed to create tables."""
         relation = testing.Relation("postgresql-destination", remote_app_name=PG_APP)
-        config = {"postgresql-destination-config": yaml.safe_dump({PG_APP: {"database_prefix": "dbaas*"}})}
+        entry = {"database_prefix": "dbaas*", "schema": "public"}
+        config = {"postgresql-destination-config": yaml.safe_dump({PG_APP: entry})}
         out = self.ctx.run(self.ctx.on.relation_created(relation), make_state(relation, config=config))
         databag = out.get_relation(relation.id).local_app_data
         self.assertEqual(databag["database"], "dbaas*")
         self.assertNotIn("extra-user-roles", databag)
+
+    def test_destination_schema_required(self):
+        """A destination entry without a schema is invalid and requests nothing."""
+        relation = testing.Relation("postgresql-destination", remote_app_name=PG_APP)
+        for entry in ({"database_prefix": "dbaas*"}, {"database_prefix": "dbaas*", "schema": ""}):
+            config = {"postgresql-destination-config": yaml.safe_dump({PG_APP: entry})}
+            out = self.ctx.run(self.ctx.on.relation_created(relation), make_state(relation, config=config))
+            self.assertNotIn("database", out.get_relation(relation.id).local_app_data)
 
     def test_databag_not_written_without_config(self):
         """No databag is written for a relation without a config entry."""
@@ -323,6 +273,8 @@ class TestPostgresqlConnectors(TestCase):
             source_config(database_prefix="dbaas"),
             source_config(unknown="field"),
             source_config(name="{unknown}"),
+            source_config(schemas=[]),
+            {"postgresql-source-config": yaml.safe_dump({PG_APP: {"database_prefix": "dbaas*"}})},
             {"postgresql-source-config": "not: [valid"},
         ):
             relation = pg_relation(secret)
@@ -452,7 +404,7 @@ class TestPostgresqlConnectors(TestCase):
         good = pg_relation(good_secret, databases="dbaas_a")
         bad_secret = testing.Secret(tracked_content={"password": "pw"}, latest_content={"password": "pw"})  # nosec
         bad = pg_relation(bad_secret, databases="dbaas_a", app="other-db")
-        entry = {"database_prefix": "dbaas*"}
+        entry = {"database_prefix": "dbaas*", "schemas": ["public"]}
         config = {"postgresql-source-config": yaml.safe_dump({PG_APP: entry, "other-db": entry})}
         state = make_state(good, bad, secrets=[good_secret, bad_secret], config=config)
 

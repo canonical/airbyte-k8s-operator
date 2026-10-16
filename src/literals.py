@@ -98,3 +98,18 @@ BASE_ENV = {
     "DATAPLANE_CLIENT_SECRET_SECRET_NAME": "airbyte-auth-secrets",
     "DATAPLANE_CLIENT_SECRET_SECRET_KEY": "dataplane-client-secret",
 }
+
+# PostgreSQL connector relations (postgresql-source / postgresql-destination).
+POSTGRESQL_SOURCE_ENDPOINT = "postgresql-source"
+POSTGRESQL_DESTINATION_ENDPOINT = "postgresql-destination"
+# Relation endpoint -> Airbyte connector type.
+CONNECTOR_ENDPOINT_TYPES = {POSTGRESQL_SOURCE_ENDPOINT: "source", POSTGRESQL_DESTINATION_ENDPOINT: "destination"}
+CONNECTOR_CONFIG_OPTIONS = {"source": "postgresql-source-config", "destination": "postgresql-destination-config"}
+# Sources read from replicas when available; destinations always write to the primary.
+TARGET_SERVER_TYPES = {"source": "preferSecondary", "destination": "primary"}
+
+PEER_RELATION = "airbyte-peer"
+MANAGED_CONNECTORS_KEY = "managed-connectors"
+CONNECTOR_REQUESTED_SECRETS = ["username", "password", "tls", "tls-ca"]
+# Sources only read, so their user gets read-only access instead of database ownership.
+CONNECTOR_EXTRA_USER_ROLES = {"source": "charmed_read"}
