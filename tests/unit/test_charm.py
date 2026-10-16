@@ -12,6 +12,7 @@ import base64
 import dataclasses
 import json
 import logging
+import os
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
@@ -21,6 +22,7 @@ from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingSta
 from ops.pebble import CheckLevel, CheckStartup, CheckStatus, Layer, ServiceStatus
 
 from charm import BOOTLOADER_WAITING_MESSAGE, AirbyteK8SOperatorCharm
+from charm_helpers import add_to_no_proxy
 from relations.minio import MinioRelation
 from src.literals import (
     BASE_ENV,
@@ -179,6 +181,48 @@ class TestCharm(TestCase):
             self.assertEqual(got_plan, create_plan(container_name, "MINIO"))
 
         self.assertEqual(out.unit_status, MaintenanceStatus("replanning application"))
+
+    @patch.dict(os.environ, {"JUJU_CHARM_HTTP_PROXY": "http://proxy.example:3128", "JUJU_CHARM_NO_PROXY": "localhost"})
+    def test_temporal_host_added_to_no_proxy(self):
+        """The Temporal host is added to the no-proxy list when a proxy is configured."""
+        env = self._server_env(temporal_relation(host="192.168.103.200"))
+
+        self.assertEqual(env["NO_PROXY"], "localhost,192.168.103.200")
+        self.assertIn("192.168.103.200", env["JAVA_TOOL_OPTIONS"])
+
+    @patch.dict(
+        os.environ, {"JUJU_CHARM_HTTPS_PROXY": "https://proxy.example:3128", "JUJU_CHARM_NO_PROXY": "localhost"}
+    )
+    def test_java_options_with_https_proxy_only(self):
+        """The JVM gets the proxy and bypass settings when only an https proxy is set."""
+        env = self._server_env(temporal_relation(host="192.168.103.200"))
+
+        self.assertIn("-Dhttps.proxyHost=proxy.example", env["JAVA_TOOL_OPTIONS"])
+        self.assertIn("-Dhttp.nonProxyHosts=localhost|192.168.103.200", env["JAVA_TOOL_OPTIONS"])
+        self.assertNotIn("HTTP_PROXY", env)
+
+    @patch.dict(os.environ, {"JUJU_CHARM_NO_PROXY": "localhost"})
+    def test_no_proxy_unchanged_without_proxy(self):
+        """The no-proxy list is left alone when no proxy is configured."""
+        env = self._server_env(temporal_relation(host="192.168.103.200"))
+
+        self.assertEqual(env["NO_PROXY"], "localhost")
+
+    def _server_env(self, temporal):
+        """Run pebble-ready with the given Temporal relation and return the server env.
+
+        Args:
+            temporal: The temporal-host-info relation to use.
+
+        Returns:
+            The environment of the first service in the airbyte-server plan.
+        """
+        state = add_relations(
+            make_state(config={"storage-type": "MINIO"}, db=True, minio=True, temporal=False), temporal
+        )
+        out = self.ctx.run(self.ctx.on.pebble_ready(get_container(state, "airbyte-server")), state)
+        services = out.get_container("airbyte-server").plan.to_dict()["services"]
+        return next(iter(services.values()))["environment"]
 
     def test_ready_with_s3(self):
         """The pebble plan is correctly generated when the charm is ready."""
@@ -761,3 +805,19 @@ def create_plan(container_name, storage_type):
         )
 
     return want_plan
+
+
+class TestAddToNoProxy(TestCase):
+    """Tests for the no-proxy list helper."""
+
+    def test_appends_host(self):
+        """The host is appended to an existing list."""
+        self.assertEqual(add_to_no_proxy("localhost,minio", "10.0.0.5"), "localhost,minio,10.0.0.5")
+
+    def test_creates_list(self):
+        """A missing list becomes the host alone."""
+        self.assertEqual(add_to_no_proxy(None, "10.0.0.5"), "10.0.0.5")
+
+    def test_no_duplicate(self):
+        """A host already in the list is not added twice."""
+        self.assertEqual(add_to_no_proxy("localhost,temporal-k8s", "temporal-k8s"), "localhost,temporal-k8s")
