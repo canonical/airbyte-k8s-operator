@@ -98,11 +98,11 @@ def test_active_on_postgresql_16(deployed_stack: jubilant.Juju):
     helpers.wait_for_apps_status(juju, {helpers.AIRBYTE_POSTGRES_NAME: "active"}, timeout=20 * 60)
 
     # Move Airbyte's db from the 14-track PostgreSQL to the 16-track one.
-    juju.remove_relation(helpers.APP_NAME_AIRBYTE_SERVER, helpers.POSTGRES_NAME)
+    juju.remove_relation(f"{helpers.APP_NAME_AIRBYTE_SERVER}:db", helpers.POSTGRES_NAME)
     helpers.wait_for_apps_status(
         juju, {helpers.APP_NAME_AIRBYTE_SERVER: "blocked"}, timeout=10 * 60, raise_on_error=False
     )
-    juju.integrate(helpers.APP_NAME_AIRBYTE_SERVER, helpers.AIRBYTE_POSTGRES_NAME)
+    juju.integrate(f"{helpers.APP_NAME_AIRBYTE_SERVER}:db", helpers.AIRBYTE_POSTGRES_NAME)
     helpers.wait_for_all_active(juju, [helpers.APP_NAME_AIRBYTE_SERVER, helpers.AIRBYTE_POSTGRES_NAME], timeout=15 * 60)
 
     helpers.wait_until_healthy(juju)

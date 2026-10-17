@@ -55,3 +55,44 @@ automatically on a metrics-enabled edition. Note that Airbyte's per-sync detail 
 bytes, job status) is written to job logs (object storage) and exposed via the Airbyte API,
 not the forwarded container stream — so surfacing sync/business metrics on community would
 require a dedicated exporter rather than this pipeline.
+
+### PostgreSQL sources and destinations
+
+The charm can create Airbyte sources and destinations for existing PostgreSQL 16
+databases from Juju relations, using the `postgresql_client` prefix-matching feature:
+
+```sh
+juju config airbyte-k8s postgresql-source-config='
+sales-db:
+  database_prefix: sales*
+  name: "sales-{database}"
+  schemas: [public, sales]
+'
+juju config airbyte-k8s postgresql-destination-config='
+data-warehouse:
+  database_prefix: warehouse*
+  schema: staging
+'
+juju integrate airbyte-k8s:postgresql-source sales-db:database
+juju integrate airbyte-k8s:postgresql-destination data-warehouse:database
+```
+
+- One connector is created per database matching `database_prefix`, including databases
+  created after the relation.
+- Connectors connect to every PostgreSQL endpoint over multi-host JDBC, with
+  `targetServerType=preferSecondary` for sources and `targetServerType=primary` for
+  destinations. Extra `jdbc_url_params` are appended but cannot override `targetServerType`.
+- Sources request the read-only `charmed_read` role, so their user cannot create or modify
+  tables. This role can read every database the PostgreSQL charm manages, not only those
+  matching `database_prefix`.
+- Credential rotation, endpoint changes, and TLS (`verify-ca` with the provided CA) are applied
+  automatically by the leader unit.
+- The charm never deletes connectors. When a relation, config entry, or database goes away,
+  its connectors are left in place and logged as orphaned; re-creating the relation re-adopts them.
+- Manually created connectors are never modified.
+
+List the managed connectors with:
+
+```sh
+juju run airbyte-k8s/leader list-managed-connectors type=source
+```

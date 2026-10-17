@@ -9,9 +9,10 @@
 import logging
 import re
 from enum import Enum
+from typing import Literal
 
 from charms.data_platform_libs.v0.data_models import BaseConfigModel
-from pydantic import field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 logger = logging.getLogger(__name__)
 
@@ -116,6 +117,8 @@ class CharmConfig(BaseConfigModel):
     pod_running_ttl_minutes: int
     pod_successful_ttl_minutes: int
     pod_unsuccessful_ttl_minutes: int
+    postgresql_source_config: str | None = None
+    postgresql_destination_config: str | None = None
 
     @field_validator("*", mode="before")
     @classmethod
@@ -218,3 +221,89 @@ class CharmConfig(BaseConfigModel):
         if int_value > 0:
             return value
         raise ValueError("Invalid CPU request/limit value.")
+
+
+class ConnectorConfig(BaseModel):
+    """Settings shared by source and destination config entries.
+
+    Attrs:
+        model_config: pydantic model configuration.
+        database_prefix: prefix requested from PostgreSQL; must end with `*`.
+        name: connector name template with `{app}` and `{database}` placeholders.
+        jdbc_url_params: extra JDBC parameters, appended to the charm-managed ones.
+        workspace: workspace name; the first workspace is used when not set.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    database_prefix: str
+    name: str = "{app}-{database}"
+    jdbc_url_params: str = ""
+    workspace: str | None = None
+
+    @field_validator("database_prefix")
+    @classmethod
+    def prefix_ends_with_asterisk(cls, value: str) -> str:
+        """Check that the database prefix ends with `*`.
+
+        Args:
+            value: the database prefix.
+
+        Returns:
+            The validated prefix.
+
+        Raises:
+            ValueError: if the prefix does not end with `*`.
+        """
+        if len(value) < 2 or not value.endswith("*"):
+            raise ValueError("database_prefix must end with '*'")
+        return value
+
+    @field_validator("name")
+    @classmethod
+    def name_is_valid_template(cls, value: str) -> str:
+        """Check that the name only uses the supported placeholders.
+
+        Args:
+            value: the name template.
+
+        Returns:
+            The validated template.
+
+        Raises:
+            ValueError: if the template uses unknown placeholders.
+        """
+        try:
+            value.format(app="app", database="database")
+        except (KeyError, IndexError, ValueError, AttributeError, TypeError) as err:
+            raise ValueError("name only supports the {app} and {database} placeholders") from err
+        return value
+
+
+class SourceConfig(ConnectorConfig):
+    """A `postgresql-source-config` entry.
+
+    Attrs:
+        schemas: schemas to replicate; required so that what is replicated is explicit.
+        replication_method: Airbyte replication method.
+    """
+
+    schemas: list[str] = Field(min_length=1)
+    replication_method: Literal["Standard", "Xmin"] = "Standard"
+
+
+class DestinationConfig(ConnectorConfig):
+    """A `postgresql-destination-config` entry.
+
+    Attrs:
+        destination_schema: default schema to write to; required so that it is explicit.
+        raw_data_schema: schema for raw tables, Airbyte default when not set.
+        disable_type_dedupe: whether to disable typing and deduping.
+    """
+
+    destination_schema: str = Field(alias="schema", min_length=1)
+    raw_data_schema: str | None = None
+    disable_type_dedupe: bool | None = None
+
+
+CONFIG_MODELS: dict[str, type[ConnectorConfig]] = {"source": SourceConfig, "destination": DestinationConfig}

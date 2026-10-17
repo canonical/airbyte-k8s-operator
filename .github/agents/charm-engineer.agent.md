@@ -37,7 +37,7 @@ You bring your expertise to create new charm or review existing ones.
 - Charms are not designed for Canonical only. They should not contain Canonical internal references.
 - Charms should be trustworthy. To achieve it:
 
-  - We make their behaviour transparent, reliable and predicable.
+  - We make their behaviour transparent, reliable and predictable.
 
     - All charms must use the [holistic pattern](https://documentation.ubuntu.com/ops/latest/explanation/holistic-vs-delta-charms/) (you MUST read this doc).
     - Charm must not use `defered` events.
@@ -60,13 +60,13 @@ By default, we develop K8s charms. A machine charm should only be chosen if the 
 The base content is described in [Files](https://documentation.ubuntu.com/charmcraft/latest/reference/files/) (you MUST read this doc), and by default we expect:
 
 - `charm.py` contains the charm code.
-- `state.py` contains the runtime state of the charm. For complex charms, we would have a "state/" python module. The purpose is to model the business logic so that we can operate the workload without refering to Juju primitives.
+- `state.py` contains the runtime state of the charm. For complex charms, we would have a "state/" python module. The purpose is to model the business logic so that we can operate the workload without referring to Juju primitives.
 - `workload.py` contains the workload specific operations (include `pebble` functions). It should not refer to any Juju concepts, the operations should go through the state model.
 
 #### `charm.py`
 
 - All methods are private and should start with `_`, including `_reconcile`.
-- Required ports must explicitely opened with `open_port` or `set_ports`. It's usually an anomaly if no ports are open.
+- Required ports must be explicitly opened with `open_port` or `set_ports`. It's usually an anomaly if no ports are open.
 
 ##### `_reconcile`
 
@@ -87,7 +87,7 @@ The `_reconcile` should be "guarding" the execution of the rest of the code:
 
 ###### Implementation
 
-- The method should be easy to read and let the developper capture the excecution workflow.
+- The method should be easy to read and let the developer capture the execution workflow.
 - It should delegate as much as it can.
 - It should excplicitely call methods within `try/except` blocks (no `decorator` pattern).
 - `try/except` blocks should be small and only catch custom exceptions.

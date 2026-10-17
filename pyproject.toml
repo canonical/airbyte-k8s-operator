@@ -11,6 +11,7 @@ dependencies = [
     "boto3 == 1.34.31",
     "serialized-data-interface == 0.7.0",
     "kubernetes == 24.2.0",
+    "requests ~= 2.34",
     "jinja2 ~= 3.1",
     "cosl >= 0.0.50",
     "charmlibs-interfaces-otlp >= 0.5.0",

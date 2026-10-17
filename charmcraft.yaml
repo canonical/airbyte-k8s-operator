@@ -94,6 +94,14 @@ requires:
     limit: 1
     optional: true
 
+  postgresql-source:
+    interface: postgresql_client
+    optional: true
+
+  postgresql-destination:
+    interface: postgresql_client
+    optional: true
+
   ingress:
     interface: ingress
     limit: 1
@@ -454,6 +462,65 @@ config:
       description: Number of minutes until an unsuccessful job pod is removed.
       default: 1440
       type: int
+
+    ##### PostgreSQL connectors config #####
+    postgresql-source-config:
+      description: |
+        YAML mapping of PostgreSQL application names, related on the
+        `postgresql-source` endpoint, to the settings of the Airbyte sources
+        created for them. One source is created per database matching the prefix.
+
+        Fields:
+          database_prefix: (required) prefix of the databases to match, must end with *
+          name: source name template, supports {app} and {database}. Default "{app}-{database}"
+          schemas: (required) schemas to replicate, e.g. [public]
+          replication_method: "Standard" or "Xmin". Default "Standard"
+          jdbc_url_params: extra JDBC parameters; targetServerType cannot be overridden
+          workspace: workspace name. Default is the first workspace. Changing it
+            does not move existing connectors; delete them to have them recreated
+
+        Example:
+          sales-db:
+            database_prefix: sales*
+            name: "sales-{database}"
+            schemas: [public, sales]
+      type: string
+
+    postgresql-destination-config:
+      description: |
+        YAML mapping of PostgreSQL application names, related on the
+        `postgresql-destination` endpoint, to the settings of the Airbyte
+        destinations created for them. One destination is created per database
+        matching the prefix.
+
+        Fields:
+          database_prefix: (required) prefix of the databases to match, must end with *
+          name: destination name template, supports {app} and {database}. Default "{app}-{database}"
+          schema: (required) default schema to write to, e.g. public
+          raw_data_schema: schema for raw tables. Default is the Airbyte default
+          disable_type_dedupe: whether to disable typing and deduping
+          jdbc_url_params: extra JDBC parameters; targetServerType cannot be overridden
+          workspace: workspace name. Default is the first workspace. Changing it
+            does not move existing connectors; delete them to have them recreated
+
+        Example:
+          data-warehouse:
+            database_prefix: data-warehouse*
+            schema: airbyte_raw
+      type: string
+
+actions:
+  list-managed-connectors:
+    description: |
+      List the Airbyte sources and destinations managed through the
+      postgresql-source and postgresql-destination relations. Details are
+      fetched live from Airbyte, so the action fails if Airbyte is unreachable.
+    params:
+      type:
+        type: string
+        enum: [source, destination]
+        description: Only return connectors of this type. Both are returned when unset.
+    additionalProperties: false
 
 # The containers and resources metadata apply to Kubernetes charms only.
 # See https://juju.is/docs/sdk/metadata-reference for a checklist and guidance.

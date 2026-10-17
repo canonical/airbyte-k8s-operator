@@ -17,12 +17,14 @@ output "provides" {
 output "requires" {
   description = "Map of the charm's `requires` integration endpoints."
   value = {
-    db                 = "db"
-    temporal_host_info = "temporal-host-info"
-    object_storage     = "object-storage"
-    s3_parameters      = "s3-parameters"
-    ingress            = "ingress"
-    logging            = "logging"
-    send_otlp          = "send-otlp"
+    db                     = "db"
+    temporal_host_info     = "temporal-host-info"
+    object_storage         = "object-storage"
+    s3_parameters          = "s3-parameters"
+    ingress                = "ingress"
+    logging                = "logging"
+    send_otlp              = "send-otlp"
+    postgresql_source      = "postgresql-source"
+    postgresql_destination = "postgresql-destination"
   }
 }

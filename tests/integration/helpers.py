@@ -347,7 +347,7 @@ def perform_airbyte_integrations(juju: jubilant.Juju, *, require_temporal: bool 
         juju: Jubilant object.
         require_temporal: Whether Airbyte must support the Temporal relation.
     """
-    juju.integrate(APP_NAME_AIRBYTE_SERVER, POSTGRES_NAME)
+    juju.integrate(f"{APP_NAME_AIRBYTE_SERVER}:db", POSTGRES_NAME)
     juju.integrate(APP_NAME_AIRBYTE_SERVER, MINIO_NAME)
     ensure_airbyte_temporal_integration(juju, required=require_temporal)
     wait_for_all_active(juju, [APP_NAME_AIRBYTE_SERVER, POSTGRES_NAME, MINIO_NAME], timeout=15 * 60)
