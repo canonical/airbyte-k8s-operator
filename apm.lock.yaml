@@ -1,6 +1,6 @@
 lockfile_version: '1'
-generated_at: '2026-09-24T19:21:18.806398+00:00'
-apm_version: 0.29.0
+generated_at: '2026-10-26T09:30:18.961254+00:00'
+apm_version: 0.35.0
 dependencies:
 - repo_url: canonical/canonical-data-mesh-docs
   name: data-mesh-guidelines
@@ -20,12 +20,9 @@ dependencies:
   is_virtual: true
   package_type: claude_skill
   deployed_files:
-  - .agents/skills/documentation-build
-  - .agents/skills/documentation-build/SKILL.md
   - .claude/skills/documentation-build
   - .claude/skills/documentation-build/SKILL.md
   deployed_file_hashes:
-    .agents/skills/documentation-build/SKILL.md: sha256:a2726a22549c5790fc7de18fec27b0d40186275cfd9511fec3208c41ef8251b1
     .claude/skills/documentation-build/SKILL.md: sha256:a2726a22549c5790fc7de18fec27b0d40186275cfd9511fec3208c41ef8251b1
   content_hash: sha256:e0a6742007daecca92fe72dcb8d2c2682f46220b522714af5fcb3718e3a24fa1
 - repo_url: canonical/copilot-collections
@@ -37,12 +34,9 @@ dependencies:
   is_virtual: true
   package_type: claude_skill
   deployed_files:
-  - .agents/skills/documentation-diataxis
-  - .agents/skills/documentation-diataxis/SKILL.md
   - .claude/skills/documentation-diataxis
   - .claude/skills/documentation-diataxis/SKILL.md
   deployed_file_hashes:
-    .agents/skills/documentation-diataxis/SKILL.md: sha256:331716ee5d241a478339aae8e6ec8ef448f5128b70c8e0c825b36cb66b24ed64
     .claude/skills/documentation-diataxis/SKILL.md: sha256:331716ee5d241a478339aae8e6ec8ef448f5128b70c8e0c825b36cb66b24ed64
   content_hash: sha256:7c06cfa23591073429a3fbb46fa3c5a33235bc5c1723158fb9959be462d5568c
 - repo_url: canonical/copilot-collections
@@ -54,15 +48,10 @@ dependencies:
   is_virtual: true
   package_type: claude_skill
   deployed_files:
-  - .agents/skills/documentation-review
-  - .agents/skills/documentation-review/SKILL.md
-  - .agents/skills/documentation-review/references/doc-review-report-template.md
   - .claude/skills/documentation-review
   - .claude/skills/documentation-review/SKILL.md
   - .claude/skills/documentation-review/references/doc-review-report-template.md
   deployed_file_hashes:
-    .agents/skills/documentation-review/SKILL.md: sha256:1f027f2c5ef3b9eed47a93a1cc53ff79ad186ae5e206dc51808d214ae7273625
-    .agents/skills/documentation-review/references/doc-review-report-template.md: sha256:cf2eb9bdc7cd97866157cde7291a11ff568cafae5e357cfc8c649e4af6917001
     .claude/skills/documentation-review/SKILL.md: sha256:1f027f2c5ef3b9eed47a93a1cc53ff79ad186ae5e206dc51808d214ae7273625
     .claude/skills/documentation-review/references/doc-review-report-template.md: sha256:cf2eb9bdc7cd97866157cde7291a11ff568cafae5e357cfc8c649e4af6917001
   content_hash: sha256:99d6acc18d1bde02e55ab1de1e342d7284dfae5c7891b5a54bfa3f5e6912ebc7
@@ -75,12 +64,9 @@ dependencies:
   is_virtual: true
   package_type: claude_skill
   deployed_files:
-  - .agents/skills/documentation-structure
-  - .agents/skills/documentation-structure/SKILL.md
   - .claude/skills/documentation-structure
   - .claude/skills/documentation-structure/SKILL.md
   deployed_file_hashes:
-    .agents/skills/documentation-structure/SKILL.md: sha256:1c56898fca5a7c7cfd780208258296d94c8bada91a601979875aaeaf75d92b5f
     .claude/skills/documentation-structure/SKILL.md: sha256:1c56898fca5a7c7cfd780208258296d94c8bada91a601979875aaeaf75d92b5f
   content_hash: sha256:a62cfe3f6595a5849501c4cf8e0fc7b2dff22774a42c09f37d9f92a5b350f68f
 - repo_url: canonical/copilot-collections
@@ -92,15 +78,10 @@ dependencies:
   is_virtual: true
   package_type: claude_skill
   deployed_files:
-  - .agents/skills/documentation-style
-  - .agents/skills/documentation-style/SKILL.md
-  - .agents/skills/documentation-style/references/doc-style-guide.md
   - .claude/skills/documentation-style
   - .claude/skills/documentation-style/SKILL.md
   - .claude/skills/documentation-style/references/doc-style-guide.md
   deployed_file_hashes:
-    .agents/skills/documentation-style/SKILL.md: sha256:53910266335efda76fd78852a9ce381d9e1c0675cb1f9920a003cf816c7c680c
-    .agents/skills/documentation-style/references/doc-style-guide.md: sha256:45dcb109c7c97c6cc0bc302842cb6cabe4165eff5ac1c84a2f14eb8bb6c0e4f0
     .claude/skills/documentation-style/SKILL.md: sha256:53910266335efda76fd78852a9ce381d9e1c0675cb1f9920a003cf816c7c680c
     .claude/skills/documentation-style/references/doc-style-guide.md: sha256:45dcb109c7c97c6cc0bc302842cb6cabe4165eff5ac1c84a2f14eb8bb6c0e4f0
   content_hash: sha256:c1a034d42f54f7b5915d3b2c3748773b46e3de0168bbc9c09a3cad5cbc2afd1c
@@ -113,18 +94,11 @@ dependencies:
   is_virtual: true
   package_type: claude_skill
   deployed_files:
-  - .agents/skills/documentation-verify
-  - .agents/skills/documentation-verify/SKILL.md
-  - .agents/skills/documentation-verify/references/report_format.md
-  - .agents/skills/documentation-verify/references/verification_procedures.md
   - .claude/skills/documentation-verify
   - .claude/skills/documentation-verify/SKILL.md
   - .claude/skills/documentation-verify/references/report_format.md
   - .claude/skills/documentation-verify/references/verification_procedures.md
   deployed_file_hashes:
-    .agents/skills/documentation-verify/SKILL.md: sha256:b66cd3ec85fea07326f364d3e21db4a7c87577f882f28a051a1b301702f7e829
-    .agents/skills/documentation-verify/references/report_format.md: sha256:0ea0a7549a177b398c46d050d101cffb304f0c6b9c7708fda97fd94199490a89
-    .agents/skills/documentation-verify/references/verification_procedures.md: sha256:681f31f991881ca170d33cf4ef439a4764f03c8c43bf9fd43a3d6cb20ce152fb
     .claude/skills/documentation-verify/SKILL.md: sha256:b66cd3ec85fea07326f364d3e21db4a7c87577f882f28a051a1b301702f7e829
     .claude/skills/documentation-verify/references/report_format.md: sha256:0ea0a7549a177b398c46d050d101cffb304f0c6b9c7708fda97fd94199490a89
     .claude/skills/documentation-verify/references/verification_procedures.md: sha256:681f31f991881ca170d33cf4ef439a4764f03c8c43bf9fd43a3d6cb20ce152fb
@@ -189,6 +163,7 @@ dependencies:
   is_virtual: true
   depth: 2
   resolved_by: canonical/canonical-data-mesh-docs
+  package_type: apm_package
   deployed_files:
   - .claude/rules/documentation.md
   - .github/instructions/documentation.instructions.md
@@ -205,6 +180,7 @@ dependencies:
   is_virtual: true
   depth: 2
   resolved_by: canonical/canonical-data-mesh-docs
+  package_type: apm_package
   deployed_files:
   - .claude/rules/code-commenting.md
   - .github/instructions/code-commenting.instructions.md
@@ -221,6 +197,7 @@ dependencies:
   is_virtual: true
   depth: 2
   resolved_by: canonical/canonical-data-mesh-docs
+  package_type: apm_package
   deployed_files:
   - .claude/agents/charm-engineer.md
   - .codex/agents/charm-engineer.toml
@@ -241,6 +218,7 @@ dependencies:
   is_virtual: true
   depth: 2
   resolved_by: canonical/canonical-data-mesh-docs
+  package_type: apm_package
   deployed_files:
   - .claude/rules/lib-updates.md
   - .github/instructions/lib-updates.instructions.md
@@ -259,15 +237,10 @@ dependencies:
   resolved_by: canonical/canonical-data-mesh-docs
   package_type: claude_skill
   deployed_files:
-  - .agents/skills/secret-guard
-  - .agents/skills/secret-guard/SKILL.md
-  - .agents/skills/secret-guard/scripts/keyring_broker.py
   - .claude/skills/secret-guard
   - .claude/skills/secret-guard/SKILL.md
   - .claude/skills/secret-guard/scripts/keyring_broker.py
   deployed_file_hashes:
-    .agents/skills/secret-guard/SKILL.md: sha256:24296f4fa5fc1399bffc9ab4e5927950971715cde1df15d1f64eeae2c8151ca6
-    .agents/skills/secret-guard/scripts/keyring_broker.py: sha256:397edfa9a6ca91add7ed8947d111705a79c15515f1b5bf62941adfa5a83781db
     .claude/skills/secret-guard/SKILL.md: sha256:24296f4fa5fc1399bffc9ab4e5927950971715cde1df15d1f64eeae2c8151ca6
     .claude/skills/secret-guard/scripts/keyring_broker.py: sha256:397edfa9a6ca91add7ed8947d111705a79c15515f1b5bf62941adfa5a83781db
   content_hash: sha256:d7028075a6bb278ed05d57cb1a70c88cf49c779ac34ff845009215ef855e7daa
@@ -755,177 +728,6 @@ deployments:
   - microsoft/apm/packages/apm-guide
   active_owner: microsoft/apm/packages/apm-guide
   content_hash: sha256:b38359a5bf58a9448be0b4e204a1cf6f3e73c1bd832bcffc792f9f3d245cdf39
-- kind: project-relative
-  target: codex
-  value: .agents/skills/documentation-build
-  runtime: null
-  scope: project
-  owners:
-  - canonical/copilot-collections/skills/documentation-build
-  active_owner: canonical/copilot-collections/skills/documentation-build
-  content_hash: null
-- kind: project-relative
-  target: codex
-  value: .agents/skills/documentation-build/SKILL.md
-  runtime: null
-  scope: project
-  owners:
-  - canonical/copilot-collections/skills/documentation-build
-  active_owner: canonical/copilot-collections/skills/documentation-build
-  content_hash: sha256:a2726a22549c5790fc7de18fec27b0d40186275cfd9511fec3208c41ef8251b1
-- kind: project-relative
-  target: codex
-  value: .agents/skills/documentation-diataxis
-  runtime: null
-  scope: project
-  owners:
-  - canonical/copilot-collections/skills/documentation-diataxis
-  active_owner: canonical/copilot-collections/skills/documentation-diataxis
-  content_hash: null
-- kind: project-relative
-  target: codex
-  value: .agents/skills/documentation-diataxis/SKILL.md
-  runtime: null
-  scope: project
-  owners:
-  - canonical/copilot-collections/skills/documentation-diataxis
-  active_owner: canonical/copilot-collections/skills/documentation-diataxis
-  content_hash: sha256:331716ee5d241a478339aae8e6ec8ef448f5128b70c8e0c825b36cb66b24ed64
-- kind: project-relative
-  target: codex
-  value: .agents/skills/documentation-review
-  runtime: null
-  scope: project
-  owners:
-  - canonical/copilot-collections/skills/documentation-review
-  active_owner: canonical/copilot-collections/skills/documentation-review
-  content_hash: null
-- kind: project-relative
-  target: codex
-  value: .agents/skills/documentation-review/SKILL.md
-  runtime: null
-  scope: project
-  owners:
-  - canonical/copilot-collections/skills/documentation-review
-  active_owner: canonical/copilot-collections/skills/documentation-review
-  content_hash: sha256:1f027f2c5ef3b9eed47a93a1cc53ff79ad186ae5e206dc51808d214ae7273625
-- kind: project-relative
-  target: codex
-  value: .agents/skills/documentation-review/references/doc-review-report-template.md
-  runtime: null
-  scope: project
-  owners:
-  - canonical/copilot-collections/skills/documentation-review
-  active_owner: canonical/copilot-collections/skills/documentation-review
-  content_hash: sha256:cf2eb9bdc7cd97866157cde7291a11ff568cafae5e357cfc8c649e4af6917001
-- kind: project-relative
-  target: codex
-  value: .agents/skills/documentation-structure
-  runtime: null
-  scope: project
-  owners:
-  - canonical/copilot-collections/skills/documentation-structure
-  active_owner: canonical/copilot-collections/skills/documentation-structure
-  content_hash: null
-- kind: project-relative
-  target: codex
-  value: .agents/skills/documentation-structure/SKILL.md
-  runtime: null
-  scope: project
-  owners:
-  - canonical/copilot-collections/skills/documentation-structure
-  active_owner: canonical/copilot-collections/skills/documentation-structure
-  content_hash: sha256:1c56898fca5a7c7cfd780208258296d94c8bada91a601979875aaeaf75d92b5f
-- kind: project-relative
-  target: codex
-  value: .agents/skills/documentation-style
-  runtime: null
-  scope: project
-  owners:
-  - canonical/copilot-collections/skills/documentation-style
-  active_owner: canonical/copilot-collections/skills/documentation-style
-  content_hash: null
-- kind: project-relative
-  target: codex
-  value: .agents/skills/documentation-style/SKILL.md
-  runtime: null
-  scope: project
-  owners:
-  - canonical/copilot-collections/skills/documentation-style
-  active_owner: canonical/copilot-collections/skills/documentation-style
-  content_hash: sha256:53910266335efda76fd78852a9ce381d9e1c0675cb1f9920a003cf816c7c680c
-- kind: project-relative
-  target: codex
-  value: .agents/skills/documentation-style/references/doc-style-guide.md
-  runtime: null
-  scope: project
-  owners:
-  - canonical/copilot-collections/skills/documentation-style
-  active_owner: canonical/copilot-collections/skills/documentation-style
-  content_hash: sha256:45dcb109c7c97c6cc0bc302842cb6cabe4165eff5ac1c84a2f14eb8bb6c0e4f0
-- kind: project-relative
-  target: codex
-  value: .agents/skills/documentation-verify
-  runtime: null
-  scope: project
-  owners:
-  - canonical/copilot-collections/skills/documentation-verify
-  active_owner: canonical/copilot-collections/skills/documentation-verify
-  content_hash: null
-- kind: project-relative
-  target: codex
-  value: .agents/skills/documentation-verify/SKILL.md
-  runtime: null
-  scope: project
-  owners:
-  - canonical/copilot-collections/skills/documentation-verify
-  active_owner: canonical/copilot-collections/skills/documentation-verify
-  content_hash: sha256:b66cd3ec85fea07326f364d3e21db4a7c87577f882f28a051a1b301702f7e829
-- kind: project-relative
-  target: codex
-  value: .agents/skills/documentation-verify/references/report_format.md
-  runtime: null
-  scope: project
-  owners:
-  - canonical/copilot-collections/skills/documentation-verify
-  active_owner: canonical/copilot-collections/skills/documentation-verify
-  content_hash: sha256:0ea0a7549a177b398c46d050d101cffb304f0c6b9c7708fda97fd94199490a89
-- kind: project-relative
-  target: codex
-  value: .agents/skills/documentation-verify/references/verification_procedures.md
-  runtime: null
-  scope: project
-  owners:
-  - canonical/copilot-collections/skills/documentation-verify
-  active_owner: canonical/copilot-collections/skills/documentation-verify
-  content_hash: sha256:681f31f991881ca170d33cf4ef439a4764f03c8c43bf9fd43a3d6cb20ce152fb
-- kind: project-relative
-  target: codex
-  value: .agents/skills/secret-guard
-  runtime: null
-  scope: project
-  owners:
-  - canonical/copilot-collections/skills/secret-guard
-  active_owner: canonical/copilot-collections/skills/secret-guard
-  content_hash: null
-- kind: project-relative
-  target: codex
-  value: .agents/skills/secret-guard/SKILL.md
-  runtime: null
-  scope: project
-  owners:
-  - canonical/copilot-collections/skills/secret-guard
-  active_owner: canonical/copilot-collections/skills/secret-guard
-  content_hash: sha256:24296f4fa5fc1399bffc9ab4e5927950971715cde1df15d1f64eeae2c8151ca6
-- kind: project-relative
-  target: codex
-  value: .agents/skills/secret-guard/scripts/keyring_broker.py
-  runtime: null
-  scope: project
-  owners:
-  - canonical/copilot-collections/skills/secret-guard
-  active_owner: canonical/copilot-collections/skills/secret-guard
-  content_hash: sha256:397edfa9a6ca91add7ed8947d111705a79c15515f1b5bf62941adfa5a83781db
 - kind: project-relative
   target: codex
   value: .codex/agents/apm-expert.toml
