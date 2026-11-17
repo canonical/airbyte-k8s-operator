@@ -4,6 +4,14 @@ on:
   push:
     branches:
       - main
+    # Keep in sync with extra-ignored-file-patterns in integration_test.yaml:
+    # integration tests skip these changes, so there is no build to publish.
+    paths-ignore:
+      - apm.yml
+      - apm.lock.yaml
+      - .agents/**
+      - .github/agents/**
+      - .github/instructions/**
 
 # Serialize runs per ref so the mirror can't race a concurrent publish.
 concurrency:
