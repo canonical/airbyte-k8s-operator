@@ -24,7 +24,7 @@ test = [
     "ops[testing]",
 ]
 fmt = [
-    "black==23.12.1",
+    "black==26.3.1",
     "isort==5.10.1",
 ]
 lint = [
@@ -33,7 +33,7 @@ lint = [
     "pydocstyle",
     "pytest",
     "ops[testing]",
-    "black==23.12.1",
+    "black==26.3.1",
     "codespell==2.2.1",
     "flake8==7.0.0",
     "flake8-builtins==3.0.0",
