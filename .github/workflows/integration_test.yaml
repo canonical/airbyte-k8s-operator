@@ -36,6 +36,7 @@ jobs:
       use-canonical-k8s: ${{ matrix.use-canonical-k8s == 'true' }}
       channel: ${{ matrix.channel }}
       microk8s-addons: ${{ matrix.microk8s-addons }}
+      extra-ignored-file-patterns: '^apm\.yml$|^apm\.lock\.yaml$|^\.agents/|^\.github/agents/|^\.github/instructions/'
       modules: '["test_charm.py", "test_upgrade.py", "test_postgresql_connectors.py"]'
       juju-channel: 3/stable
       self-hosted-runner: true
