@@ -3,6 +3,7 @@
 
 """Unit tests for the Grafana dashboard rendering."""
 
+import dataclasses
 import json
 from pathlib import Path
 from unittest.mock import patch
@@ -58,10 +59,11 @@ def test_charm_publishes_single_dashboard_for_its_model():
     """The charm sends one dashboard, defaulting to its own model."""
     relation = testing.Relation("grafana-dashboard", interface="grafana_dashboard")
     state = add_relations(make_state(), relation)
-    ctx = testing.Context(AirbyteK8SOperatorCharm)
+    # The real charm root, so the lib's scan of src/grafana_dashboards runs.
+    ctx = testing.Context(AirbyteK8SOperatorCharm, charm_root=TEMPLATE.parents[2])
 
     with patch("kubernetes.config.load_incluster_config"), patch("kubernetes.client.CoreV1Api"):
-        out = ctx.run(ctx.on.update_status(), state)
+        out = ctx.run(ctx.on.config_changed(), state)
 
     out_relation = out.get_relation(relation.id)
     templates = json.loads(out_relation.local_app_data["dashboards"])["templates"]
@@ -69,3 +71,29 @@ def test_charm_publishes_single_dashboard_for_its_model():
     dashboard = json.loads(LZMABase64.decompress(next(iter(templates.values()))["content"]))
     expected = [out.model.name]
     assert _variables(dashboard)["juju_model"]["current"]["value"] == expected
+
+
+def test_charm_drops_stale_dashboard_from_stored_state():
+    """A dashboard kept in stored state from an earlier render is not published."""
+    stale = {
+        "charm": "airbyte-k8s",
+        "content": "x",
+        "juju_topology": {},
+        "inject_dropdowns": True,
+        "dashboard_alt_uid": "stale",
+    }
+    stored = testing.StoredState(
+        owner_path="AirbyteK8SOperatorCharm/GrafanaDashboardProvider[grafana-dashboard]",
+        name="_stored",
+        content={"dashboard_templates": {"prog:STALE123": stale}},
+    )
+    relation = testing.Relation("grafana-dashboard", interface="grafana_dashboard")
+    state = dataclasses.replace(add_relations(make_state(), relation), stored_states={stored})
+    ctx = testing.Context(AirbyteK8SOperatorCharm)
+
+    with patch("kubernetes.config.load_incluster_config"), patch("kubernetes.client.CoreV1Api"):
+        out = ctx.run(ctx.on.update_status(), state)
+
+    templates = json.loads(out.get_relation(relation.id).local_app_data["dashboards"])["templates"]
+    assert len(templates) == 1
+    assert "prog:STALE123" not in templates

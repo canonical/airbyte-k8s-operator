@@ -167,6 +167,8 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         # Forward workload logs to Loki and expose Grafana dashboards to COS.
         self.log_forwarder = LogForwarder(self, relation_name="logging")
         self.grafana_dashboards = GrafanaDashboardProvider(self, relation_name="grafana-dashboard")
+        # Drop dashboards kept in stored state by earlier renders.
+        self.grafana_dashboards.remove_non_builtin_dashboards()
         self.grafana_dashboards.add_dashboard(
             render_dashboard(
                 Path(__file__).parent / "dashboard_templates" / "airbyte.json.tmpl",
