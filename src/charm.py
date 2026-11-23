@@ -174,6 +174,7 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
                 Path(__file__).parent / "dashboard_templates" / "airbyte.json.tmpl",
                 self.model.name,
                 self.model.uuid,
+                self.meta.name,
             )
         )
 
