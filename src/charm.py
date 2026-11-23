@@ -5,6 +5,7 @@
 """Charm the application."""
 import base64
 import logging
+from pathlib import Path
 
 import kubernetes.client
 import ops
@@ -23,6 +24,7 @@ from ops.pebble import CheckStatus
 
 from charm_helpers import create_env
 from connections import ReconcileData, TemporalConnection
+from dashboard import render_dashboard
 from literals import (
     AIRBYTE_API_PORT,
     AIRBYTE_AUTH_K8S_SECRET_NAME,
@@ -165,6 +167,13 @@ class AirbyteK8SOperatorCharm(TypedCharmBase[CharmConfig]):
         # Forward workload logs to Loki and expose Grafana dashboards to COS.
         self.log_forwarder = LogForwarder(self, relation_name="logging")
         self.grafana_dashboards = GrafanaDashboardProvider(self, relation_name="grafana-dashboard")
+        self.grafana_dashboards.add_dashboard(
+            render_dashboard(
+                Path(__file__).parent / "dashboard_templates" / "airbyte.json.tmpl",
+                self.model.name,
+                self.model.uuid,
+            )
+        )
 
         # Push Airbyte's OTLP metrics to a related opentelemetry-collector: it shares its
         # OTLP receiver endpoint over this relation, which Micrometer is pointed at.
